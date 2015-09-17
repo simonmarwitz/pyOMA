@@ -1,0 +1,13 @@
+Channel-Nr.	Node		Azimuth		Elevation	Channel Name		
+0		E1_X		0		90		II_0		
+1
+
+
+
+####
+Note:
+Tab separated File! 
+Channel Numbering start with 0!!!
+Channel Numbers refer to the columns of the measurement data!
+Azimuth and Elevation are defined in degrees.
+Channel-Name is optional.
