@@ -1,0 +1,8 @@
+master_node	x_master	y_master	z_master	slave_node	x_slave	y_slave	z_slave
+A_1		0.00	1.00	1.00	A_2	1.00	0.00	0.00
+
+
+########
+tab separated file
+nodename as specified in grid file (string)
+numbers x_*, y_*, z_* specify the amplification/reduction of the respective dof
