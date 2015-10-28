@@ -5,7 +5,7 @@ from PyQt4.QtGui import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
     QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction, QIcon,\
     QFileDialog, QInputDialog, QMessageBox, QDoubleSpinBox, QTableWidget,\
     QSpinBox, QAbstractItemView, QTableWidgetItem, QApplication
-from PyQt4.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer
+from PyQt4.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMsgHandler, QEventLoop
 # Matplotlib
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -3063,90 +3063,56 @@ class GeometryCreator(QMainWindow):
                         self.coordinates_list.item(row, column).text())
                 writer.writerow(row_list)
 
-
-def main():
-    app = QApplication(sys.argv)
+def main(   grid_path=None,
+            beam_path=None,
+            slave_path=None,
+            chan_dofs_path=None,
+            ssi_solutions_path=None,
+            mode_num=1,
+            order_num=1,
+            amplitude=1,
+            size=(5.0, 4.0),
+            dpi=100,
+            nodecolor='blue',
+            nodemarker='o',
+            nodesize=20,
+            beamcolor='blue',
+            beamstyle='-',
+            modecolor='blue',
+            modestyle='-'
+            ):
     
+    def handler(msg_type, msg_string):
+        pass
     
-    series_num=5
+    qInstallMsgHandler(handler)#suppress unimportant error msg
+    if not 'app' in globals().keys():
+        global app
+        app=QApplication(sys.argv)
+    if not isinstance(app, QApplication):
+        app=QApplication(sys.argv)
+        
+    form = PlotMSH(grid_path,
+            beam_path,
+            slave_path,
+            chan_dofs_path,
+            ssi_solutions_path,
+            mode_num,
+            order_num,
+            amplitude,
+            size,
+            dpi,
+            nodecolor,
+            nodemarker,
+            nodesize,
+            beamcolor,
+            beamstyle,
+            modecolor,
+            modestyle) 
     
-    project_path = os.path.expanduser('~/Documents/Uni/masterarbeit/') 
-    
-    measurement_series=['sim_i_full/', # 0
-                        'sim_ii_pre-conv-(singl)-refacc/', # 1
-                        'sim_iii_post-conv-singl-refacc/', # 2
-                        'sim_iv_post-conv-distr-refacc/', # 3
-                        'sim_v_post-conv-distr-refvib/', # 4
-                        'sim_vi_post-conv-distr-refself/',# 5
-                        'slang_base_results'] #6
-    measurement_series=['meas_i_full/', # 0 no exist
-                        'meas_ii_pre-conv-(singl)-refacc/', # 1 good
-                        'meas_iii_post-conv-singl-refacc/', # 2 good
-                        'meas_iv_post-conv-distr-refacc/', # 3 good
-                        'meas_v_post-conv-distr-refvib/', # 4
-                        'meas_vi_post-conv-distr-refself/'
-                        ]
-    
-    measurement_path = project_path + 'messungen_simulationen/' + measurement_series[series_num]
-    
-    merge = 0
-    ortho = True
-    if merge == 0: # PoSER
-        if ortho:
-            
-            result_folder = measurement_path + 'merged_poser_ortho'  + '/'  
-        else:
-            result_folder = measurement_path + 'merged_poser'  + '/' 
-    elif merge == 1: #PoGER
-        if ortho:
-            if series_num != 5:
-                result_folder = measurement_path + 'merged_poger_ortho'  + '/'   
-            else:
-                result_folder = measurement_path + 'merged_poger_poser_ortho'  + '/'  
-        elif series_num != 5:
-            result_folder = measurement_path + 'merged_poger'  + '/'    
-        else:
-            return
-    elif merge == 2: #PreGER
-        if ortho:
-            if series_num != 5:
-                result_folder = measurement_path + 'merged_preger_ortho'  + '/'   
-            else:
-                result_folder = measurement_path + 'merged_preger_poser_ortho'  + '/'  
-        elif series_num != 5:
-            result_folder = measurement_path + 'merged_preger'  + '/'    
-        else:
-            return
-    else:
-        result_folder = measurement_path + '/'
-    
-    print(result_folder)
-    
-    chan_dofs_path = result_folder + 'chan_dofs.txt'
-    
-    grid_path = project_path+ 'messungen_simulationen/macec/grid_full.asc'
-    #grid_path = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/macec/grid_2_4_ref5.asc'
-    beam_path = project_path+ 'messungen_simulationen/macec/beam_full.asc'
-    #beam_path = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/macec/beam_2_4_ref5.asc'
-    #chan_dofs_path = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/sim_ii_pre-conv-(singl)-refacc/PreGER/merged/chan_dofs.txt'
-    #chan_dofs_path = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/incomplete/sim_ii/merged/chan_dofs.txt'
-    #chan_dofs_path = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/sim_ii_pre-conv-(singl)-refacc/merged/chan_dofs.txt'
-    #chan_dofs_path = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/sim_i_full/channel_dof_assignment.txt'
-    #chan_dofs_path = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/sim_iii_post-conv-singl-refacc/merged/chan_dofs.txt'
-    #result_folder = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/sim_i_full/measurement_1/'
-    #result_folder = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/sim_ii_pre-conv-(singl)-refacc/PreGER/merged/'
-    #result_folder = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/incomplete/sim_ii/merged/'
-    #result_folder = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/sim_iii_post-conv-singl-refacc/merged/'
-    #result_folder = '/home/simon/Dropbox/simon_master/masterarbeit/messungen_simulationen/sim_ii_pre-conv-(singl)-refacc/PoSER/merged/'
-    
-    form = PlotMSH(#size=(5, 4), dpi=100,
-                   grid_path = grid_path,
-                   beam_path = beam_path,
-                   #slave_path='/home/simon/Dropbox/hiwi/PlotMSH/slaves.asc',
-                   chan_dofs_path = chan_dofs_path,
-                   ssi_solutions_path = result_folder,)
-    app.exec_()
-    
+    loop=QEventLoop()
+    form.destroyed.connect(loop.quit)
+    loop.exec_()
 
 if __name__ == "__main__":
     main()
