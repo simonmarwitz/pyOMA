@@ -5,31 +5,27 @@ Modified and Extended by Simon Marwitz 2015
 '''
 
 import numpy as np
-import sys
+#import sys
 import os
-import json
+#import json
 
 import multiprocessing as mp
 import ctypes as c
-from collections import OrderedDict, deque
-from copy import deepcopy
+from collections import deque
+#from copy import deepcopy
 
 from PreprocessingTools import PreprocessData
-from StabilDiagram import main_stabil, StabilPlot, nearly_equal
-from numpy.testing.utils import measure
+#from StabilDiagram import main_stabil, StabilPlot, nearly_equal
 
+#import pydevd
 '''
 TODO:
 - change channels numbers such, that user input channels start at 1 while internally they start at 0
     affects: ref_channels, roving_channels and channel-dof-assignments
 - generally define unit tests to check functionality after changes
-- extensive testing of merging and orthogonalize methods
+- 
 
 '''
-def dummy_object():
-    measurement = np.zeros((2,1))
-    sampling_rate = 1.0
-    return SSICovRef(measurement, sampling_rate)
     
 class SSICovRef(object):
     
@@ -99,7 +95,7 @@ class SSICovRef(object):
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels =self.prep_data.num_ref_channels 
         # Extract reference time series for covariances 
-        extract_length = total_time_steps - (self.num_block_columns + self.num_block_rows) + 1
+        extract_length = total_time_steps - (num_block_columns + num_block_rows) + 1
         
         
         all_channels = ref_channels + roving_channels
@@ -114,7 +110,7 @@ class SSICovRef(object):
         #    |    R_2i-1 ...      ...    R_i    |                                     #
         
         print('Computing covariances...')
-        n, m = num_analised_channels*self.num_block_rows, num_ref_channels*self.num_block_columns
+        n, m = num_analised_channels*num_block_rows, num_ref_channels*num_block_columns
  
         if multiprocess:
             toeplitz_memory = mp.Array(c.c_double, np.zeros(n*m)) # shared memory, can be used by multiple processes @UndefinedVariable
@@ -222,8 +218,8 @@ class SSICovRef(object):
         global toeplitz_memory
         toeplitz_memory = toeplitz_memory_
     
-    @staticmethod    
-    def compute_covariance(i,ii, num_block_columns, extract_length, ref_channels, all_channels, refs_shape, measurement_shape, toeplitz_shape):
+   
+    def compute_covariance(self, i,ii, num_block_columns, extract_length, ref_channels, all_channels, refs_shape, measurement_shape, toeplitz_shape):
         
         num_analised_channels = len(all_channels)
         num_ref_channels = len(ref_channels)
@@ -294,8 +290,13 @@ class SSICovRef(object):
         state_matrix = self.state_matrix
         output_matrix = self.output_matrix
         sampling_rate = self.prep_data.sampling_rate
-        accel_channels = self.prep_data.accel_channels
-        velo_channels = self.prep_data.velo_channels
+        
+        #b_accel_channels = np.array([False for i in range(num_analised_channels)])
+        accel_channels=self.prep_data.accel_channels
+        #b_velo_channels = np.array([False for i in range(num_analised_channels)])
+        velo_channels=self.prep_data.velo_channels
+        #accel_channels = self.prep_data.accel_channels
+        #velo_channels = self.prep_data.velo_channels
         
         modal_frequencies = np.zeros((max_model_order, max_model_order))        
         modal_damping = np.zeros((max_model_order, max_model_order))        
@@ -348,8 +349,9 @@ class SSICovRef(object):
             
         self.state[2]=True
         
-    @staticmethod
-    def multiprocess_evd(a, truncation_orders, return_dict):
+    
+    def multiprocess_evd(self, a, truncation_orders, return_dict):
+        
         for truncation_order in truncation_orders:
             eigenvalues_paired, eigenvectors_paired = np.linalg.eig(a[0:truncation_order+1, 0:truncation_order+1])
     
@@ -391,259 +393,80 @@ class SSICovRef(object):
 
         return vector,value
     
-
-    
     @staticmethod
     def integrate_quantities(vector, accel_channels, velo_channels, omega):
         # input quantities = [a, v, d]
         # output quantities = [d, d, d]
         # converts amplitude and phase
-        # 
-        
-        #mathematical derivation
-        '''
-        from sympy import *
-        init_printing()
-        
-        # input quantity = v, output quantity = d
-        # s_d = int(s_v, dt)
-        
-        v  = symbols('v')
-        f = symbols('f',positive=True)
-        t=symbols('t')
-        
-        # convert to polar form  
-        r_v = abs(v)
-        phi_v = arg(v)
-        
-        # create a function for the 'sine of a'
-        s_v = r_v*cos(f*t-phi_v)
-        
-        # integrate 'sine of v' once to obtain the 'sine of d'
-        s_d = integrate(s_v, t)
-                    
-        # extract amplitude and phase (polar form)
-        r_d = r_v/f
-        phi_d = pi/2 + phi_v
-        
-        assert s_d == r_d*cos(f*t-phi_d)
-        
-        # cartesian form of complex displacement
-        d = r_d * exp(I*phi_d)
-        
-        
-        # input quantity = a, output quantity = d
-        # s_d = int(int(s_a, dt),dt)
-        
-        a  = symbols('a')
-        f = symbols('f',positive=True)
-        t=symbols('t')
-        
-        # convert to polar form  
-        r_a = abs(a)
-        phi_a = arg(a)
-        
-        # create a function for the 'sine of a'
-        s_a = r_a*cos(f*t-phi_a)
-        
-        # integrate 'sine of a' once to obtain the 'sine of v'
-        s_v =integrate(s_a,t)
-                    
-        # extract amplitude and phase (polar form)
-        r_v = r_a/f
-        phi_v =pi/2 + phi_a
-        
-        assert s_v == r_v*cos(f*t-phi_v)
-        
-        # integrate 'sine of v' again to obtain the 'sine of d'
-        s_d = integrate(s_v, t)
-                    
-        # extract amplitude and phase (polar form)
-        r_d = r_v/f
-        phi_d = pi/2 + phi_v
-        
-        assert s_d == r_d*cos(f*t-phi_d)
-        
-        # cartesian form of complex displacement
-        d = r_d * exp(I*phi_d)
-        '''
-        
-        #reference implementation, slow and less precise!
-        '''
-        new_vector = np.empty(vector.shape, dtype=complex)
-        for index, quantity in enumerate(quantities):
-            num=vector[index]
-            if quantity == 'd' or quantity is None:
-                new_vector[index]=num
-                continue
-            if quantity == 'a':
-                r_a = np.absolute(num)
-                phi_a = np.angle(num)
-                r_v = r_a/omega
-                phi_v = phi_a + np.pi/2
-            elif quantity == 'v':
-                r_v = np.absolute(num)
-                phi_v = np.angle(num) 
-            r_d = r_v/omega
-            phi_d = phi_v + np.pi/2
-            new_vector[index]=r_d * np.exp(1j*phi_d)
-        return new_vector
-        '''
         #                     phase + 180; magn / omega^2
+        
         vector[accel_channels] *= -1       / (omega ** 2)
         #                    phase + 90; magn / omega
         vector[velo_channels] *=  1j        / omega
         
         return vector   
     
-    
-
+    def save_state(self, fname):
         
-    def save_state(self, folder):
-        
-        ######### continue here
-        if not os.path.isdir(folder):
-            os.makedirs(folder)
-        #             0         1           2           3          4            5            6             7
-        #self.state= [Toeplitz, State Mat., Modal Par., Select M., Merge PoSER, Merge PoGer, Merge Preger, Ortho]
+        dirname, filename = os.path.split(fname)
+        if not os.path.isdir(dirname):
+            os.makedirs(dirname)
+            
+        #             0         1           2           
+        #self.state= [Toeplitz, State Mat., Modal Par.]
         out_dict={'self.state':self.state}
-        out_dict['self.measurement'] = self.measurement
-        out_dict['self.sampling_rate'] = self.sampling_rate
-        out_dict['self.total_time_steps'] = self.total_time_steps
-        out_dict['self.ref_channels'] = self.ref_channels
-        out_dict['self.roving_channels'] = self.roving_channels
-        out_dict['self.num_ref_channels'] = self.num_ref_channels
-        out_dict['self.num_roving_channels'] = self.num_roving_channels
-        out_dict['self.num_analised_channels'] = self.num_analised_channels
-        out_dict['self.max_model_order'] = self.max_model_order
-        out_dict['self.quantities'] = self.quantities
-        out_dict['self.chan_dofs'] = self.chan_dofs
+        out_dict['self.prep_data']=self.prep_data
         if self.state[0]:# covariances
             out_dict['self.toeplitz_matrix'] = self.toeplitz_matrix
             out_dict['self.num_block_columns'] = self.num_block_columns
             out_dict['self.num_block_rows'] = self.num_block_rows
-        if self.state[5] or self.state[6]: #merged poger,preger
-            out_dict['self.merged_toeplitz_matrix'] = self.merged_toeplitz_matrix
-            out_dict['self.merged_chan_dofs'] = self.merged_chan_dofs
-            out_dict['self.merged_num_channels'] = self.merged_num_channels
-            out_dict['self.merged_quantities'] = self.merged_quantities
-        if self.state[5]:
-            out_dict['self.merged_num_channels_multiref'] = self.merged_num_channels_multiref
-            out_dict['self.rescale_ref_channels'] = self.rescale_ref_channels
-            out_dict['self.rescale_rov_channels'] = self.rescale_rov_channels
         if self.state[1]:# state models
+            out_dict['self.max_model_order'] = self.max_model_order
             out_dict['self.state_matrix'] = self.state_matrix
             out_dict['self.output_matrix'] = self.output_matrix
         if self.state[2]:# modal params
             out_dict['self.modal_frequencies'] = self.modal_frequencies
             out_dict['self.modal_damping'] = self.modal_damping
             out_dict['self.mode_shapes'] = self.mode_shapes
-        if self.state[2] and (self.state[5] or self.state[6]): # merged poger,preger and modal params
-            out_dict['self.merged_mode_shapes'] = self.merged_mode_shapes
-        if self.state[3] and not (self.state[5] or self.state[6]):# selected but not merged (poger or preger)
-            out_dict['self.selected_modes_indices'] = self.selected_modes_indices
-        if self.state[4]: # merged poser
-            out_dict['self.merged_mode_shapes'] = self.merged_mode_shapes
-            out_dict['self.merged_modes_indices'] = self.merged_modes_indices
-            out_dict['self.merged_num_channels'] = self.merged_num_channels
-            out_dict['self.merged_chan_dofs'] = self.merged_chan_dofs
-            out_dict['self.mean_frequencies'] = self.mean_frequencies # inconsistent data layout model -> see save_results for explanation
-            out_dict['self.std_frequencies'] = self.std_frequencies # as above
-            out_dict['self.mean_damping'] = self.mean_damping # as above
-            out_dict['self.std_damping'] = self.std_damping # as above
-        if self.state[3] and (self.state[5] or self.state[6]): #selected and merged poger, preger  
-            out_dict['self.merged_mode_shapes'] = self.merged_mode_shapes
-            out_dict['self.merged_modes_indices'] = self.merged_modes_indices    
-        if self.state[7]: # ortho
-            out_dict['self.ortho_mode_shapes'] = self.ortho_mode_shapes
-            out_dict['self.ortho_chan_dofs'] = self.ortho_chan_dofs
-            out_dict['self.ortho_modes_indices'] = self.ortho_modes_indices
-            out_dict['self.ortho_num_channels'] = self.ortho_num_channels
+            
+        np.savez(fname, **out_dict)
         
-        np.savez(folder+'ssi_state.npz', **out_dict)
+    @classmethod 
+    def load_state(cls, fname):
+        print('Now loading previous results from  {}'.format(fname))
         
-    def load_state(self, folder):
-        print('Now loading previous results from  {}'.format(folder))
-        
-        in_dict=np.load(folder+'ssi_state.npz')    
-        #             0         1           2           3          4            5            6             7
-        #self.state= [Toeplitz, State Mat., Modal Par., Select M., Merge PoSER, Merge PoGer, Merge Preger, Ortho]
+        in_dict=np.load(fname)    
+        #             0         1           2          
+        #self.state= [Toeplitz, State Mat., Modal Par.]
         if 'self.state' in in_dict:
-            self.state= list(in_dict['self.state'])
+            state= list(in_dict['self.state'])
         else:
             return
         
-        for state, state_string in zip(self.state, ['Covariance Matrices Built',
+        for this_state, state_string in zip(state, ['Covariance Matrices Built',
                                                     'State Matrices Computed',
                                                     'Modal Parameters Computed',
-                                                    'Modes Selected', 
-                                                    'Modes Merged (PoSER)', 
-                                                    'Covariances Merged (PoGer)', 
-                                                    'Covariances Merged (Preger)', 
-                                                    'Modes Orthogonalized']):
-            if state: print(state_string)
+                                                    ]):
+            if this_state: print(state_string)
         
-        self.measurement = in_dict['self.measurement']
-        self.sampling_rate = float(in_dict['self.sampling_rate'])
-        self.total_time_steps = int(in_dict['self.total_time_steps'])
-        self.ref_channels = list(in_dict['self.ref_channels'])
-        self.roving_channels = list(in_dict['self.roving_channels'])
-        self.num_ref_channels = len(self.ref_channels)
-        self.num_roving_channels = len(self.roving_channels)
-        self.num_analised_channels = self.num_ref_channels + self.num_roving_channels
-        self.quantities = list(in_dict['self.quantities'])
-        self.chan_dofs = [[int(chan_dof[0]), int(chan_dof[1]), float(chan_dof[2]), float(chan_dof[3])] for chan_dof in in_dict['self.chan_dofs']]
-        if self.state[0]:# covariances
-            self.toeplitz_matrix = in_dict['self.toeplitz_matrix']
-            self.num_block_columns = int(in_dict['self.num_block_columns'])
-            self.num_block_rows = int(in_dict['self.num_block_rows'])
-        if self.state[5] or self.state[6]: #merged poger,preger
-            self.merged_toeplitz_matrix = in_dict['self.merged_toeplitz_matrix']
-            self.merged_chan_dofs = [[int(chan_dof[0]), int(chan_dof[1]), float(chan_dof[2]), float(chan_dof[3])] for chan_dof in in_dict['self.merged_chan_dofs']]
-            self.merged_num_channels = in_dict['self.merged_num_channels']
-            self.merged_quantities = list(in_dict['self.merged_quantities'])
-        if self.state[5]:
-            self.merged_num_channels_multiref = in_dict['self.merged_num_channels_multiref']
-            if 'self.rescale_references' in in_dict:
-                rescale_references = list(in_dict['self.rescale_references'])
-                self.rescale_ref_channels = []
-                self.rescale_rov_channels = []
-                for channel_pairs in rescale_references:
-                    self.rescale_ref_channels.append([pair for pair in rescale_references if pair[0] is not None])
-                    self.rescale_rov_channels.append([pair for pair in rescale_references if pair[0] is None])
-            else:
-                self.rescale_ref_channels = list(in_dict['self.rescale_ref_channels'].astype(np.int))
-                self.rescale_rov_channels = list(in_dict['self.rescale_rov_channels'].astype(np.int))
-        if self.state[1]:# state models
-            self.max_model_order = int(in_dict['self.max_model_order'])
-            self.state_matrix= in_dict['self.state_matrix']
-            self.output_matrix = in_dict['self.output_matrix']
-        if self.state[2]:# modal params
-            self.modal_frequencies = in_dict['self.modal_frequencies']
-            self.modal_damping = in_dict['self.modal_damping']
-            self.mode_shapes = in_dict['self.mode_shapes']
-        if self.state[2] and (self.state[5] or self.state[6]): # merged poger,preger and modal params
-            self.merged_mode_shapes = in_dict['self.merged_mode_shapes']
-        if self.state[3] and not (self.state[5] or self.state[6]):# selected but not merged (poger or preger)
-            self.selected_modes_indices = list(in_dict['self.selected_modes_indices'])
-        if self.state[4]: #merged (poser)
-            self.merged_mode_shapes = in_dict['self.merged_mode_shapes']
-            self.merged_modes_indices = in_dict['self.merged_modes_indices']
-            self.merged_num_channels = in_dict['self.merged_num_channels']
-            self.merged_chan_dofs = [[int(chan_dof[0]), int(chan_dof[1]), float(chan_dof[2]), float(chan_dof[3])] for chan_dof in in_dict['self.merged_chan_dofs']]
-            self.mean_frequencies = in_dict['self.mean_frequencies']
-            self.std_frequencies = in_dict['self.std_frequencies']
-            self.mean_damping = in_dict['self.mean_damping']
-            self.std_damping = in_dict['self.std_damping']
-        if self.state[3] and (self.state[5] or self.state[6]): #selected and merged poger, preger  
-            self.merged_mode_shapes = in_dict['self.merged_mode_shapes']
-            self.merged_modes_indices  = list(in_dict['self.merged_modes_indices'])   
-        if self.state[7]: # ortho
-            self.ortho_mode_shapes = in_dict['self.ortho_mode_shapes']
-            self.ortho_chan_dofs = [[int(chan_dof[0]), int(chan_dof[1]), float(chan_dof[2]), float(chan_dof[3])] for chan_dof in in_dict['self.ortho_chan_dofs']]
-            self.ortho_modes_indices = in_dict['self.ortho_modes_indices']
-            self.ortho_num_channels = in_dict['self.ortho_num_channels']
+        prep_data = in_dict['self.prep_data'].item()
+        ssi_object = cls(prep_data)
+        ssi_object.state = state
+        if state[0]:# covariances
+            ssi_object.toeplitz_matrix = in_dict['self.toeplitz_matrix']
+            ssi_object.num_block_columns = int(in_dict['self.num_block_columns'])
+            ssi_object.num_block_rows = int(in_dict['self.num_block_rows'])
+        if state[1]:# state models
+            ssi_object.max_model_order = int(in_dict['self.max_model_order'])
+            ssi_object.state_matrix= in_dict['self.state_matrix']
+            ssi_object.output_matrix = in_dict['self.output_matrix']
+        if state[2]:# modal params
+            ssi_object.modal_frequencies = in_dict['self.modal_frequencies']
+            ssi_object.modal_damping = in_dict['self.modal_damping']
+            ssi_object.mode_shapes = in_dict['self.mode_shapes']
         
+        return ssi_object
+    
     @staticmethod
     def rescale_mode_shape(modeshape):
         #scaling of mode shape

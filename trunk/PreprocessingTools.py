@@ -540,16 +540,16 @@ class PreprocessData(object):
         
         in_dict=np.load(fname)    
 
-        setup_name= in_dict['self.setup_name']
+        setup_name= str(in_dict['self.setup_name'].item())
         measurement = in_dict['self.measurement']
         sampling_rate = float(in_dict['self.sampling_rate'])
         total_time_steps = int(in_dict['self.total_time_steps'])
         ref_channels = list(in_dict['self.ref_channels'])
         roving_channels = list(in_dict['self.roving_channels'])
         
-        accel_channels =  in_dict['self.accel_channels']
-        velo_channels = in_dict['self.velo_channels']
-        disp_channels = in_dict['self.disp_channels']
+        accel_channels =  list(in_dict['self.accel_channels'])
+        velo_channels = list(in_dict['self.velo_channels'])
+        disp_channels = list(in_dict['self.disp_channels'])
         preprocessor = cls(measurement, sampling_rate, total_time_steps, 
                  ref_channels=ref_channels, roving_channels=roving_channels,
                  accel_channels=accel_channels, velo_channels=velo_channels, disp_channels=disp_channels, setup_name=setup_name)
@@ -627,6 +627,43 @@ class PreprocessData(object):
         decimated_col=signal.decimate(shifted_col, factor)
         self.measurement=self.measurement[:decimated_col.shape[1],:]
         self.measurement[:,channel]=decimated_col
+    
+    def calculate_fft(self):  
+        print("Calculating FFT's")
+        
+            
+        sum_ft=None
+        for column in range(self.measurement.shape[1]):
+            sample_signal = self.measurement[:,column]  
+   
+            # one-dimensional averaged discrete Fourier Transform for real input
+            section_length = 2048
+            overlap = 0.5 * section_length
+            increment = int(section_length - overlap)
+            num_average = (len(sample_signal) - section_length) // increment
+                
+            for iii in range(num_average):
+                this_signal = sample_signal[(iii * increment):(iii * increment + section_length)]
+                
+                ft = np.fft.rfft(this_signal * np.hanning(len(this_signal)))
+                ft = abs(ft)
+                if iii == 0:
+                    average_ft = np.zeros(len(ft))
+                average_ft = average_ft + ft
+        
+            average_ft = average_ft / num_average
+            
+            if column == 0:
+                sum_ft = np.zeros(len(ft))
+            
+            sum_ft = sum_ft + average_ft
+    
+            ft_freq = np.fft.rfftfreq(section_length, d = (1/self.sampling_rate))
+    
+        
+
+        
+        return ft_freq, sum_ft
     
 def main():
     working_dir='/home/womo1998/Projects/modal_analysis_tower/'
