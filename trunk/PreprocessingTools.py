@@ -20,9 +20,31 @@ import os
 import csv
 import sys
 
-
+def nearly_equal(a,b,sig_fig=5):
+    return ( a==b or 
+             int(a*10**sig_fig) == int(b*10**sig_fig)
+           )
 class GeometryProcessor(object):
+    '''
+        conventions:
 
+        - chan_dofs=[(chan, node, (x_amplif,y_amplif,z_amplif)),...]
+
+        - channels = 0 ... #, starting at channel 0, should be a complete sequence
+
+        - nodes = 1 ... #, starting at node 1, can be a sequence with missing entries
+
+        - lines = [(node_start, node_end),...], unordered
+
+        - master_slaves = [(node_master, x_master, y_master, z_master, 
+                            node_slave, x_slave, y_slave, z_slave),...], unordered
+
+        (Load it into VisualizeGui for browsing the dict's structure!)
+        (If you get an error bad_magic_number or segmentation fault you 
+        cannot open the shelves on the computer you are currently using
+        It has been tested to work on arwen.bauing.uni-weimar.de, but this
+        depends on were the shelve file was created and may not always work)
+    '''
     def __init__(self):
         super().__init__()
         self.nodes = {}
@@ -346,7 +368,10 @@ class PreprocessData(object):
         assert isinstance(setup_name, str)
             
         self.setup_name = setup_name
-                
+        
+        self.geometry_data = None
+        
+        self.chan_dofs = []
     
     @classmethod
     def init_from_config(cls, conf_file, meas_file, chan_dofs_file=None, **kwargs):
@@ -506,8 +531,25 @@ class PreprocessData(object):
         self.geometry_data = geometry_data
     
     def add_chan_dofs(self,chan_dofs):
+        '''
+        chan_dofs = [ (chan_num, node_name, az, elev, chan_name) ,  ... ]
+        '''
         self.chan_dofs=chan_dofs
-    
+        
+    def take_chan_dof(self, chan, node, dof):
+        
+        for j in range(len(self.chan_dofs)):
+            if self.chan_dofs[j][0] == chan and \
+               self.chan_dofs[j][1] == node  and \
+               nearly_equal(self.chan_dofs[j][2][0], dof[0], 3) and \
+               nearly_equal(self.chan_dofs[j][2][1], dof[1], 3) and \
+               nearly_equal(self.chan_dofs[j][2][2], dof[2], 3):
+                del self.chan_dofs[j]
+                break
+        else:
+            if self.chan_dofs:
+                print('chandof not found')
+
     def save_state(self, fname):
         
         dirname, filename = os.path.split(fname)

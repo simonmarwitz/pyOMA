@@ -11,7 +11,7 @@ import os
 from matplotlib import rcParams
 from matplotlib import ticker
 from matplotlib.axes import Axes
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg, FigureCanvasQT
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.figure import Figure
 from matplotlib.text import TextPath, FontProperties
@@ -26,6 +26,7 @@ from PyQt4.QtGui import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
      QApplication, QRadioButton,\
     QLineEdit, QPalette
 from PyQt4.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMsgHandler, QEventLoop
+from SSICovRef import SSICovRef
 
 '''
 TODO:
@@ -70,16 +71,19 @@ class StabilGUI(QMainWindow):
         '''
         main_frame = QWidget()
         
-        stab_frequency = self.stabil_plot.stab_frequency
-        stab_damping = self.stabil_plot.stab_damping
-        stab_MAC = self.stabil_plot.stab_MAC
+        stab_frequency = self.stabil_plot.stab_frequency*100
+        stab_damping = self.stabil_plot.stab_damping*100
+        stab_MAC = self.stabil_plot.stab_MAC*100
         
         self.fig = self.stabil_plot.fig
+        #self.canvas = self.stabil_plot.fig.canvas
+        #print(self.canvas)
         self.canvas = FigureCanvasQTAgg(self.fig)
+        
         #self.stabil_plot.reconnect_cursor()
         
         self.canvas.setParent(main_frame)
-        
+        self.stabil_plot.init_cursor()
         self.stabil_plot.cursor.show_current_info.connect(self.update_value_view)
         self.stabil_plot.cursor.mode_selected.connect(self.mode_selector_add)
         self.stabil_plot.cursor.mode_deselected.connect(self.mode_selector_take)
@@ -181,7 +185,7 @@ class StabilGUI(QMainWindow):
         b2.released.connect(self.save_results)
         b3 = QPushButton('Save State')
         b3.released.connect(self.save_state)        
-        b4 = QPushButton('Cancel')
+        b4 = QPushButton('Close')
         b4.released.connect(self.close)
         
         lay=QHBoxLayout()
@@ -538,29 +542,41 @@ class StabilGUI(QMainWindow):
                   
     def save_results(self):
         
-        dname = QFileDialog.getSaveFileName(self, caption="Choose a directory to save to",
-                                        directory=os.getcwd(), options=QFileDialog.ShowDirsOnly)
-        self.stabil_plot.export_results(dname)
-        self.close()
+        fname = QFileDialog.getSaveFileName(self, caption="Choose a directory to save to",
+                                        directory=os.getcwd(), filter = 'Text File (*.txt)')
+        fname, fext = os.path.splitext(fname)
+        
+        if fext != 'txt': fname += '.txt'
+        
+        self.stabil_plot.export_results(fname)
         
     def save_state(self):
         
-        dname = QFileDialog.getSaveFileName(self, caption="Choose a directory to save to",
-                                        directory=os.getcwd(), options=QFileDialog.ShowDirsOnly)
-        self.stabil_plot.save_state(dname)
+        fname = QFileDialog.getSaveFileName(self, caption="Choose a directory to save to",
+                                        directory=os.getcwd(), filter = 'Numpy Archive File (*.npz)')
+        fname, fext = os.path.splitext(fname)
+        
+        if fext != 'npz': fname += '.npz'
+        
+        self.stabil_plot.save_state(fname)
         self.close()
              
     def closeEvent(self, *args, **kwargs):
+        self.stabil_plot.select_modes = self.stabil_plot.cursor.datalist
         self.deleteLater()
         return QMainWindow.closeEvent(self, *args, **kwargs)   
     
 class StabilPlot(object): 
     
     def __init__(self, modal_data,
-                 stab_frequency=1, stab_damping=5, stab_MAC=2):
-        
+                 stab_frequency=0.01, stab_damping=0.05, stab_MAC=0.02):
+        '''
+        stab_* in %
+        '''
         super().__init__()
-
+        
+        assert isinstance(modal_data, SSICovRef)
+        
         self.modal_data =modal_data
         
         self.max_model_order = self.modal_data.max_model_order
@@ -569,9 +585,9 @@ class StabilPlot(object):
         self.modal_damping = self.modal_data.modal_damping
         self.mode_shapes = self.modal_data.mode_shapes
         
-        self.stab_frequency = stab_frequency/100 if stab_frequency > 10 else stab_frequency
-        self.stab_damping = stab_damping/100 if stab_damping > 10 else stab_damping
-        self.stab_MAC = stab_MAC/100 if stab_MAC > 10 else stab_MAC
+        self.stab_frequency = stab_frequency
+        self.stab_damping = stab_damping
+        self.stab_MAC = stab_MAC
         
         self.order_dummy = np.ma.array([[order]*self.max_model_order for order in range(self.max_model_order)])
         
@@ -583,17 +599,32 @@ class StabilPlot(object):
         
         self.ax = self.fig.add_subplot(111)
         
+        self.select_modes = []
+        
         canvas = FigureCanvasBase(self.fig)
         
+        if self.fig.canvas:
+            self.init_cursor()
+            
+#             self.cursor = DataCursor(ax = self.ax, order_data = self.order_dummy, 
+#                                      f_data=self.modal_frequencies,
+#                                      color='black')     
+#     
+#             self.fig.canvas.mpl_connect('button_press_event', self.cursor.onmove)
+#             self.fig.canvas.mpl_connect('resize_event', self.cursor.fig_resized)
+        
+        
+#        self.calculate_stabilization_values()
+        self.plot_diagram()
+        
+    def init_cursor(self):
         self.cursor = DataCursor(ax = self.ax, order_data = self.order_dummy, 
                                  f_data=self.modal_frequencies,
-                                 color='black')      
+                                 color='black')     
+
         self.fig.canvas.mpl_connect('button_press_event', self.cursor.onmove)
         self.fig.canvas.mpl_connect('resize_event', self.cursor.fig_resized)
-        
-        self.select_modes = []
-        #self.calculate_stabilization_values()
-        self.plot_diagram()
+        self.cursor.add_datapoints(self.select_modes)
         
     def calculate_stabilization_values(self):
         print('Checking stabilisation criteria...')     
@@ -926,8 +957,8 @@ class StabilPlot(object):
         self.ax.set_xlabel('Frequency [Hz]')
         self.ax.set_ylabel('Model Order')
     
-    def export_results(self, dname=None):
-        if dname == '': dname = None
+    def export_results(self, fname):
+
         selected_indices=self.cursor.datalist   
                 
         if selected_indices:
@@ -941,7 +972,7 @@ class StabilPlot(object):
             selected_MP = [self.MP_matrix[index] for index in selected_indices]
             selected_MPD = [self.MPD_matrix[index] for index in selected_indices]
             
-            selected_modes = np.zeros((self.num_analised_channels, len(selected_indices)), dtype = complex)
+            selected_modes = np.zeros((self.mode_shapes.shape[0], len(selected_indices)), dtype = complex)
              
             for num,ind in enumerate(selected_indices):
                 row_index = ind[0]
@@ -987,32 +1018,20 @@ class StabilPlot(object):
                       + 'MPD [-]:\t\t'                + mpd_str        + '\n\n'\
                       + 'SSI parameters\n'\
                       + '=======================\n'\
-                      + 'Maximum order :\t\t'     + str(self.max_model_order) + '\n'\
-                      + 'Block rows :\t\t'        + str(self.num_block_rows)     + '\n'\
-                      + 'Block columns :\t\t'     + str(self.num_block_columns)  + '\n'
+        #              + 'Maximum order :\t\t'     + str(self.max_model_order) + '\n'\
+        #              + 'Block rows :\t\t'        + str(self.num_block_rows)     + '\n'\
+        #              + 'Block columns :\t\t'     + str(self.num_block_columns)  + '\n'
         #              + 'Decimation :\t\t'        + str(dec_fact)       + '\n'\
         #              + 'Filtering :\t\t'         + str(filt_w)
         
-        # define and create a folder with all results
-        if dname is not None:
-            self.result_folder = dname
-        if not os.path.isdir(self.result_folder):
-            os.makedirs(self.result_folder)
-        if not self.result_folder.endswith('/'):
-            self.result_folder+='/'
-            
-        select_frequency_file = self.result_folder + 'select_frequencies.npy'
-        select_damping_file = self.result_folder + 'select_damping.npy'
-        select_mode_shape_file = self.result_folder + 'select_mode_shapes.npy'
-        select_modes_text_file = self.result_folder + 'select_modal_info.txt'
         
-        f = open(select_modes_text_file, 'w')          
+        dirname, filename = os.path.split(fname)
+        if not os.path.isdir(dirname):
+            os.makedirs(dirname)
+        
+        f = open(fname, 'w')          
         f.write(export_modes)
         f.close()
-        
-        np.save(select_frequency_file, selected_freq)
-        np.save(select_damping_file, selected_damp)
-        np.save(select_mode_shape_file, selected_modes)
         
         self.select_modes =selected_indices
         
@@ -1060,8 +1079,7 @@ class StabilPlot(object):
         stabil_data.MPC_matrix=in_dict['self.MPC_matrix']
         stabil_data.MP_matrix=in_dict['self.MP_matrix']
         stabil_data.MPD_matrix=in_dict['self.MPD_matrix']
-        
-        stabil_data.cursor.add_datapoints(list(in_dict['self.cursor.datalist']))
+        stabil_data.select_modes = list(in_dict['self.cursor.datalist'])
         
         return stabil_data   
     
@@ -1382,6 +1400,9 @@ class DataCursor(Cursor, QObject):
         index = np.argmin(distance)
         index = np.unravel_index(index, distance.shape)        
         return index
+
+
+
     
 def nearly_equal(a,b,sig_fig=5):
     return ( a==b or 
@@ -1410,7 +1431,18 @@ def start_stabil_gui(stabil_plot, select_modes=[]):
     stabil_gui.destroyed.connect(loop.quit)
     loop.exec_()
     return
- 
+
+class FigureCanvasQTAgg_(FigureCanvasQTAgg):
     
+    def change_backend(self, figure):
+        FigureCanvasQT.__init__(self, figure)
+        self._drawRect = None
+        self.blitbox = None
+        self.setAttribute(Qt.WA_OpaquePaintEvent)
+        if sys.platform.startswith('win'):
+            self._priv_update = self.repaint
+        else:
+            self._priv_update = self.update
+            
 if __name__ =='__main__':
     pass            
