@@ -7,6 +7,7 @@ Modified and Extended by Simon Marwitz 2015
 import numpy as np
 import sys
 import os
+import datetime
 
 from matplotlib import rcParams
 from matplotlib import ticker
@@ -18,6 +19,7 @@ from matplotlib.text import TextPath, FontProperties
 from matplotlib.path import Path
 from matplotlib.markers import MarkerStyle
 from matplotlib.widgets import Cursor
+import types
 
 from PyQt4.QtGui import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
     QCheckBox, QButtonGroup, QLabel, QComboBox, \
@@ -27,6 +29,8 @@ from PyQt4.QtGui import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
     QLineEdit, QPalette
 from PyQt4.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMsgHandler, QEventLoop
 from SSICovRef import SSICovRef
+import PlotMSH
+from PreprocessingTools import PreprocessData
 
 '''
 TODO:
@@ -46,7 +50,7 @@ class StabilGUI(QMainWindow):
     def __init__(self, stabil_plot, cmpl_plot, msh_plot=None ):
         
         QMainWindow.__init__(self)
-        self.setWindowTitle('Stabilization Diagram')
+        self.setWindowTitle('Stabilization Diagram: {} - {}'.format(stabil_plot.setup_name, stabil_plot.start_time))
         
         self.stabil_plot = stabil_plot
         
@@ -74,6 +78,11 @@ class StabilGUI(QMainWindow):
         stab_frequency = self.stabil_plot.stab_frequency*100
         stab_damping = self.stabil_plot.stab_damping*100
         stab_MAC = self.stabil_plot.stab_MAC*100
+        d_range = self.stabil_plot.d_range
+        mpc_min = self.stabil_plot.mpc_min
+        mp_max = self.stabil_plot.mp_max
+        mpd_max = self.stabil_plot.mpd_max
+        
         
         self.fig = self.stabil_plot.fig
         #self.canvas = self.stabil_plot.fig.canvas
@@ -102,15 +111,16 @@ class StabilGUI(QMainWindow):
         
         fra_1 = QFrame()
         fra_1.setFrameShape(QFrame.Panel)
-        fra_1.setLayout(self.create_stab_val_widget(df_max=stab_frequency, dd_max=stab_damping, d_mac=stab_MAC, 
-                               ))
+        fra_1.setLayout(self.create_stab_val_widget(df_max=stab_frequency, 
+            dd_max=stab_damping, d_mac=stab_MAC, d_range = d_range, mpc_min=mpc_min,
+            mp_max=mp_max, mpd_max=mpd_max ))
         left_pane_layout.addWidget(fra_1)
         
         left_pane_layout.addStretch(2)
         
         fra_2 = QFrame()
         fra_2.setFrameShape(QFrame.Panel)
-        fra_2.setLayout(self.create_diag_val_widget())
+        fra_2.setLayout(self.create_diag_val_widget(f_range=(0,2.5), n_range=(0,2,200)))
         left_pane_layout.addWidget(fra_2)
         
         left_pane_layout.addStretch(2)
@@ -136,14 +146,31 @@ class StabilGUI(QMainWindow):
         
         self.cmpl_plot = cmpl_plot
         fig=self.cmpl_plot.fig
-        canvas = FigureCanvasQTAgg(fig)
-        canvas.setParent(self.cmplx_plot_widget)
+        canvas1 = FigureCanvasQTAgg(fig)
+        canvas1.setParent(self.cmplx_plot_widget)
+        
+        self.msh_plot = msh_plot
+        fig=msh_plot.fig
+        #FigureCanvasQTAgg.resizeEvent = resizeEvent_
+        canvas2 = fig.canvas.switch_backends(FigureCanvasQTAgg)
+        canvas2.resizeEvent = types.MethodType(PlotMSH.resizeEvent_,canvas2)
+        #self.canvas.resize_event = resizeEvent_
+        #self.canvas.resize_event  = funcType(resizeEvent_, self.canvas, FigureCanvasQTAgg)
+        msh_plot.canvas = canvas2
+        #self.canvas.mpl_connect('button_release_event', self.update_lims)
+        if fig.get_axes():
+            fig.get_axes()[0].mouse_init()
+        canvas2.setParent(self.mode_plot_widget)
 
         lay=QHBoxLayout()
-        lay.addWidget(canvas)
+        lay.addWidget(canvas1)
         self.cmplx_plot_widget.setLayout(lay)
         self.cmpl_plot.plot_diagram()
-        self.msh_plot_widget=QWidget()
+        
+        lay=QHBoxLayout()
+        lay.addWidget(canvas2)
+        self.mode_plot_widget.setLayout(lay)
+
         
         self.mode_val_view = QTextEdit()
         self.mode_val_view.setFrameShape(QFrame.Box)
@@ -156,7 +183,7 @@ class StabilGUI(QMainWindow):
         right_pane_layout.addWidget(self.plot_selector_msh)
         right_pane_layout.addStretch(2)
         self.mode_plot_layout=QVBoxLayout()
-        self.mode_plot_layout.addWidget(self.mode_plot_widget)
+        self.mode_plot_layout.addWidget(self.cmplx_plot_widget)
         right_pane_layout.addLayout(self.mode_plot_layout)
         right_pane_layout.addStretch(2)
         right_pane_layout.addWidget(self.mode_val_view)
@@ -185,7 +212,7 @@ class StabilGUI(QMainWindow):
         b2.released.connect(self.save_results)
         b3 = QPushButton('Save State')
         b3.released.connect(self.save_state)        
-        b4 = QPushButton('Close')
+        b4 = QPushButton('OK and Close')
         b4.released.connect(self.close)
         
         lay=QHBoxLayout()
@@ -254,26 +281,28 @@ class StabilGUI(QMainWindow):
         #update the plot of the currently selected mode
         msh=self.stabil_plot.get_mode_shape(i)
         self.cmpl_plot.scatter_this(msh, mpd)
+        self.msh_plot.plot_this(i)
         
     
     def toggle_msh_plot(self,b):
         #change the type of mode plot
-        
+        #print('msh',b)
         if b:
             index = self.mode_plot_layout.indexOf(self.cmplx_plot_widget)
             self.mode_plot_layout.takeAt(index)
             self.cmplx_plot_widget.hide()
-            self.mode_plot_layout.insertWidget(index, self.msh_plot_widget)
-            self.msh_plot_widget.show()
+            self.mode_plot_layout.insertWidget(index, self.mode_plot_widget)
+            self.mode_plot_widget.show()
                     
     
     def toggle_cpl_plot(self,b ):
         #change the type of mode plot
         
+        #print('cpl',b)
         if b:
-            index = self.mode_plot_layout.indexOf(self.msh_plot_widget)
+            index = self.mode_plot_layout.indexOf(self.mode_plot_widget)
             self.mode_plot_layout.takeAt(index)
-            self.msh_plot_widget.hide()
+            self.mode_plot_widget.hide()
             self.mode_plot_layout.insertWidget(index, self.cmplx_plot_widget)
             self.cmplx_plot_widget.show()
     
@@ -404,9 +433,9 @@ class StabilGUI(QMainWindow):
         
         return layout
 
-    def create_diag_val_widget(self, show_sf=True, show_sd=True, 
-                               show_sv=True, show_sa = True, show_all=True, 
-                               show_psd=False, snap_to='sa', f_range=(0,30), n_range=(0,1,0)):
+    def create_diag_val_widget(self, show_sf=False, show_sd=False, 
+                               show_sv=False, show_sa = True, show_all=True, 
+                               show_psd=True, snap_to='sa', f_range=(0,0), n_range=(0,1,0)):
         layout=QGridLayout()
         
         layout.addWidget(QLabel('View Settings'),1,1,1,2)
@@ -522,21 +551,8 @@ class StabilGUI(QMainWindow):
         if fname is None:
             fname = QFileDialog.getSaveFileName(self, caption="Choose a filename to save to",
                                        directory=start, filter=filters)
-            fname=start
             
-        if fname:
-            if startpath == '':
-                # explicitly missing key or empty str signals to use cwd
-                rcParams['savefig.directory'] = startpath
-            else:
-                # save dir for next time
-                rcParams['savefig.directory'] = os.path.dirname(str(fname))
-            try:
-                canvas.print_figure( str(fname) )
-            except Exception as e:
-                QMessageBox.critical(
-                    self, "Error saving file", str(e),
-                    QMessageBox.Ok, QMessageBox.NoButton)   
+        self.stabil_plot.save_figure(fname)
         
         
                   
@@ -554,6 +570,8 @@ class StabilGUI(QMainWindow):
         
         fname = QFileDialog.getSaveFileName(self, caption="Choose a directory to save to",
                                         directory=os.getcwd(), filter = 'Numpy Archive File (*.npz)')
+        
+        if fname == '': return
         fname, fext = os.path.splitext(fname)
         
         if fext != 'npz': fname += '.npz'
@@ -562,14 +580,16 @@ class StabilGUI(QMainWindow):
         self.close()
              
     def closeEvent(self, *args, **kwargs):
+        self.msh_plot.mode_shape_plot.stop_ani()
         self.stabil_plot.select_modes = self.stabil_plot.cursor.datalist
         self.deleteLater()
         return QMainWindow.closeEvent(self, *args, **kwargs)   
     
 class StabilPlot(object): 
     
-    def __init__(self, modal_data,
-                 stab_frequency=0.01, stab_damping=0.05, stab_MAC=0.02):
+    def __init__(self, modal_data, prep_data=None,
+                 stab_frequency=0.01, stab_damping=0.05, stab_MAC=0.02,
+                 d_range=None, mpc_min=None, mp_max=None, mpd_max=None):
         '''
         stab_* in %
         '''
@@ -578,6 +598,13 @@ class StabilPlot(object):
         assert isinstance(modal_data, SSICovRef)
         
         self.modal_data =modal_data
+        
+        self.setup_name = modal_data.setup_name
+        self.start_time = modal_data.start_time
+        
+        if prep_data is not None:
+            assert isinstance(prep_data, PreprocessData)
+        self.prep_data = prep_data
         
         self.max_model_order = self.modal_data.max_model_order
         
@@ -588,10 +615,14 @@ class StabilPlot(object):
         self.stab_frequency = stab_frequency
         self.stab_damping = stab_damping
         self.stab_MAC = stab_MAC
+        self.d_range = d_range
+        self.mpc_min = mpc_min
+        self.mp_max = mp_max
+        self.mpd_max = mpd_max
         
         self.order_dummy = np.ma.array([[order]*self.max_model_order for order in range(self.max_model_order)])
         
-        self.fig = Figure(facecolor='white', dpi=100)
+        self.fig = Figure(facecolor='white', dpi=100, figsize=(16,12))
         self.stable_plot = [None for i in range(6)]
         self.masks = [None for i in range(6)]
         
@@ -686,10 +717,15 @@ class StabilPlot(object):
             self.fig.canvas.draw_idle()
             
             return
-        ft_freq,sum_ft = self.modal_data.prep_data.calculate_fft()
-        sum_ft = sum_ft / (np.amax(sum_ft)) * 0.5 * self.max_model_order
-        self.stable_plot[5]=self.ax.plot(ft_freq, sum_ft, color='grey', linestyle='solid', visible=b)
-        self.fig.canvas.draw_idle()
+        if self.prep_data is None:
+            raise RuntimeError('Measurement Data was not provided!')
+        ft_freq,sum_ft = self.prep_data.get_fft()
+        if ft_freq is not None and sum_ft is not None:
+            sum_ft = sum_ft / (np.amax(sum_ft)) * 0.5 * self.max_model_order
+            self.stable_plot[5]=self.ax.plot(ft_freq, sum_ft, color='grey', linestyle='solid', visible=b)
+            self.fig.canvas.draw_idle()
+        else:
+            print('FFT calculation failed!')
     
     def get_stabilization_mask(self, df_max=None, dd_max=None, d_mac=None, \
                         d_range=None, mpc_min=None, mp_max=None, mpd_max=None, order_range=None):
@@ -767,7 +803,7 @@ class StabilPlot(object):
         mask_sv = np.logical_not(mask_sv)
         
         self.modal_frequencies.mask = np.ma.nomask
-        zf_mask = self.modal_frequencies == 0 
+        zf_mask = self.modal_frequencies == 0 #zero frequency
         
         return mask_of, mask_od, mask_ov, mask_sa, zf_mask #unstable only in f,d,v...
         #return mask_sf, mask_sd, mask_sv, mask_sa, zf_mask # stable in f,d,v
@@ -873,11 +909,22 @@ class StabilPlot(object):
 
     def update_stabilization(self, df_max=None, dd_max=None, d_mac=None, d_range=None, mpc_min=None, mp_max=None, mpd_max=None, order_range = None):
         
-        self.stab_frequency = df_max if df_max is not None else self.stab_frequency
-        self.stab_damping = dd_max if dd_max is not None else self.stab_damping
-        self.stab_MAC = d_mac if d_mac is not None else self.stab_MAC
-
-        self.masks = self.get_stabilization_mask(self.stab_frequency, self.stab_damping, self.stab_MAC, d_range, mpc_min, mp_max, mpd_max, order_range)
+        if df_max is not None:
+            self.stab_frequency = df_max
+        if dd_max is not None:
+            self.stab_damping = dd_max
+        if d_mac is not None:
+            self.stab_max = d_mac
+        if d_range is not None:
+            self.d_range = d_range
+        if mpc_min is not None:
+            self.mpc_min = mpc_min
+        if mp_max is not None:
+            self.mp_max = mp_max
+        if mpd_max is not None:
+            self.mpd_max = mpd_max           
+        
+        self.masks = list(self.get_stabilization_mask(self.stab_frequency, self.stab_damping, self.stab_MAC, self.d_range, self.mpc_min, self.mp_max, self.mpd_max, order_range))
 
         if df_max:
             self.scatter_this(0)
@@ -941,8 +988,6 @@ class StabilPlot(object):
         
     def plot_diagram(self):
 
-        
-        
         for i in range(5):
             self.scatter_this(i)
         self.stable_plot.append(False)        
@@ -1035,19 +1080,57 @@ class StabilPlot(object):
         
         self.select_modes =selected_indices
         
+        
+    def save_figure(self, fname=None):
+        
+        
+        startpath = rcParams.get('savefig.directory', '')
+        startpath = os.path.expanduser(startpath)
+        start = os.path.join(startpath, self.fig.canvas.get_default_filename())
+
+            
+        if fname:
+            if startpath == '':
+                # explicitly missing key or empty str signals to use cwd
+                rcParams['savefig.directory'] = startpath
+            else:
+                # save dir for next time
+                rcParams['savefig.directory'] = os.path.dirname(str(fname))
+            try:
+                scatter_objs = []
+                for mode in self.select_modes:
+                    mode=tuple(mode)
+                    y,x=self.order_dummy[mode],self.modal_frequencies[mode]
+                    #print(x,y)
+                    scatter_objs.append(self.ax.scatter(x,y,facecolors='none',edgecolors='red',s=200, visible=True))
+                self.ax.annotate(str(self.start_time),xy=(2,200))
+                self.fig.canvas.print_figure( str(fname) )
+                #for scatter_obj in scatter_objs:
+                #    scatter_obj.remove()
+                #del scatter_objs
+            except Exception as e:
+                print(e)
+                
     def save_state(self, fname):
-        self.select_modes =self.cursor.datalist
+        #self.select_modes = self.cursor.datalist
         
         dirname, filename = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
             
         out_dict={}
-        out_dict['self.modal_data']=self.modal_data
+        #out_dict['self.modal_data']=self.modal_data
+        
+        out_dict['self.setup_name'] = self.setup_name
+        out_dict['self.start_time']=self.start_time
         
         out_dict['self.stab_frequency']=self.stab_frequency
         out_dict['self.stab_damping']=self.stab_damping
         out_dict['self.stab_MAC']=self.stab_MAC
+        out_dict['self.d_range']= self.d_range 
+        out_dict['self.mpc_min']= self.mpc_min
+        out_dict['self.mp_max']= self.mp_max
+        out_dict['self.mpd_max']= self.mpd_max 
         
         out_dict['self.freq_diffs']=self.freq_diffs
         out_dict['self.damp_diffs']=self.damp_diffs
@@ -1061,17 +1144,30 @@ class StabilPlot(object):
         np.savez(fname, **out_dict)
         
     @classmethod 
-    def load_state(cls, fname):
+    def load_state(cls, fname, modal_data, prep_data=None):
         print('Now loading previous results from  {}'.format(fname))
-        in_dict=np.load(fname)    
-
-        modal_data = in_dict['self.modal_data'].item()
+        
+        assert isinstance(modal_data, SSICovRef)
+        
+        in_dict=np.load(fname) 
+           
+        setup_name= str(in_dict['self.setup_name'].item())
+        start_time=in_dict['self.start_time'].item()
+        
+        assert setup_name == modal_data.setup_name
+        #assert start_time == modal_data.start_time
+        #modal_data = in_dict['self.modal_data'].item()
         
         stab_frequency = float(in_dict['self.stab_frequency'])
         stab_damping = float(in_dict['self.stab_damping'])
         stab_MAC = float(in_dict['self.stab_MAC'])
         
-        stabil_data = cls(modal_data, stab_frequency, stab_damping, stab_MAC)
+        d_range  = tuple(in_dict['self.d_range'])
+        mpc_min = float(in_dict['self.mpc_min'])
+        mp_max = float(in_dict['self.mp_max'])
+        mpd_max  = float(in_dict['self.mpd_max'])
+        
+        stabil_data = cls(modal_data, prep_data, stab_frequency, stab_damping, stab_MAC, d_range, mpc_min, mp_max, mpd_max)
         
         stabil_data.freq_diffs=in_dict['self.freq_diffs']
         stabil_data.damp_diffs= in_dict['self.damp_diffs']
@@ -1162,9 +1258,32 @@ class StabilPlot(object):
             else:
                 MPD = np.sqrt(np.average(np.power(phase-MP,2), weights=np.absolute(v), axis = 0))
                 
+            #return MPD, MP
+        
+            mode_shape = np.array([np.array(v).real,np.array(v).imag]).T
+                    
+            U, S, V_T = np.linalg.svd(mode_shape, full_matrices=False)
+            numerator=[]
+            denominator=[]
+            
+            for j in range(len(v)):   
+                weight = np.abs(v[j])
+                numerator_i = weight * np.arccos(np.abs(V_T[1,1]*np.array(v[j]).real - V_T[1,0]*np.array(v[j]).imag)/(np.sqrt(V_T[0,1]**2+V_T[1,1]**2)*np.abs(v[j])))     
+                import warnings
+                warnings.filterwarnings("ignore")
+                # when the arccos function returns NaN, it means that the value should be set 0
+                # the RuntimeWarning might occur since the value in arccos can be slightly bigger than 0 due to truncations         
+                if np.isnan(numerator_i): 
+                    numerator_i = 0
+                numerator.append(numerator_i)
+                denominator.append(weight)
+            
+            MPD = (sum(numerator)/sum(denominator))/(np.pi/2) # normalized
+            MP = np.degrees(np.arctan(-V_T[1,0]/V_T[1,1]))
+            
             return MPD, MP
     
-class ModeShapePlot(object):
+class ComplexPlot(object):
     
     def __init__(self):
         
@@ -1243,6 +1362,35 @@ class ModeShapePlot(object):
             axis.set_minor_locator(ticker.NullLocator())
             axis.set_major_formatter(ticker.NullFormatter())
         self.fig.canvas.draw_idle()
+
+class ModeShapePlot(object):
+    
+    def __init__(self, stabil_plot, modal_data, geometry_data, prep_data,):
+        
+        super().__init__()  
+        
+        self.mode_shape_plot = PlotMSH.ModeShapePlot(stabil_plot, modal_data, geometry_data, prep_data, amplitude=100)
+        self.mode_shape_plot.show_axis = False
+        #self.mode_shape_plot.draw_nodes()
+        self.mode_shape_plot.draw_lines()
+        #self.mode_shape_plot.draw_master_slaves()
+        #self.mode_shape_plot.draw_chan_dofs()
+        
+        self.fig = self.mode_shape_plot.fig
+        self.fig.set_size_inches((2,2))
+        self.canvas = self.mode_shape_plot.canvas
+        
+        for axis in [self.mode_shape_plot.subplot.xaxis, self.mode_shape_plot.subplot.yaxis, self.mode_shape_plot.subplot.zaxis]:
+            axis.set_minor_locator(ticker.NullLocator())
+            axis.set_major_formatter(ticker.NullFormatter())
+        
+        
+        
+    def plot_this(self,index):
+        self.mode_shape_plot.stop_ani()
+        self.mode_shape_plot.change_mode(mode_index=index)
+        self.mode_shape_plot.animate()
+        
         
 class DataCursor(Cursor, QObject): 
     # create and edit an instance of the matplotlib default Cursor widget
@@ -1409,13 +1557,17 @@ def nearly_equal(a,b,sig_fig=5):
              int(a*10**sig_fig) == int(b*10**sig_fig)
            )   
     
-def start_stabil_gui(stabil_plot, select_modes=[]):
+def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None, select_modes=[]):
     
     def handler(msg_type, msg_string):
         pass
     
     assert isinstance(stabil_plot, StabilPlot)    
-    cmpl_plot= ModeShapePlot()  
+    cmpl_plot = ComplexPlot()
+    if geometry_data is not None and prep_data is not None:
+        msh_plot = ModeShapePlot(stabil_plot, modal_data, geometry_data, prep_data,)
+    else:
+        msh_plot=cmpl_plot
 
     if not 'app' in globals().keys():
         global app
@@ -1423,9 +1575,9 @@ def start_stabil_gui(stabil_plot, select_modes=[]):
     if not isinstance(app, QApplication):
         app=QApplication(sys.argv)
         
-    qInstallMsgHandler(handler)#suppress unimportant error msg
+    qInstallMsgHandler(handler) #suppress unimportant error msg
    
-    stabil_gui = StabilGUI(stabil_plot, cmpl_plot)
+    stabil_gui = StabilGUI(stabil_plot, cmpl_plot, msh_plot)
     stabil_plot.cursor.add_datapoints(select_modes)
     loop=QEventLoop()
     stabil_gui.destroyed.connect(loop.quit)

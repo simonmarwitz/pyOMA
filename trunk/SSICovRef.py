@@ -12,6 +12,7 @@ import os
 import multiprocessing as mp
 import ctypes as c
 from collections import deque
+import datetime
 #from copy import deepcopy
 
 from PreprocessingTools import PreprocessData
@@ -36,6 +37,8 @@ class SSICovRef(object):
         super().__init__()
         assert isinstance(prep_data, PreprocessData)
         self.prep_data =prep_data
+        self.setup_name = prep_data.setup_name
+        self.start_time = prep_data.start_time
         #             0         1           2         
         #self.state= [Toeplitz, State Mat., Modal Par.
         self.state  =[False,    False,      False]
@@ -415,7 +418,9 @@ class SSICovRef(object):
         #             0         1           2           
         #self.state= [Toeplitz, State Mat., Modal Par.]
         out_dict={'self.state':self.state}
-        out_dict['self.prep_data']=self.prep_data
+        out_dict['self.setup_name'] = self.setup_name
+        out_dict['self.start_time']=self.start_time
+        #out_dict['self.prep_data']=self.prep_data
         if self.state[0]:# covariances
             out_dict['self.toeplitz_matrix'] = self.toeplitz_matrix
             out_dict['self.num_block_columns'] = self.num_block_columns
@@ -432,7 +437,7 @@ class SSICovRef(object):
         np.savez(fname, **out_dict)
         
     @classmethod 
-    def load_state(cls, fname):
+    def load_state(cls, fname, prep_data):
         print('Now loading previous results from  {}'.format(fname))
         
         in_dict=np.load(fname)    
@@ -449,7 +454,14 @@ class SSICovRef(object):
                                                     ]):
             if this_state: print(state_string)
         
-        prep_data = in_dict['self.prep_data'].item()
+        assert isinstance(prep_data, PreprocessData)
+        setup_name= str(in_dict['self.setup_name'].item())
+        start_time=in_dict['self.start_time'].item()
+        assert setup_name == prep_data.setup_name
+        start_time = prep_data.start_time
+        
+        assert start_time == prep_data.start_time
+        #prep_data = in_dict['self.prep_data'].item()
         ssi_object = cls(prep_data)
         ssi_object.state = state
         if state[0]:# covariances

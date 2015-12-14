@@ -19,6 +19,8 @@ from scipy import signal
 import os
 import csv
 import sys
+from numpy import floor
+import datetime
 
 def nearly_equal(a,b,sig_fig=5):
     return ( a==b or 
@@ -310,13 +312,14 @@ class PreprocessData(object):
     def __init__(self, measurement, sampling_rate, total_time_steps=None, 
                  num_channels=None,ref_channels=None, roving_channels=None,
                  accel_channels=None, velo_channels=None, disp_channels=None,
-                 setup_name=None):
+                 setup_name=None, channel_headers=None, start_time=None, ft_freq=None, sum_ft=None):
         
         super().__init__()
         
         assert isinstance(measurement, np.ndarray)
         assert measurement.shape[0] > measurement.shape[1]
         self.measurement = measurement
+        self.measurement_filt = measurement
         
         assert isinstance(sampling_rate, (int,float))
         self.sampling_rate = sampling_rate
@@ -369,10 +372,26 @@ class PreprocessData(object):
             
         self.setup_name = setup_name
         
-        self.geometry_data = None
+        if channel_headers is not None:
+            assert len(channel_headers) == self.num_analised_channels
+        else:
+            channel_headers=list(range(self.num_analised_channels))
+            
+        self.channel_headers=channel_headers   
+        
+        if start_time is not None:
+            assert isinstance(start_time, datetime.datetime)
+        else:
+            start_time=datetime.datetime.now()
+        self.start_time=start_time
+        print(self.start_time)
+        #self.geometry_data = None
         
         self.chan_dofs = []
-    
+        
+        self.ft_freq = ft_freq
+        self.sum_ft = sum_ft
+        
     @classmethod
     def init_from_config(cls, conf_file, meas_file, chan_dofs_file=None, **kwargs):
         '''
@@ -411,22 +430,26 @@ class PreprocessData(object):
             if disp_channels:
                 disp_channels=[int(val) for val in disp_channels]
         
-        measurement = cls.load_measurement_file(meas_file, ftype=kwargs.get('ftype','ascii'), **kwargs)
+        headers, units, start_time, sample_rate, measurement   = cls.load_measurement_file(meas_file, ftype=kwargs.get('ftype','ascii'), **kwargs)
+        
+        if not sample_rate == sampling_rate:
+            raise RuntimeError('Sampling Rate from file: {} does not correspond with specified Sampling Rate from configuration {}'.format(sample_rate, sampling_rate))
+        
         
                     
         if chan_dofs_file is not None:
             chan_dofs = cls.load_chan_dofs(chan_dofs_file)
-
+        print(delete_channels)
         if delete_channels:
             #delete_channels.sort(reverse=True)
             
             names=['Reference Channels', 'Accel. Channels', 'Velo. Channels', 'Disp. Channels']
             channel_lists=[ref_channels, accel_channels, velo_channels, disp_channels]
-            
+            #print(chan_dofs)
             channel = measurement.shape[1]
             #num_channels = measurement.shape[1]
             while channel >= 0:
-
+                
                 if channel in delete_channels:
                     # affected lists: ref_channels, accel_channels, velo_channels, disp_channels + chan_dofs
                     # remove channel from all lists
@@ -450,17 +473,21 @@ class PreprocessData(object):
                         elif channel < chan_dofs[chan_dof_ind][0]:
                             chan_dofs[chan_dof_ind][0] -= 1
                         chan_dof_ind += 1
+                    print('Now removing Channel {} (no. {})!'.format(headers[channel], channel))  
+                    del headers[channel]
                 channel -= 1
-                
+            #print(chan_dofs)   
+            
             measurement=np.delete(measurement, delete_channels, axis=1)
         total_time_steps = measurement.shape[0]
         num_channels = measurement.shape[1]
         roving_channels = [i for i in range(num_channels) if i not in ref_channels]
         if not accel_channels and not velo_channels and not disp_channels:
             accel_channels = [i for i in range(num_channels)]
+        print(measurement.shape, ref_channels)
         prep_data = cls(measurement, sampling_rate, total_time_steps, 
                  num_channels,ref_channels, roving_channels,
-                 accel_channels, velo_channels, disp_channels)
+                 accel_channels, velo_channels, disp_channels, channel_headers=headers, start_time=start_time )
         prep_data.add_chan_dofs(chan_dofs)
         
         return prep_data
@@ -496,40 +523,74 @@ class PreprocessData(object):
                 chan_num, node, az, elev, chan_name = [float(line[i]) if not i in [1,4] else line[i].strip(' ') for i in range(5) ]
                 chan_dofs.append([chan_num, node, az, elev, chan_name])
         return chan_dofs
-                
+    
     @staticmethod
-    def load_measurement_file( fname, ftype='ascii', **kwargs):
-        '''
-        loads a measurement file
-        '''
-        assert os.path.exists(fname)
+    def load_measurement_file(fname, ftype='ascii', **kwargs):
         
-        if ftype=='ascii':
-            f=open(fname, 'r', encoding='iso-8859-1')
+        if ftype!='ascii':
+            raise RuntimeError('Specified filetype: {} not implemented yet!'.format(ftype))
+        
+        with open(fname, 'r', encoding='iso-8859-1') as f:
+            var_num = 1
+            headers = ['Delta Start']
+            units = []
+            i=-1
+            while True:
+                s = f.__next__()
+                i+=1                
+                if 'StartTime:' in s:
+                    s=s.split('(')[-1]
+                    s.strip(')')
+                    date, time, ampm = s.split(' ')
+                    month,day,year=[int(d) for d in date.split('/')]
+                    
+                    hour,min,sec=[int(t) for t in time.split(':')]
+                    if 'PM' in ampm and hour < 12:
+                        hour += 12
+                    start_time = datetime.datetime(year,month,day,hour, min,sec)
+                elif 'SampleRate' in s:
+                    sample_rate = float(s.split(' ')[-1])
+                elif 'VarCount' in s:
+                    num_vars = int(s.split(' ')[-1])
+                elif 'NameLen' in s:
+                    for s in s.split(' / '):
+                        if 'Name:' in s:
+                            while len(headers)<=var_num:
+                                headers.append(None)
+                            headers[var_num]=s.split(':')[-1].strip(' ')
+                        elif 'Unit:' in s:
+                            while len(units)<=var_num:
+                                units.append(None)
+                            units[var_num]=s.split(':')[-1].strip(' ')
+                    var_num += 1
+                elif '**' in s:
+                    break
+            assert var_num == num_vars+1
+            
+            s=f.__next__()
+            i+=1
+            start_sec = s.split(' ')[0].split('\t')[0]
+            start_time += datetime.timedelta(seconds = float(start_sec))
+            f.seek(0)
+            #print(i, num_vars)
+            print(kwargs)
             measurement=np.loadtxt(f, 
                           dtype=kwargs.get('dtype',float), 
                           comments=kwargs.get('comments','#'), 
                           delimiter=kwargs.get('delimiter',None),
                           converters=kwargs.get('converters',None), 
-                          skiprows=kwargs.get('skiprows',0), 
+                          skiprows=kwargs.get('skiprows',i), 
                           usecols=kwargs.get('usecols',None), 
                           unpack=kwargs.get('unpack',False),
                           ndmin=kwargs.get('ndmin',0))
+            
             assert measurement.shape [0] > measurement.shape [1]
-        else:
-            raise RuntimeError('Specified filetype: {} not implemented yet!'.format(ftype))
+        print(measurement[0,:])    
+        print(headers, measurement.shape)
+            
+        return headers, units, start_time, sample_rate, measurement  
+
         
-        return measurement
-    
-    def add_geometry_data(self, geometry_data):
-        #print(type(geometry_data))
-        if not isinstance(geometry_data, GeometryProcessor):
-            raise RuntimeError('Geometry Data has to be loaded and '
-                               'Processed by the GeometryProcessor class. '
-                               'The provided object is of type {}'.format(type(geometry_data)))
-        
-        self.geometry_data = geometry_data
-    
     def add_chan_dofs(self,chan_dofs):
         '''
         chan_dofs = [ (chan_num, node_name, az, elev, chan_name) ,  ... ]
@@ -570,8 +631,13 @@ class PreprocessData(object):
         out_dict['self.accel_channels']=self.accel_channels
         out_dict['self.velo_channels']=self.velo_channels
         out_dict['self.disp_channels']=self.disp_channels
+        out_dict['self.chan_dofs']=self.chan_dofs
+        out_dict['self.channel_headers'] = self.channel_headers
+        out_dict['self.start_time']=self.start_time
+        out_dict['self.ft_freq']=self.ft_freq
+        out_dict['self.sum_ft']=self.sum_ft
         
-        out_dict['self.geometry_data'] = self.geometry_data
+        #out_dict['self.geometry_data'] = self.geometry_data
 
         np.savez(fname, **out_dict)
          
@@ -588,25 +654,100 @@ class PreprocessData(object):
         total_time_steps = int(in_dict['self.total_time_steps'])
         ref_channels = list(in_dict['self.ref_channels'])
         roving_channels = list(in_dict['self.roving_channels'])
+        channel_headers = list(in_dict['self.channel_headers'])
+        start_time=in_dict['self.start_time'].item()
         
         accel_channels =  list(in_dict['self.accel_channels'])
         velo_channels = list(in_dict['self.velo_channels'])
         disp_channels = list(in_dict['self.disp_channels'])
+        
+        if 'self.ft_freq' in in_dict:
+            ft_freq = in_dict['self.ft_freq']
+            if not ft_freq.shape:
+                ft_freq = ft_freq.item()
+        else:
+            ft_freq = None
+            
+        #ft_freq = in_dict.get('self.ft_freq', None)
+        if 'self.sum_ft' in in_dict:
+            sum_ft = in_dict['self.sum_ft']
+            if not sum_ft.shape:
+                sum_ft = sum_ft.item()
+        else:
+            sum_ft = None
+        #sum_ft = in_dict.get( 'self.sum_ft', None)
+        
         preprocessor = cls(measurement, sampling_rate, total_time_steps, 
                  ref_channels=ref_channels, roving_channels=roving_channels,
-                 accel_channels=accel_channels, velo_channels=velo_channels, disp_channels=disp_channels, setup_name=setup_name)
+                 accel_channels=accel_channels, velo_channels=velo_channels, 
+                 disp_channels=disp_channels, setup_name=setup_name,
+                 channel_headers=channel_headers, start_time=start_time, 
+                 ft_freq=ft_freq, sum_ft = sum_ft)
+        chan_dofs = [[int(float(chan_num)), str(node), float(az), float(elev), str(chan_name)] for chan_num, node, az, elev, chan_name in in_dict['self.chan_dofs']]
+        preprocessor.add_chan_dofs(chan_dofs)
         assert preprocessor.num_ref_channels == int(in_dict['self.num_ref_channels'])
         assert preprocessor.num_roving_channels == int(in_dict['self.num_roving_channels'])
         assert preprocessor.num_analised_channels == int(in_dict['self.num_analised_channels'])
         
-        preprocessor.add_geometry_data(in_dict['self.geometry_data'].item())  
+        #preprocessor.add_geometry_data(in_dict['self.geometry_data'].item())  
         return preprocessor
     
-    def filter_data(self, filter_parameters):
+    def filter_data(self, lowpass=None, highpass=None, filt_order=3, num_int=0):
         '''
         Applies various filters to the data
         '''
-        pass
+
+        if lowpass is not None: lowpass=float(lowpass)
+        if highpass is not None: highpass=float(highpass)
+        filt_order=int(filt_order)
+        print('filtering data, with {},{}'.format(lowpass,highpass))
+        import scipy.signal
+        import scipy.integrate
+        
+        nyq=self.sampling_rate*0.5
+        
+        if lowpass is not None and highpass is not None:            
+            b, a = scipy.signal.butter(filt_order, [highpass/nyq, lowpass/nyq], btype='band')
+        elif lowpass is not None:
+            b, a = scipy.signal.butter(filt_order, lowpass/nyq, btype = 'low')
+        elif highpass is not None:
+            b, a = scipy.signal.butter(filt_order, highpass/nyq, btype = 'high')
+            
+
+        import matplotlib.pyplot as plt
+        
+        #w, h = scipy.signal.freqz(b, a, worN=2000)
+        #plt.close()
+        #plt.figure()
+        #plt.plot((nyq / np.pi) * w, abs(h))
+        #plt.plot([0, nyq], [np.sqrt(0.5), np.sqrt(0.5)],
+        #     '--', label='sqrt(0.5)')
+        #plt.xlabel('Frequency (Hz)')
+        #plt.ylabel('Gain')
+        #plt.grid(True)
+        #plt.legend(loc='best')
+        #plt.grid(which='both', axis='both')
+        #plt.axvline(100, color='green') # cutoff frequency
+        #plt.show()
+        #plt.figure()
+        #plt.plot(self.measurement[:,1], label='Original signal (Hz)')
+        self.measurement_filt = scipy.signal.filtfilt(b,a,self.measurement,axis=0, padlen=0)
+        for ii in range(self.measurement_filt.shape[1]):
+            #pass
+            self.measurement_filt[:,ii]  -= self.measurement_filt[:,ii].mean(0)
+        #plt.plot(self.measurement_filt[:,1], label='Filtered signal (Hz)')
+        for i in range(num_int):
+            #size = 2**np.floor(np.log2(self.measurement_filt.shape[0]))+1
+            for ii in range(self.measurement_filt.shape[1]):
+                #self.measurement_filt[:,ii] = scipy.integrate.romb(self.measurement_filt[:size,ii], 1/self.sampling_rate)
+                temp = scipy.integrate.cumtrapz(self.measurement_filt[:,ii], dx=1/self.sampling_rate,axis=0)
+                self.measurement_filt[:temp.shape[0],ii] = temp
+                self.measurement_filt[:,ii]  -= self.measurement_filt[:,ii].mean(0)            
+        
+            #plt.plot(self.measurement_filt[:,1], label='Integrated {} signal (Hz)'.format(i))
+        #plt.legend()
+        #plt.show()
+        
     
     
     def correct_offset(self, x=None):
@@ -670,10 +811,17 @@ class PreprocessData(object):
         self.measurement=self.measurement[:decimated_col.shape[1],:]
         self.measurement[:,channel]=decimated_col
     
+    def get_fft(self):
+        
+        if self.ft_freq is None or self.sum_ft is None:
+            self.ft_freq, self.sum_ft = self.calculate_fft()
+        return self.ft_freq, self.sum_ft
+    
     def calculate_fft(self):  
         print("Calculating FFT's")
         
             
+        ft_freq=None
         sum_ft=None
         for column in range(self.measurement.shape[1]):
             sample_signal = self.measurement[:,column]  
@@ -683,7 +831,8 @@ class PreprocessData(object):
             overlap = 0.5 * section_length
             increment = int(section_length - overlap)
             num_average = (len(sample_signal) - section_length) // increment
-                
+            if num_average<1:
+                continue
             for iii in range(num_average):
                 this_signal = sample_signal[(iii * increment):(iii * increment + section_length)]
                 
@@ -701,30 +850,12 @@ class PreprocessData(object):
             sum_ft = sum_ft + average_ft
     
             ft_freq = np.fft.rfftfreq(section_length, d = (1/self.sampling_rate))
-    
         
 
-        
         return ft_freq, sum_ft
     
 def main():
-    working_dir='/home/womo1998/Projects/modal_analysis_tower/'
-    conf_file=working_dir+'modal_source_files/meas_1/setup_info'
-    meas_file=working_dir+'towerdata/Alle_3h_00_00__1_2015-08-27_00-02-59_690000.dat.txt'
-    nodes_file =working_dir+ 'modal_source_files/nodes'
-    lines_file =working_dir+ 'modal_source_files/lines'
-    master_slaves_file=working_dir+'modal_source_files/master_slaves'
-    chan_dofs_file=working_dir+'modal_source_files/meas_1/channel_dofs'
-    
-    geometry_data = GeometryProcessor.load_geometry(nodes_file, lines_file, master_slaves_file)
-    
-    preprocessor = PreprocessData.init_from_config(conf_file, meas_file, chan_dofs_file, skiprows=40)
-    
-    preprocessor.add_geometry_data(geometry_data)
-    preprocessor.correct_offset()
-    preprocessor.save_state(working_dir+'test.npz')
-    
-    preprocessor = PreprocessData.load_state(working_dir+'test.npz')
+    pass
 
     
 if __name__ =='__main__':

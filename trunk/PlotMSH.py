@@ -4,7 +4,8 @@ from PyQt4.QtGui import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
     QCheckBox, QButtonGroup, QLabel, QToolButton, QComboBox, QStyle,\
     QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction, QIcon,\
     QFileDialog, QInputDialog, QMessageBox, QDoubleSpinBox, QTableWidget,\
-    QSpinBox, QAbstractItemView, QTableWidgetItem, QApplication, QSizePolicy
+    QSpinBox, QAbstractItemView, QTableWidgetItem, QApplication, QSizePolicy, QLineEdit, QTabWidget,\
+    QSlider
 from PyQt4.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMsgHandler, QEventLoop, QSize
 # Matplotlib
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
@@ -30,6 +31,9 @@ from numpy import disp
 from StabilDiagram import StabilPlot
 from PreprocessingTools import PreprocessData, GeometryProcessor
 from SSICovRef import SSICovRef
+from pyparsing import line
+from copy import deepcopy
+
 
 '''
 TODO:
@@ -87,7 +91,8 @@ def draw_axes(self, renderer=None):
         self.set_ylim3d(midy-hrange , midy+hrange)
         self.set_zlim3d(midz-hrange , midz+hrange)
     old_draw(self, renderer)
-Axes3D.draw = draw_axes
+#Axes3D.draw = draw_axes
+old_resize_event = deepcopy(FigureCanvasQTAgg.resizeEvent)
 
 def resizeEvent_(self, event):
     w = event.size().width()
@@ -106,7 +111,6 @@ def resizeEvent_(self, event):
     self.draw()
     self.update() 
     QWidget.resizeEvent(self, event)
-FigureCanvasQTAgg.resizeEvent = resizeEvent_
 
 class ModeShapePlot(object):
     '''
@@ -165,7 +169,9 @@ class ModeShapePlot(object):
 
     def __init__(self,
                  stabil_data,
-                 geometry_data=None,
+                 modal_data,
+                 geometry_data,
+                 prep_data,       
                  selected_mode=[0,0],
                  amplitude=1,
                  real=False,
@@ -175,27 +181,29 @@ class ModeShapePlot(object):
                  nodemarker='o',
                  nodesize=20,
                  beamcolor='blue',
-                 beamstyle='-',
-                 modecolor='blue',
-                 modestyle='-'
+                 beamstyle='-'
                  ):
 
         assert isinstance(stabil_data, StabilPlot)
         self.stabil_data = stabil_data
         
-        modal_data = stabil_data.modal_data
+        self.setup_name = stabil_data.setup_name
+        self.start_time = stabil_data.start_time
+        
+        #modal_data = stabil_data.modal_data
         assert isinstance(modal_data, SSICovRef)
         self.modal_data = modal_data
         
-        prep_data = modal_data.prep_data
+        assert isinstance(geometry_data, GeometryProcessor)
+        self.geometry_data = geometry_data
+        
+        #prep_data = modal_data.prep_data
+        
         assert isinstance(prep_data, PreprocessData)
         self.prep_data = prep_data
         
-        if not geometry_data:
-            geometry_data = prep_data.geometry_data
-            
-        assert isinstance(geometry_data, GeometryProcessor)
-        self.geometry_data = geometry_data
+        #if not geometry_data:
+        #geometry_data = prep_data.geometry_data          
         
         self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
         
@@ -231,12 +239,6 @@ class ModeShapePlot(object):
         assert isinstance(nodesize, (float, int))
         self.nodesize = nodesize
 
-        assert is_color_like(modecolor)
-        self.modecolor = modecolor
-
-        assert modestyle in styles
-        self.modestyle = modestyle
-
         assert isinstance(dpi, int)
         self.dpi = dpi
 
@@ -246,25 +248,23 @@ class ModeShapePlot(object):
         #bool objects
         self.show_nodes = True
         self.show_lines = True
+        self.show_nd_lines = True
         self.show_master_slaves = True
         self.show_chan_dofs = True
         self.show_axis = True
         self.animated = False
+        self.data_animated = False
+
 
         # plot objects
         self.patches_objects = {}
         self.lines_objects = []
+        self.nd_lines_objects = []
+        self.cn_lines_objects = {}
         self.arrows_objects = []
         self.channels_objects = []
         self.axis_obj = {}
 
-        self.create_main_frame( dpi)
-        
-    
-    def create_main_frame(self,  dpi):
-        '''
-        set up all the widgets and other elements to draw the GUI
-        '''
         
         self.fig = Figure((10,10), dpi=dpi, facecolor='white')
         self.fig.set_tight_layout(True)
@@ -274,89 +274,44 @@ class ModeShapePlot(object):
             self.subplot = self.fig.add_subplot(1, 1, 1, projection='3d')
         except ValueError:  # mpl 1.3
             self.subplot = Axes3D(self.fig)
+        Axes3D.draw = draw_axes
 
         #instantiate the x,y,z axis arrows
         self.draw_axis()
-
+    
     @pyqtSlot()
     def reset_view(self):
         '''
         restore viewport, 
         restore axis' limits, 
         reset displacements values for all nodes, 
-        clear the plot 
-        and redraw the grid
         '''
         self.stop_ani()
         proj3d.persp_transformation = persp_transformation
         self.subplot.view_init(30, -60)
         self.subplot.autoscale_view()
-        self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
-        self.clear_plot()
-        self.draw_nodes()
-
-    @pyqtSlot()
-    def shift_view(self, dir=None):
-        '''
-        shift the view along specified axis by +-20 % (hardcoded)
-        works in combination with the appropriate buttons as senders
-        or by passing one of  ['+X', '-X', '+Y', '-Y', '+Z', '-Z']
-        '''
-            
-        if 'X' in dir:
-            minx, maxx = self.subplot.get_xlim3d()
-            deltax = (maxx - minx) / 5
-            if '-' in dir:
-                self.subplot.set_xlim3d(minx - deltax, maxx - deltax)
-            elif '+' in dir:
-                self.subplot.set_xlim3d(minx + deltax, maxx + deltax)
-        elif 'Y' in dir:
-            miny, maxy = self.subplot.get_ylim3d()
-            deltay = (maxy - miny) / 5
-            if '-' in dir:
-                self.subplot.set_ylim3d(miny - deltay, maxy - deltay)
-            elif '+' in dir:
-                self.subplot.set_ylim3d(miny + deltay, maxy + deltay)
-        elif 'Z' in dir:
-            minz, maxz = self.subplot.get_zlim3d()
-            deltaz = (maxz - minz) / 5
-            if '-' in dir:
-                self.subplot.set_zlim3d(minz - deltaz, maxz - deltaz)
-            elif '+' in dir:
-                self.subplot.set_zlim3d(minz + deltaz, maxz + deltaz)
+        xmin,xmax,ymin,ymax,zmin,zmax=None,None,None,None,None,None
+        for node in self.geometry_data.nodes.values():
+            if xmin is None: xmin=node[0]
+            if xmax is None: xmax=node[0]
+            if ymin is None: ymin=node[1]
+            if ymax is None: ymax=node[1]
+            if zmin is None: zmin=node[2]
+            if zmax is None: zmax = node[2]
+            xmin=min(node[0],xmin)
+            xmax=max(node[0],xmax)
+            ymin=min(node[1],ymin)
+            ymax=max(node[1],ymax)
+            zmin=min(node[2],zmin)
+            zmax=max(node[2],zmax)
+        self.subplot.set_xlim3d(xmin,xmax)
+        self.subplot.set_ylim3d(ymin,ymax)
+        self.subplot.set_zlim3d(zmin,zmax)    
+        
+        #self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
+        
         self.canvas.draw()
-
-    @pyqtSlot()
-    def zoom(self, dir=None):
-        '''
-        zoom the view by +-20 % (hardcoded)
-        can zoom a single axis or all axis'
-        works in combination with the appropriate buttons as senders or by 
-        passing one of ['+', '-','+X', '-X', '+Y', '-Y', '+Z', '-Z','eq.asp.']
-        '''
-        if not dir: return 
         
-        minx, maxx, miny, maxy, minz, maxz = self.subplot.get_w_lims()
-        factor=1
-        
-        if '+' in dir:
-            factor = 0.8
-        elif '-' in dir:
-            factor = 1.25
-
-        if 'X' in dir:
-            self.subplot.set_xlim3d(minx * factor, maxx * factor)
-        elif 'Y' in dir:
-            self.subplot.set_ylim3d(miny * factor, maxy * factor)
-        elif 'Z' in dir:
-            self.subplot.set_zlim3d(minz * factor, maxz * factor)
-        else:
-            self.subplot.set_xlim3d(minx * factor, maxx * factor)
-            self.subplot.set_ylim3d(miny * factor, maxy * factor)
-            self.subplot.set_zlim3d(minz * factor, maxz * factor)
-
-        self.subplot.get_proj()
-        self.canvas.draw_idle()
 
     @pyqtSlot()
     def change_viewport(self, viewport=None):
@@ -389,8 +344,17 @@ class ModeShapePlot(object):
         self.subplot.view_init(elev, azim)
         self.canvas.draw()
 
+        if self.animated or self.data_animated:
+            for line in self.lines_objects:
+                line.set_visible(False)
+            for line in self.nd_lines_objects:
+                line.set_visible(False)
+            for line in self.cn_lines_objects.values():
+                line.set_visible(False)
+            self.line_ani._setup_blit()
+
     @pyqtSlot(str)
-    def change_mode(self, frequency=None, index=None):
+    def change_mode(self, frequency=None, index=None, mode_index=None):
         '''
         if user selects a new mode,
         extract the mode number from the passed string (contains frequency...)
@@ -399,12 +363,16 @@ class ModeShapePlot(object):
         '''
         # mode numbering starts at 1 python lists start at 0
         selected_indices = self.stabil_data.select_modes
-        if frequency is not None:            
-            frequencies = self.modal_data.modal_frequencies[selected_indices]
-            index = min(abs(frequencies-frequency))
-        print(selected_indices)
-        mode_index = selected_indices[index]
-        print(mode_index)
+        if frequency is not None:       
+            frequencies =np.array([self.modal_data.modal_frequencies[index[0],index[1]] for index in selected_indices])     
+            f_delta= abs(frequencies-frequency)
+            index = np.argmin(f_delta)
+        #print(selected_indices)
+        if index is not None:
+            mode_index = selected_indices[index]
+        if mode_index is None:
+            raise RuntimeError('No arguments provided!')
+        #print(mode_index)
         frequency = self.modal_data.modal_frequencies[mode_index[0],mode_index[1]]
         damping = self.modal_data.modal_damping[mode_index[0],mode_index[1]]
         MPC = self.stabil_data.MPC_matrix[mode_index[0],mode_index[1]]
@@ -417,6 +385,13 @@ class ModeShapePlot(object):
         
         return mode_index[0], mode_index[1], frequency, damping, MPC, MP, MPD #order, mode_num,....
 
+    def get_frequencies(self):
+        selected_indices = self.stabil_data.select_modes
+        
+        frequencies =[self.modal_data.modal_frequencies[index[0],index[1]] for index in selected_indices]
+        frequencies.sort()
+        return frequencies
+    
     @pyqtSlot()
     @pyqtSlot(float)
     def change_amplitude(self, amplitude=None):
@@ -425,7 +400,8 @@ class ModeShapePlot(object):
         amplitude either gets passed or will be read from the widget
         redraw the modeshapes based on this amplitude
         '''
-
+        if amplitude is None: return
+        amplitude = float(amplitude)
         if amplitude == self.amplitude:return
 
         self.amplitude = amplitude
@@ -442,7 +418,17 @@ class ModeShapePlot(object):
         
         self.real = b
         self.draw_msh()
+        
 
+    def save_plot(self, path=None):
+        '''
+        save the curently displayed frame as a *.png graphics file
+        '''
+
+        if path:
+            self.canvas.print_figure(path, dpi=self.dpi)
+            
+            
     @pyqtSlot(float, float, float, int)
     def add_node(self, x, y, z, i):
         '''
@@ -499,7 +485,62 @@ class ModeShapePlot(object):
         self.lines_objects[i] = line_object
 
         self.canvas.draw_idle()
+        
+    @pyqtSlot(tuple, int)
+    def add_nd_line(self, line, i):
+        '''
+        receive a line coordinates from a signal
+        add the start node and end node to the internal line table
+        draw a line between the tow nodes
+        store the line object in a table
+        remove any objects that might be in the table at the desired place
+        i.e. avoid duplicate lines
+        '''
+        beamcolor = self.beamcolor
+        beamstyle = 'dotted'
+        
+        line_object = self.subplot.plot(
+                        [self.geometry_data.nodes[node][0]  for node in line],
+                        [self.geometry_data.nodes[node][1]  for node in line],
+                        [self.geometry_data.nodes[node][2]  for node in line],
+                        color=beamcolor, linestyle=beamstyle,  visible = self.show_lines)[0]
 
+        while len(self.nd_lines_objects) < i + 1:
+            self.nd_lines_objects.append(None)
+        if self.nd_lines_objects[i] is not None:
+            self.nd_lines_objects[i].remove()
+        self.nd_lines_objects[i] = line_object
+
+        self.canvas.draw_idle() 
+           
+    @pyqtSlot(tuple, int)
+    def add_cn_line(self, i):
+        '''
+        receive a line coordinates from a signal
+        add the start node and end node to the internal line table
+        draw a line between the tow nodes
+        store the line object in a table
+        remove any objects that might be in the table at the desired place
+        i.e. avoid duplicate lines
+        '''
+        beamcolor = self.beamcolor
+        beamstyle = 'dotted'
+        node = self.geometry_data.nodes[i]
+        disp_node = self.disp_nodes.get(node, [0,0,0])
+        
+        line_object = self.subplot.plot(
+                        [node[0],node[0]+disp_node[0]],
+                        [node[1],node[1]+disp_node[1]],
+                        [node[2],node[2]+disp_node[2]],
+                        color=beamcolor, linestyle=beamstyle,  visible = self.show_nd_lines)[0]
+
+        if self.cn_lines_objects.get(i,None) is not None:
+            self.cn_lines_objects[i].remove()
+        self.cn_lines_objects[i] = line_object
+
+        self.canvas.draw_idle()   
+     
+        
     @pyqtSlot(int, float, float, float, int, float, float, float, int)
     def add_master_slave(self, i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl, i):
         '''
@@ -719,7 +760,33 @@ class ModeShapePlot(object):
         else:
             if self.lines_objects:
                 print('line_object not found')
+                
+        for j in range(len(self.nd_lines_objects)):
+            (x_s_, x_e_), (y_s_, y_e_), (z_s_, z_e_) = self.nd_lines_objects[
+                j]._verts3d
+            if  x_s - d_x_s <= x_s_ <= x_s + d_x_s and \
+                    x_e - d_x_e <= x_e_ <= x_e + d_x_e and \
+                    y_s - d_y_s <= y_s_ <= y_s + d_y_s and \
+                    y_e - d_y_e <= y_e_ <= y_e + d_y_e and \
+                    z_s - d_z_s <= z_s_ <= z_s + d_z_s and \
+                    z_e - d_z_e <= z_e_ <= z_e + d_z_e:  # account for displaced lines
 
+                self.nd_lines_objects[j].remove()
+                del self.nd_lines_objects[j]
+                break
+            elif x_s - d_x_s <= x_e_ <= x_s + d_x_s and \
+                    x_e - d_x_e <= x_s_ <= x_e + d_x_e and \
+                    y_s - d_y_s <= y_e_ <= y_s + d_y_s and \
+                    y_e - d_y_e <= y_s_ <= y_e + d_y_e and \
+                    z_s - d_z_s <= z_e_ <= z_s + d_z_s and \
+                    z_e - d_z_e <= z_s_ <= z_e + d_z_e:  # account for inverted lines
+
+                self.nd_lines_objects[j].remove()
+                del self.nd_lines_objects[j]
+                break
+        else:
+            if self.nd_lines_objects:
+                print('line_object not found')
         self.canvas.draw_idle()
 
     @pyqtSlot(int, float, float, float, int, float, float, float)
@@ -857,13 +924,16 @@ class ModeShapePlot(object):
         
     def refresh_axis(self, visible=None):
         
+        visible = bool(visible)
+
         if visible is not None:
             self.show_axis = visible
         
         for objs in self.axis_obj.values():
             for obj in objs:
                 obj.set_visible(self.show_axis)
-                
+        self.canvas.draw_idle()
+        
     @pyqtSlot()
     def draw_nodes(self):
         ''''
@@ -876,6 +946,7 @@ class ModeShapePlot(object):
     def refresh_nodes(self, visible=None):
         
         if visible is not None:
+            visible=bool(visible)
             self.show_nodes = visible
             
         for key in self.geometry_data.nodes.keys():
@@ -892,21 +963,26 @@ class ModeShapePlot(object):
                 patch[1].set_position([x,y])
                 patch[1].set_3d_properties(z, None)
         
+        self.canvas.draw_idle()
+        
     def draw_lines(self):
         '''
         draw all the beams in self.geometry_data.lines
         self.geometry_data.lines=[line1, line2,....]
             line = [node_start, node_end]
             node numbering refers to elements in self.nodes
-        xd, yd, zd may be passed to draw custom deflections, else
-        the currently stored displacement values are taken
         '''
         for i, line in enumerate(self.geometry_data.lines):            
             self.add_line(line, i)
+            self.add_nd_line(line, i)
+            
+        for i in self.geometry_data.nodes.keys():
+            self.add_cn_line(i)
         
     def refresh_lines(self, visible=None):
         
         if visible is not None:
+            visible=bool(visible)
             self.show_lines = visible
             
         for line, line_node in zip(self.lines_objects, self.geometry_data.lines):
@@ -919,7 +995,49 @@ class ModeShapePlot(object):
             line.set_visible(self.show_lines)     
             line.set_data([x, y])
             line.set_3d_properties(z)
-
+            
+        for key in self.geometry_data.nodes.keys():
+            node = self.geometry_data.nodes[key]
+            disp_node = self.disp_nodes.get(key, [0,0,0])
+            line = self.cn_lines_objects.get(key,None)
+            
+            x,y,z=[node[0],node[0]+disp_node[0]], [node[1],node[1]+disp_node[1]], [node[2],node[2]+disp_node[2]]
+            line.set_visible(self.show_nd_lines)     
+            line.set_data([x, y])
+            line.set_3d_properties(z)      
+            
+        self.canvas.draw_idle()    
+        
+    def refresh_nd_lines(self, visible=None):
+        
+        if visible is not None:
+            visible=bool(visible)
+            self.show_nd_lines = visible
+            
+        for line, line_node in zip(self.nd_lines_objects, self.geometry_data.lines):
+            x = [self.geometry_data.nodes[node][0] 
+                 for node in line_node]
+            y = [self.geometry_data.nodes[node][1] 
+                 for node in line_node]
+            z = [self.geometry_data.nodes[node][2]
+                 for node in line_node]
+            line.set_visible(self.show_nd_lines)     
+            line.set_data([x, y])
+            line.set_3d_properties(z)
+               
+        for key, node in self.geometry_data.nodes.items():
+            disp_node = self.disp_nodes.get(key, [0,0,0])
+            line = self.cn_lines_objects.get(key, None)
+            if line is not None:
+                x = [node[0], node[0]+disp_node[0]]
+                y = [node[1], node[1]+disp_node[1]]
+                z = [node[2], node[2]+disp_node[2]]
+                line.set_visible(self.show_nd_lines)     
+                line.set_data([x, y])
+                line.set_3d_properties(z)    
+            
+        self.canvas.draw_idle()
+        
     def draw_master_slaves(self):
         '''
         draw arrows for all master-slave definitions stored in the
@@ -934,11 +1052,13 @@ class ModeShapePlot(object):
         '''
         
         if visible is not None:
+            visible=bool(visible)
             self.show_master_slaves = visible
             
         for patch in self.arrows_objects:
             for obj in patch:
-                obj.set_visible(self.show_master_slaves)   
+                obj.set_visible(self.show_master_slaves)  
+        self.canvas.draw_idle() 
             
     def draw_chan_dofs(self):
         '''
@@ -953,11 +1073,13 @@ class ModeShapePlot(object):
         will not be shown in displaced mode (modeshape)
         '''
         if visible is not None:
+            visible=bool(visible)
             self.show_chan_dofs = visible
             
         for patch in self.channels_objects:
             for obj in patch:
                 obj.set_visible(self.show_chan_dofs)
+        self.canvas.draw_idle()
 
     def draw_msh(self):
         '''
@@ -977,7 +1099,7 @@ class ModeShapePlot(object):
         
         for chan, disp in enumerate(mode_shape):
             if isinstance(disp, np.complex):
-                if not self.real:
+                if self.real:
                     phase = np.angle(disp, True) 
                     disp = np.abs(disp)
                     if phase < 0 : 
@@ -998,18 +1120,23 @@ class ModeShapePlot(object):
                 print('Could not find channel - DOF assignment for '
                       'channel {}!'.format(chan))
                 continue
-            x,y,z = self.calc_xyz(az, elev)
-            
+            x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
+            #print(x,y,z)
             # assumes vectors have components in one direction (x,y,z) only
             # to convert, run: SSI_cov_ref_.compute_common_components
             self.disp_nodes[node][0] += x * disp * ampli #/ norm
             self.disp_nodes[node][1] += y * disp * ampli #/ norm
             self.disp_nodes[node][2] += z * disp * ampli #/ norm
             
+            
+            
             self.phi_nodes[node][0] += x*phase
             self.phi_nodes[node][1] += y*phase
             self.phi_nodes[node][2] += z*phase
             
+            #print(chan_, node, az, elev, chan_name)
+            #print(self.disp_nodes[node])
+            #print(self.phi_nodes[node])
         for i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl in self.geometry_data.master_slaves:
 
             master_disp =   self.disp_nodes[i_m][0] * x_m + \
@@ -1019,7 +1146,13 @@ class ModeShapePlot(object):
             self.disp_nodes[i_sl][0] += master_disp * x_sl
             self.disp_nodes[i_sl][1] += master_disp * y_sl
             self.disp_nodes[i_sl][2] += master_disp * z_sl
-            
+        #for node in self.disp_nodes.keys():
+            #disp_node = self.disp_nodes[node]
+            #phi_node = self.phi_nodes[node]
+            #angle = np.arctan2(disp_node[0],disp_node[1])*180/np.pi
+            #if angle <0: angle+=180
+            #print(disp_node, phi_node)
+            #print(node, angle)
         self.refresh_nodes()
         self.refresh_lines()
         self.refresh_chan_dofs(False)
@@ -1032,12 +1165,15 @@ class ModeShapePlot(object):
         '''
         convenience method to stop the animation and restore the still plot
         '''
-        if self.animated:
+        if self.animated or self.data_animated:
             self.line_ani._stop()
-            self.ani_button.setIcon(
-                self.style().standardIcon(QStyle.SP_MediaPlay))
             self.animated = False
-
+            self.data_animated = False
+            for c in self.connect_handles:
+                self.canvas.mpl_disconnect(c)
+            #self.draw_msh()
+            
+            
     @pyqtSlot()
     def animate(self):
         '''
@@ -1047,18 +1183,26 @@ class ModeShapePlot(object):
         def init_lines():
             #print('init')
             #self.clear_plot()
+            minx, maxx, miny, maxy, minz, maxz = self.subplot.get_w_lims()
+            
             self.subplot.cla()
             #return self.lines_objects
-            beamcolor = self.beamcolor
-            beamstyle = self.beamstyle
+            self.draw_lines()
+            for line in self.lines_objects:
+                line.set_visible(False)
+            for line in self.nd_lines_objects:
+                line.set_visible(False)
+            for line in self.cn_lines_objects.values():
+                line.set_visible(False)
             
-            self.lines_objects = [self.subplot.plot(
-                                [self.geometry_data.nodes[node][0] for node in line],
-                                [self.geometry_data.nodes[node][1] for node in line],
-                                [self.geometry_data.nodes[node][2] for node in line], 
-                                color=beamcolor, linestyle=beamstyle, visible=False)[0] \
-                              for line in self.geometry_data.lines]
-            return self.lines_objects
+            self.subplot.set_xlim3d(minx,maxx)
+            self.subplot.set_ylim3d(miny, maxy)
+            self.subplot.set_zlim3d(minz, maxz)
+            
+            return self.lines_objects + \
+            self.nd_lines_objects + \
+            list(self.cn_lines_objects.values())
+            #return self.lines_objects#, self.nd_lines_objects
         
         def update_lines(num):
             '''
@@ -1076,30 +1220,55 @@ class ModeShapePlot(object):
                      * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][2]) 
                      for node in line_node]
                 # NOTE: there is no .set_data() for 3 dim data...
-                line.set_visible(True)
+                line.set_visible(self.show_lines)
                 line.set_data([x, y])
                 line.set_color('b')
                 line.set_3d_properties(z)
-            return self.lines_objects
+                
+            for line in self.nd_lines_objects:
+                line.set_visible(self.show_nd_lines)
+                
+            for key in self.geometry_data.nodes.keys():
+                node = self.geometry_data.nodes[key]
+                disp_node = self.disp_nodes.get(key,[0,0,0])
+                phi_node = self.phi_nodes.get(key, [0,0,0])
+                x = [node[0],node[0] + disp_node[0]
+                     * np.cos(num / 25 * 2 * np.pi  + phi_node[0])]
+                y = [node[1],node[1] + disp_node[1]
+                     * np.cos(num / 25 * 2 * np.pi  + phi_node[1])]
+                z = [node[2],node[2] + disp_node[2]
+                     * np.cos(num / 25 * 2 * np.pi  + phi_node[2])]
+                line = self.cn_lines_objects.get(key,None)
+                if line is not None:
+                    line.set_data([x, y])
+                    line.set_visible(self.show_nd_lines)
+                    line.set_3d_properties(z)
+                
+            return self.lines_objects + \
+            self.nd_lines_objects + \
+            list(self.cn_lines_objects.values())
+        
         
         #self.cla()
         #self.patches_objects = {}
         self.lines_objects = []
+        self.nd_lines_objects = []
+        self.cn_lines_objects = {}
         self.arrows_objects = []
         self.channels_objects = []
         self.axis_obj = {}
         
         if self.animated:
-            self.line_ani._stop()
-            self.animated = False
-            return self.draw_msh()
+            return self.stop_ani()
         else:
-            self.animated = True
+            if self.data_animated:
+                self.stop_ani()
+            self.animated = True        
         
-
         c1 = self.canvas.mpl_connect('motion_notify_event', self._on_move)
         c2 = self.canvas.mpl_connect('button_press_event', self._button_press)
         c3 = self.canvas.mpl_connect('button_release_event', self._button_release)
+        self.connect_handles=[c1,c2,c3]
         self.button_pressed = None
         self.line_ani = FuncAnimation(fig=self.fig,
                                       func=update_lines,
@@ -1111,8 +1280,120 @@ class ModeShapePlot(object):
         self.canvas.draw()
         
         #self.line_ani._start()
-        print(self.animated, self.line_ani)
+        #print(self.animated, self.line_ani)
         
+    @pyqtSlot()
+    def filter_and_animate_data(self, callback=None):
+        '''
+        create necessary objects to animate the currently displayed
+        deformed structure
+        '''
+        def init_lines():
+            #print('init')
+            #self.clear_plot()
+            minx, maxx, miny, maxy, minz, maxz = self.subplot.get_w_lims()
+            
+            self.subplot.cla()
+            #return self.lines_objects
+            self.draw_lines()
+            for line in self.lines_objects:
+                line.set_visible(False)
+            for line in self.nd_lines_objects:
+                line.set_visible(False)
+            for line in self.cn_lines_objects.values():
+                line.set_visible(False)
+            
+            self.subplot.set_xlim3d(minx,maxx)
+            self.subplot.set_ylim3d(miny, maxy)
+            self.subplot.set_zlim3d(minz, maxz)
+            
+            return self.lines_objects + \
+            self.nd_lines_objects + \
+            list(self.cn_lines_objects.values())
+            #return self.lines_objects#, self.nd_lines_objects
+        def update_lines(num):
+            '''
+            subfunction to calculate displacements based on magnitude and phase angle
+            '''
+            self.callback(str(num/self.prep_data.sampling_rate))
+            disp_nodes={ i : [0,0,0] for i in self.geometry_data.nodes.keys() } 
+            for chan_, node, az, elev, chan_name in self.prep_data.chan_dofs:
+                x,y,z = self.calc_xyz(az, elev)
+                disp_nodes[node][0]+=self.prep_data.measurement_filt[num,chan_]*x*self.amplitude
+                disp_nodes[node][1]+=self.prep_data.measurement_filt[num,chan_]*y*self.amplitude
+                disp_nodes[node][2]+=self.prep_data.measurement_filt[num,chan_]*z*self.amplitude
+                
+            #print(num)
+            for line, line_node in zip(self.lines_objects, self.geometry_data.lines):
+                x = [self.geometry_data.nodes[node][0] + disp_nodes[node][0]
+                     for node in line_node]
+                y = [self.geometry_data.nodes[node][1] + disp_nodes[node][1]
+                     for node in line_node]
+                z = [self.geometry_data.nodes[node][2] + disp_nodes[node][2]
+                     for node in line_node]
+                # NOTE: there is no .set_data() for 3 dim data...
+                line.set_visible(self.show_lines)
+                line.set_data([x, y])
+                line.set_color('b')
+                line.set_3d_properties(z)
+                
+            for line in self.nd_lines_objects:
+                line.set_visible(self.show_nd_lines)
+                
+            for key in self.geometry_data.nodes.keys():
+                node = self.geometry_data.nodes[key]
+                disp_node = disp_nodes.get(key,[0,0,0])
+                x = [node[0],node[0] + disp_node[0]]
+                y = [node[1],node[1] + disp_node[1]]
+                z = [node[2],node[2] + disp_node[2]]
+                line = self.cn_lines_objects.get(key,None)
+                if line is not None:
+                    line.set_data([x, y])
+                    line.set_visible(self.show_nd_lines)
+                    line.set_3d_properties(z)
+                
+            return self.lines_objects + \
+            self.nd_lines_objects + \
+            list(self.cn_lines_objects.values())        
+
+        #self.cla()
+        #self.patches_objects = {}
+        self.lines_objects = []
+        self.nd_lines_objects = []
+        self.cn_lines_objects = {}
+        self.arrows_objects = []
+        self.channels_objects = []
+        self.axis_obj = {}
+        
+        if self.data_animated:
+            return self.stop_ani()
+        else:
+            if self.animated:
+                self.stop_ani()
+            self.data_animated = True
+        
+        
+        c1 = self.canvas.mpl_connect('motion_notify_event', self._on_move)
+        c2 = self.canvas.mpl_connect('button_press_event', self._button_press)
+        c3 = self.canvas.mpl_connect('button_release_event', self._button_release)
+        self.connect_handles=[c1,c2,c3]
+        self.button_pressed = None
+        
+        #self.prep_data.filter_data(lowpass, highpass)
+        if callback is not None:
+            self.callback = callback
+        self.line_ani = FuncAnimation(fig=self.fig,
+                                      func=update_lines,
+                                      frames=range(self.prep_data.measurement_filt.shape[0]),
+                                      init_func=init_lines,
+                                      interval=1/self.prep_data.sampling_rate,
+                                      save_count=0,
+                                      blit=True)
+        
+        self.canvas.draw()
+        
+        #self.line_ani._start()
+        #print(self.animated, self.line_ani)        
     def _button_press(self, event):
         if event.inaxes == self.subplot:
             self.button_pressed = event.button
@@ -1121,16 +1402,15 @@ class ModeShapePlot(object):
         self.button_pressed = None
         
     def _on_move(self, event):
-        """Mouse moving
-
-        button-1 rotates by default.  Can be set explicitly in mouse_init().
-        button-3 zooms by default.  Can be set explicitly in mouse_init().
-        """
 
         if not self.button_pressed:
             return
         
         for line in self.lines_objects:
+            line.set_visible(False)
+        for line in self.nd_lines_objects:
+            line.set_visible(False)
+        for line in self.cn_lines_objects.values():
             line.set_visible(False)
         self.line_ani._setup_blit()
         #self.line_ani._start()   
@@ -1191,53 +1471,13 @@ class ModeShapeGUI(QMainWindow):
     chan_dofs_requested = pyqtSignal(str, bool)
 
     def __init__(self,
-                 mode_shape_plot,
-                 frequencies = [], 
-                 damping = [],
-                 mode_num=1,
-                 order_num=1,
-                 amplitude=1,
-                 real=False,
-                 animated=False          
+                 mode_shape_plot,      
                  ):
 
         QMainWindow.__init__(self)
         assert isinstance(mode_shape_plot, ModeShapePlot)
-
-        assert isinstance(mode_num, int)
-        # mode numbering starts at 1, python lists start at 0
-        self.mode_index = mode_num - 1
-
-        assert isinstance(order_num, int)
-        self.order_num = order_num
-
-        assert isinstance(amplitude, (int, float))
-        self.amplitude = amplitude
-
-        assert isinstance(amplitude, (int, float))
-        self.amplitude = amplitude
-
-        # objects
-        #self.ssi_solutions_dict = {}
-        self.complex_part = 'real'
+        self.mode_shape_plot = mode_shape_plot
         self.animated = False
-
-        # GUI for geometry creation
-#         self.geometry_creator = GeometryCreator()
-#         self.geometry_creator.node_added.connect(self.add_node)
-#         self.geometry_creator.node_taken.connect(self.take_node)
-#         self.geometry_creator.line_added.connect(self.add_line)
-#         self.geometry_creator.line_taken.connect(self.take_line)
-#         self.geometry_creator.slave_added.connect(self.add_master_slave)
-#         self.geometry_creator.slave_taken.connect(self.take_master_slave)
-#         self.geometry_creator.chan_dof_added.connect(self.add_chan_dof)
-#         self.geometry_creator.chan_dof_taken.connect(self.take_chan_dof)
-# 
-#         self.grid_requested.connect(self.geometry_creator.load_nodes)
-#         self.beams_requested.connect(self.geometry_creator.load_lines)
-#         self.slaves_requested.connect(self.geometry_creator.load_master_slave)
-#         self.chan_dofs_requested.connect(self.geometry_creator.load_chan_dof)
-
         self.setWindowTitle('Plot Modeshapes')
         self.create_menu()
         self.create_main_frame(mode_shape_plot)
@@ -1248,89 +1488,74 @@ class ModeShapeGUI(QMainWindow):
         '''
         set up all the widgets and other elements to draw the GUI
         '''
-        
-        self.fig=mode_shape_plot.fig
         main_frame = QWidget()
-
-        # Create the mpl Figure and FigCanvas objects.
-        self.fig.set_tight_layout(True)
-        self.canvas = self.fig.canvas.switch_backends(FigureCanvasQTAgg)
-        mode_shape_plot.canvas = self.canvas
         
-        #self.canvas = FigureCanvasQTAgg(self.fig)
-        #self.fig.canvas.__class__ = FigureCanvasQTAgg
-        #self.canvas.setParent(main_frame)
-        self.fig.get_axes()[0].mouse_init()
-        #self.canvas.setMouseTracking(True)
-        #try:  # mpl 1.4
-        #    self.subplot = self.fig.add_subplot(1, 1, 1, projection='3d')
-        #except ValueError:  # mpl 1.3
-        #    self.subplot = Axes3D(self.fig)
-        #self.subplot.set_axis_off()
+        # Create the mpl Figure and FigCanvas objects.
+        fig=mode_shape_plot.fig
+        FigureCanvasQTAgg.resizeEvent = resizeEvent_
+        self.canvas = fig.canvas.switch_backends(FigureCanvasQTAgg)
+        #self.canvas.resize_event = resizeEvent_
+        #self.canvas.resize_event  = funcType(resizeEvent_, self.canvas, FigureCanvasQTAgg)
+        mode_shape_plot.canvas = self.canvas
+        self.canvas.mpl_connect('button_release_event', self.update_lims)
+        fig.get_axes()[0].mouse_init()
+
         #controls for changing what to draw
         view_layout = QHBoxLayout()
-
-        reset_button = QPushButton('Reset View')
-        #reset_button.released.connect(self.reset_view)
-
-        view_layout.addWidget(reset_button)
         
         view_layout.addStretch()
         
         self.axis_checkbox = QCheckBox('Show Axis Arrows')
-        self.axis_checkbox.setCheckState(Qt.Checked)
-        #self.axis_checkbox.stateChanged[int].connect(self.draw_axis)
+        self.axis_checkbox.setTristate(False)
+        self.axis_checkbox.setCheckState(Qt.Checked if mode_shape_plot.show_axis else Qt.Unchecked)
+        self.axis_checkbox.stateChanged[int].connect(mode_shape_plot.refresh_axis)
         
-        self.grid_checkbox = QCheckBox('Show Grid')
-        self.grid_checkbox.setCheckState(Qt.Checked)
-        self.grid_checkbox.stateChanged[int].connect(self.draw_nodes)
+        self.nodes_checkbox = QCheckBox('Show Nodes')
+        self.nodes_checkbox.setTristate(False)
+        self.nodes_checkbox.setCheckState(Qt.Checked if mode_shape_plot.show_nodes else Qt.Unchecked)
+        self.nodes_checkbox.stateChanged[int].connect(mode_shape_plot.refresh_nodes)
         
-        beam_checkbox = QCheckBox('Show Beams')
+        line_checkbox = QCheckBox('Show Lines')
+        line_checkbox.setTristate(False)
+        conn_lines_checkbox = QCheckBox('Show Connecting Lines')
+        conn_lines_checkbox.setTristate(False)
+        conn_lines_checkbox.setCheckState(Qt.Checked if mode_shape_plot.show_nd_lines else Qt.Unchecked)
+        conn_lines_checkbox.stateChanged[int].connect(mode_shape_plot.refresh_nd_lines)
+        
         ms_checkbox = QCheckBox('Show Master-Slaves Assignm.')
+        ms_checkbox.setTristate(False)
         chandof_checkbox = QCheckBox('Show Channel-DOF Assignm.')
+        chandof_checkbox.setTristate(False)
+        
         
         self.draw_button_group = QButtonGroup()
         self.draw_button_group.setExclusive(False)
-        self.draw_button_group.addButton(beam_checkbox, 0)
+        self.draw_button_group.addButton(line_checkbox, 0)
         self.draw_button_group.addButton(ms_checkbox, 1)
         self.draw_button_group.addButton(chandof_checkbox, 2)
         self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
         
+        if mode_shape_plot.show_lines:
+            line_checkbox.setCheckState(Qt.Checked)
+        elif mode_shape_plot.show_master_slaves:
+            ms_checkbox.setCheckState(Qt.Checked)
+        elif mode_shape_plot.show_chan_dofs:
+            chandof_checkbox.setCheckState(Qt.Checked)
+        
         view_layout.addWidget(self.axis_checkbox)
-        view_layout.addWidget(self.grid_checkbox)
-        view_layout.addWidget(beam_checkbox)
+        view_layout.addWidget(self.nodes_checkbox)
+        view_layout.addWidget(line_checkbox)
         view_layout.addWidget(ms_checkbox)
         view_layout.addWidget(chandof_checkbox)
+        view_layout.addWidget(conn_lines_checkbox)
 
-        
         # controls for changing the axis' limits and viewport i.e. zoom and shift
-        axis_limits_layout = QHBoxLayout()
+        axis_limits_layout = QGridLayout()
         
-        axis_limits_layout.addWidget(QLabel('Shift View:'))
-
-        for shift in ['+X', '-X', '+Y', '-Y', '+Z', '-Z']:
-            button = QToolButton()
-            button.setText(shift)
-            #button.released.connect(self.shift_view)
-            axis_limits_layout.addWidget(button)
-        axis_limits_layout.addStretch()        
         
-        axis_limits_layout.addWidget(QLabel('Viewport:'))
 
-        for view in ['X', 'Y', 'Z', 'ISO']:
-            button = QToolButton()
-            button.setText(view)
-            #button.released.connect(self.change_viewport)
-            axis_limits_layout.addWidget(button)
-        axis_limits_layout.addStretch()      
-            
-        axis_limits_layout.addWidget(QLabel('Zoom:'))
-
-        for zoom in ['+', '-','+X', '-X', '+Y', '-Y', '+Z', '-Z','eq.asp.']:
-            button = QToolButton()
-            button.setText(zoom)
-            #button.released.connect(self.zoom)
-            axis_limits_layout.addWidget(button)
+        
+        
             
         # Buttons for creating/editing geometry and loading solutions
         grid_button = QPushButton('Edit Grid')
@@ -1357,27 +1582,48 @@ class ModeShapeGUI(QMainWindow):
         # values for drawing the modeshapes
         #self.order_combo = QComboBox()
         #self.order_combo.currentIndexChanged[str].connect(self.change_order)
-
+        #textbox for showing information about the currently displayed mode
+        self.info_box = QTextEdit()
+        self.info_box.setReadOnly(True)
+        
+        
         self.mode_combo = QComboBox()
+        frequencies = ['{}: {}'.format(i+1,f) for i,f in enumerate(self.mode_shape_plot.get_frequencies())]
+        self.mode_combo.addItems(frequencies)
         self.mode_combo.currentIndexChanged[str].connect(self.change_mode)
+        
+        
+        
 
         self.amplitude_box = DelayedDoubleSpinBox()
         self.amplitude_box.setRange(0, 1000000000)
-        self.amplitude_box.setValue(self.amplitude)
-        self.amplitude_box.valueChangedDelayed.connect(self.change_amplitude)
+        self.amplitude_box.setValue(mode_shape_plot.amplitude)
+        self.amplitude_box.valueChangedDelayed.connect(mode_shape_plot.change_amplitude)
 
-        self.real_checkbox = QCheckBox('Magn.')
-        self.real_checkbox.setCheckState(Qt.Checked)
-        self.real_checkbox.stateChanged[int].connect(self.change_part)
+        real_checkbox = QCheckBox('Magn.')
+        real_checkbox.setTristate(False)
+        
 
-        self.imag_checkbox = QCheckBox('Magn.+Phase')
+        imag_checkbox = QCheckBox('Magn.+Phase')
+        imag_checkbox.setTristate(False)
+        
 
-        self.real_imag_group = QButtonGroup()
-        self.real_imag_group.addButton(self.real_checkbox)
-        self.real_imag_group.addButton(self.imag_checkbox)
-        self.real_imag_group.setExclusive(True)
-
-        plot_button = QPushButton('Draw')
+        real_imag_group = QButtonGroup()
+        real_imag_group.addButton(real_checkbox,0)
+        real_imag_group.addButton(imag_checkbox,1)        
+        real_imag_group.setExclusive(True)
+        #print(real_imag_group.exclusive(), real_imag_group.checkedId())
+        imag_checkbox.setCheckState(Qt.Unchecked if mode_shape_plot.real else Qt.Checked)
+        
+        #print(real_imag_group.exclusive(), real_imag_group.checkedId())
+        real_checkbox.setCheckState(Qt.Checked if mode_shape_plot.real else Qt.Unchecked)
+        
+        #print(real_imag_group.exclusive(), real_imag_group.checkedId())
+        
+        self.test_=real_imag_group
+        real_checkbox.stateChanged[int].connect(self.mode_shape_plot.change_part)
+        #real_checkbox.stateChanged[int].connect(self.test)
+        #plot_button = QPushButton('Draw')
         #plot_button.released.connect(self.draw_msh)
 
         self.ani_button = QToolButton()
@@ -1386,9 +1632,30 @@ class ModeShapeGUI(QMainWindow):
         self.ani_button.setToolTip("Play")
         self.ani_button.released.connect(self.animate)
         
-        #textbox for showing information about the currently displayed mode
-        self.info_box = QTextEdit()
-        self.info_box.setReadOnly(True)
+        self.ani_lowpass_box = DelayedDoubleSpinBox()
+        self.ani_lowpass_box.setRange(0, 1000000000)
+        self.ani_lowpass_box.valueChangedDelayed.connect(self.prepare_filter)
+        
+        self.ani_highpass_box = DelayedDoubleSpinBox()
+        self.ani_highpass_box.setRange(0, 1000000000)
+        self.ani_highpass_box.valueChangedDelayed.connect(self.prepare_filter)
+        
+        self.ani_speed_box = QDoubleSpinBox()        
+        self.ani_speed_box.setRange(0, 1000000000)
+        self.ani_speed_box.valueChanged[float].connect(self.change_animation_speed)
+        
+        self.ani_position_slider = QSlider(Qt.Horizontal)
+        self.ani_position_slider.setRange(0,mode_shape_plot.prep_data.measurement.shape[0])
+        self.ani_position_slider.valueChanged.connect(self.set_ani_time) 
+        self.ani_position_data = QLineEdit()
+        
+        self.ani_data_button = QToolButton()
+        self.ani_data_button.setIcon(
+            self.style().standardIcon(QStyle.SP_MediaPlay))
+        self.ani_data_button.setToolTip("Play")
+        self.ani_data_button.released.connect(self.filter_and_animate_data)
+        
+
         
         #put everything in layouts
         controls_layout = QGridLayout()
@@ -1397,38 +1664,135 @@ class ModeShapeGUI(QMainWindow):
         controls_layout.addWidget(ms_button, 2, 0)
         controls_layout.addWidget(cd_button, 3, 0)
         controls_layout.addWidget(ssi_button, 4, 0)
+        
+        
 
         sep = QFrame()
         sep.setFrameShape(QFrame.VLine)
 
         controls_layout.addWidget(sep, 0, 1, 5, 1)
+        
+        controls_layout.addWidget(QLabel('Change Viewport:'),0,2,1,2)
+        hbox=QHBoxLayout()
+        for i,view in enumerate(['X', 'Y', 'Z', 'ISO']):
+            button = QToolButton()
+            button.setText(view)
+            button.released.connect(self.change_viewport)
+            hbox.addWidget(button)
+        hbox.addStretch()
+        controls_layout.addLayout(hbox, 0, 4,1,4)
+        
+        self.val_widgets={}
+        lims = self.mode_shape_plot.subplot.get_w_lims()
+        for row,dir in enumerate(['X', 'Y', 'Z']):
+            label = QLabel(dir+' Limits:')
+            r_but = QToolButton()
+            r_but.setText('<-')
+            r_but.released.connect(self.change_view)
+            r_val = QLineEdit()
+            r_val.setText(str(lims[row*2+0]))
+            r_val.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+            r_val.editingFinished.connect(self.change_view)
+            l_val = QLineEdit()
+            l_val.setText(str(lims[row*2+1]))
+            l_val.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+            l_val.editingFinished.connect(self.change_view)
+            l_but = QToolButton()
+            l_but.setText('->')
+            l_but.released.connect(self.change_view)            
+            self.val_widgets[dir]=[r_but,r_val,l_val,l_but]
+            controls_layout.addWidget(label,row+1,0+2)
+            controls_layout.addWidget(r_but,row+1,1+2)
+            controls_layout.addWidget(r_val,row+1,2+2)
+            controls_layout.addWidget(l_val, row+1,3+2)
+            controls_layout.addWidget(l_but, row+1, 4+2)
+        #controls_layout.setColumnStretch(5,10)
+        
+        label = QLabel('Zoom:')
+        r_but = QToolButton()
+        r_but.setText('+') 
+        r_but.released.connect(self.change_view)
+        l_but = QToolButton()
+        l_but.setText('-')
+        l_but.released.connect(self.change_view)  
+        
+        controls_layout.addWidget(label, row+2,0+2)
+        controls_layout.addWidget(r_but, row+2,1+2)
+        controls_layout.addWidget(l_but, row+2,2+2)
+        
+        reset_button = QPushButton('Reset View')
+        reset_button.released.connect(self.reset_view)
 
-        #controls_layout.addWidget(QLabel('Order'), 0, 2)
-        #controls_layout.addWidget(self.order_combo, 0, 3)
-
-        controls_layout.addWidget(QLabel('Mode'), 1, 2)
-        controls_layout.addWidget(self.mode_combo, 1, 3)
-
-        controls_layout.addWidget(QLabel('Amplitude'), 2, 2)
-        controls_layout.addWidget(self.amplitude_box, 2, 3)
-
-        layout = QHBoxLayout()
-        controls_layout.addWidget(QLabel('Complex Part:'), 3, 2)
-        layout.addWidget(self.real_checkbox)
-        layout.addWidget(self.imag_checkbox)
-        controls_layout.addLayout(layout, 3, 3)
-
-        layout = QHBoxLayout()
-        layout.addWidget(QLabel('Show Modeshape:'))
-        layout.addWidget(plot_button)
-        layout.addWidget(self.ani_button)
-        controls_layout.addLayout(layout, 4, 2, 1, 2)
+        controls_layout.addWidget(reset_button, row+2,3+2)
 
         sep = QFrame()
         sep.setFrameShape(QFrame.VLine)
-        controls_layout.addWidget(sep, 0, 4, 5, 1)
 
-        controls_layout.addWidget(self.info_box, 0, 5, 5, 2)
+        tab_widget = QTabWidget()
+
+        tab_1 = QWidget()
+        lay_1 = QGridLayout()
+        tab_2 = QWidget()
+        lay_2 = QGridLayout()
+        #lay_1.setContentsMargins(0,0,0,0)
+        tab_1.setContentsMargins(0,0,0,0)
+        #lay_2.setContentsMargins(0,0,0,0)
+        tab_2.setContentsMargins(0,0,0,0)
+        tab_widget.setContentsMargins(0,0,0,0)
+        #lay_1.setVerticalSpacing(0)
+        #lay_2.setVerticalSpacing(0)
+        
+        controls_layout.addWidget(sep, 0, 7, 5, 1)
+
+        lay_1.addWidget(QLabel('Mode'), 0,0)
+        lay_1.addWidget(self.mode_combo, 0,1)
+
+        lay_1.addWidget(QLabel('Amplitude'), 1,0)
+        lay_1.addWidget(self.amplitude_box, 1,1)
+
+        layout = QHBoxLayout()
+        lay_1.addWidget(QLabel('Complex Modeshape:'), 2,0)
+        layout.addWidget(real_checkbox)
+        layout.addWidget(imag_checkbox)
+        lay_1.addLayout(layout, 2,1)
+
+        layout = QHBoxLayout()
+        #layout.addWidget(QLabel('Show Modeshape:'))
+        #layout.addWidget(self.ani_button)        
+        #lay_1.addLayout(layout, 3,0,0,1)
+        
+        lay_1.addWidget(self.ani_button,3,0,)
+        tab_1.setLayout(lay_1)
+
+        lay_2.addWidget(QLabel('Lowpass [Hz]:'),0,0)
+        lay_2.addWidget(self.ani_lowpass_box,0,1)
+        lay_2.addWidget(QLabel('Highpass [Hz]:'),1,0)
+        lay_2.addWidget(self.ani_highpass_box)
+        lay_2.addWidget(QLabel('Animation Speed [ms]:'),2,0)
+        lay_2.addWidget(self.ani_speed_box,2,1)
+        #lay_2.addWidget(self.ani_data_button,3,0,)
+        layout = QHBoxLayout()
+        layout.addWidget(self.ani_data_button)
+        layout.addWidget(self.ani_position_slider)
+        layout.addWidget(self.ani_position_data)
+        lay_2.addLayout(layout, 3,0,1,2)
+        tab_2.setLayout(lay_2)
+        
+        policy = QSizePolicy.Minimum
+        tab_1.setSizePolicy(policy,policy)
+        tab_2.setSizePolicy(policy,policy)
+        tab_widget.setSizePolicy(policy, policy)
+
+        tab_widget.addTab(tab_1, 'Modeshape')
+        tab_widget.addTab(tab_2, 'Time Histories')
+        
+        controls_layout.addWidget(tab_widget, 0, 8, 5, 1)
+        
+        sep = QFrame()
+        sep.setFrameShape(QFrame.VLine)
+        controls_layout.addWidget(sep, 0, 9, 5, 1)
+
+        controls_layout.addWidget(self.info_box, 0, 10, 5, 2)
 
         vbox = QVBoxLayout()
         
@@ -1452,10 +1816,12 @@ class ModeShapeGUI(QMainWindow):
         self.setCentralWidget(main_frame)
 
         self.showMaximized()
+        self.reset_view()
+        self.mode_combo.setCurrentIndex(1)
+        imag_checkbox.setChecked(True)
+        self.mode_combo.setCurrentIndex(0)
         
-        #instantiate the x,y,z axis arrows
-        #self.draw_axis()
-
+        
     def create_menu(self):
         '''
         create the menubar and add actions to it
@@ -1499,7 +1865,104 @@ class ModeShapeGUI(QMainWindow):
                     (load_file_action, None, quit_action))
 
         help_menu = self.menuBar().addMenu("&Help")
+    
+    def reset_view(self):
+        self.stop_ani()
+        self.mode_shape_plot.reset_view()
+        self.axis_checkbox.setChecked(True)
+        self.nodes_checkbox.setChecked(True)
+        self.draw_button_group.button(0).setChecked(True)
+        self.toggle_draw(0)
+        lims=self.mode_shape_plot.subplot.get_w_lims()
 
+        self.val_widgets['X'][1].setText(str(lims[0]))
+        self.val_widgets['X'][2].setText(str(lims[1]))        
+        self.val_widgets['Y'][1].setText(str(lims[2]))
+        self.val_widgets['Y'][2].setText(str(lims[3]))        
+        self.val_widgets['Z'][1].setText(str(lims[4]))
+        self.val_widgets['Z'][2].setText(str(lims[5]))
+            
+    @pyqtSlot()
+    def change_view(self):
+        '''
+        shift the view along specified axis by +-20 % (hardcoded)
+        works in combination with the appropriate buttons as senders
+        or by passing one of  ['+X', '-X', '+Y', '-Y', '+Z', '-Z']
+        '''
+        sender = self.sender()
+        for dir, widgets in self.val_widgets.items():
+            for i,widget in enumerate(widgets):
+                if sender == widget:
+                    break
+            else:
+                continue
+            val1, val0 = float(widgets[2].text()), float(widgets[1].text())
+            rang = val1-val0
+            if i == 0:
+                val0 -=rang*0.2
+                val1 -=rang*0.2
+            elif i == 3:
+                val0 +=rang*0.2
+                val1 +=rang*0.2
+            widgets[2].setText(str(val1))
+            widgets[1].setText(str(val0))
+            if 'X' in dir:
+                self.mode_shape_plot.subplot.set_xlim3d((val0,val1))
+            elif 'Y' in dir:
+                self.mode_shape_plot.subplot.set_ylim3d((val0,val1))
+            elif 'Z' in dir:
+                self.mode_shape_plot.subplot.set_zlim3d((val0,val1))
+        else:
+            val1, val0 = float(widgets[2].text()), float(widgets[1].text())
+            rang = val1-val0
+            if sender.text() == '+':                
+                rang *=0.8
+            elif sender.text() == '-':
+                rang*=1.25
+                
+        for dir, widgets in self.val_widgets.items():
+            val1_, val0_ = float(widgets[2].text()), float(widgets[1].text())
+            rang_ = val1_-val0_
+            delta = (rang_ - rang)/2
+            val1_ -= delta
+            val0_ += delta
+            widgets[2].setText(str(val1_))
+            widgets[1].setText(str(val0_))    
+            if 'X' in dir:
+                self.mode_shape_plot.subplot.set_xlim3d((val0_,val1_))
+            elif 'Y' in dir:
+                self.mode_shape_plot.subplot.set_ylim3d((val0_,val1_))
+            elif 'Z' in dir:
+                self.mode_shape_plot.subplot.set_zlim3d((val0_,val1_))
+        self.mode_shape_plot.canvas.draw_idle()
+        
+    def update_lims(self, event):
+        if event.button == 3:
+            lims = self.mode_shape_plot.subplot.get_w_lims()
+            for row,dir in enumerate(['X', 'Y', 'Z']):
+                [r_but,r_val,l_val,l_but]=self.val_widgets[dir]
+                r_val.setText(str(lims[row*2+0]))
+                l_val.setText(str(lims[row*2+1]))
+        
+                
+
+            
+    @pyqtSlot()
+    def change_viewport(self, viewport=None):
+        '''
+        change the viewport
+        for non-ISO viewports the projection methods of matplotlib
+        will be monkeypatched, because otherwise it would not be an 
+        axonometric view (functions are defined at the top of document)
+        works in combination with the appropriate buttons as senders or
+        by passing one of ['X', 'Y', 'Z', 'ISO']
+        
+        '''
+        if viewport is None:
+            viewport = self.sender().text()
+            
+        self.mode_shape_plot.change_viewport(viewport)
+                    
     @pyqtSlot()
     def save_plot(self, path=None):
         '''
@@ -1513,9 +1976,8 @@ class ModeShapeGUI(QMainWindow):
                                                    'Save file', '',
                                                     file_choices))
         if path:
-            self.canvas.print_figure(path, dpi=self.dpi)
+            self.mode_shape_plot.save_plot(path)
             self.statusBar().showMessage('Saved to %s' % path, 2000)
-
 
     @pyqtSlot(str)
     def change_mode(self, mode):
@@ -1529,46 +1991,23 @@ class ModeShapeGUI(QMainWindow):
         #print('in change_mode: mode = ', mode)
 
         # mode numbering starts at 1 python lists start at 0
-        self.mode_num = int(float(mode.split(':')[0])) - 1 
+        
+        mode_num = int(float(mode.split(':')[0])) - 1 
+        frequency = float(mode.split(':')[1])
+        mode,order,frequency, damping, MPC, MP, MPD = self.mode_shape_plot.change_mode(frequency)
+        
+        text = 'Selected Mode\n'\
+                      + '=======================\n'\
+                      + 'Frequency [Hz]:\t'           + str(frequency)    + '\n'\
+                      + 'Damping [%]:\t'            + str(damping)    + '\n'\
+                      + 'Model order:\t'            + str(order)      + '\n'\
+                      + 'Mode number: \t'           + str(mode)       + '\n'\
+                      + 'MPC [-]:\t'                + str(MPC)        + '\n'\
+                      + 'MP  [\u00b0]:\t'           + str(MP)         + '\n'\
+                      + 'MPD [-]:\t'                + str(MPD)        + '\n\n'
+        #print(text)             
+        self.info_box.setText(text)
 
-
-    @pyqtSlot()
-    @pyqtSlot(float)
-    def change_amplitude(self, amplitude=None):
-        '''
-        changes the amplitude
-        amplitude either gets passed or will be read from the widget
-        redraw the modeshapes based on this amplitude
-        '''
-        if amplitude is None:
-            amplitude = self.amplitude_box.value()
-
-        if amplitude == self.amplitude:
-            return
-
-        self.amplitude = amplitude
-
-
-
-    @pyqtSlot(bool)
-    def change_part(self, b):
-        '''
-        change, which part of the complex number modeshapes should be 
-        drawn, set the pointer variable based on which widget sent the signal
-        redraw the modeshapes 
-        '''
-        part = self.sender().text()
-        if part == 'Magn.' and b:
-            self.complex_part = 'real'
-        elif part == 'Magn.' and not b:
-            self.complex_part = 'complex'
-        elif part == 'Magn.+Phase' and b:
-            self.complex_part = 'complex'
-        elif part == 'Magn.+Phase' and not b:
-            self.complex_part = 'real'
-
-
-###############################################################################
 
     @pyqtSlot(int)
     def toggle_draw(self, i):
@@ -1577,232 +2016,22 @@ class ModeShapeGUI(QMainWindow):
         i is the number of the button that had it's state changed
         based on i and the checkstate the appropriate functions will be called
         '''
-        checkstate = self.draw_button_group.button(i).checkState()
-
-        if i == 0:  # show/unshow beams
-            if checkstate == Qt.Checked:
-                self.draw_lines()
-            else:
-                self.undraw_lines()
-        elif i == 1:  # show/unshow master slave
-            if checkstate == Qt.Checked:
-                self.draw_master_slaves()
-            else:
-                self.undraw_master_slaves()
-        elif i == 2:  # show/unshow chan dofs
-            if checkstate == Qt.Checked:
-                self.draw_chan_dofs()
-            else:
-                self.undraw_chan_dofs()
-        else:
-            print(i)
-
-    @pyqtSlot(float, float, float, int)
-    def add_node(self, x, y, z, i):
-        '''
-        receive a node from a signal
-        add the coordinates to the internal node table
-        add zero-value displacements for this node to the internal displacements table
-        draw a single point at coordinates
-        draw the number of the node
-        store the two plot objects in a table
-        remove any objects that might be in the table at the desired place
-        i.e. avoid duplicate nodes
-        '''
-        self.grid_checkbox.stateChanged[int].disconnect(self.draw_nodes)
-        self.grid_checkbox.setCheckState(Qt.Checked)
-        self.grid_checkbox.stateChanged[int].connect(self.draw_nodes)
-
-        
-
-    @pyqtSlot(tuple, int)
-    def add_line(self, line, i):
-        '''
-        receive a line coordinates from a signal
-        add the start node and end node to the internal line table
-        draw a line between the tow nodes
-        store the line object in a table
-        remove any objects that might be in the table at the desired place
-        i.e. avoid duplicate lines
-        '''
-
-
         self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
-        self.draw_button_group.button(0).setCheckState(Qt.Checked)
+        self.mode_shape_plot.refresh_lines(False)
+        self.mode_shape_plot.refresh_master_slaves(False)            
+        self.mode_shape_plot.refresh_chan_dofs(False) 
+        if self.draw_button_group.button(i).checkState():
+            for j in range(3):
+                if j==i:continue
+                self.draw_button_group.button(j).setCheckState(Qt.Unchecked)
+            if i == 0:
+                self.mode_shape_plot.refresh_lines(True)
+            elif i == 1:
+                self.mode_shape_plot.refresh_master_slaves(True)
+            elif i == 2:
+                self.mode_shape_plot.refresh_chan_dofs(True)
         self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
 
-        
-
-    @pyqtSlot(int, float, float, float, int, float, float, float, int)
-    def add_master_slave(self, i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl, i):
-        '''
-        receive master-slave definitions from a signal
-        add these definitions to the internal master-slave table
-        draw an arrow indicating the DOF at each node of master and slave
-            as a specialty arrows at equal positions and direction will 
-            be offset to avoid overlapping
-        arrow length's do not scale with the total dimensions of the plot
-        store the two arrow objects in a table
-        remove any objects that might be in the table at the desired place
-        i.e. avoid duplicate arrows
-        '''
-        
-        self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
-        self.draw_button_group.button(1).setCheckState(Qt.Checked)
-        self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
-
-
-    @pyqtSlot(int, int, tuple, int)
-    def add_chan_dof(self, chan, node, dof, i):
-        '''
-        receive a channel - degree of freedom assignment from a signal
-        add the values to the internal channel-dof table
-        draw an arrow indicating the DOF 
-        arrow lengths do not scale with the total dimension of the plot
-        add the channel number to the arrow
-        store the two objects in a table
-        remove any objects that might be in the table at the desired place
-        i.e. avoid duplicate arrows/texts
-        '''
-        
-        self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
-        self.draw_button_group.button(2).setCheckState(Qt.Checked)
-        self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
-
-    def undraw_nodes(self):
-        '''
-        remove all point and text objects belonging to the grid from the plot
-        '''
-
-        self.grid_checkbox.stateChanged[int].disconnect(self.draw_nodes)
-        self.grid_checkbox.setCheckState(Qt.Unchecked)
-        self.grid_checkbox.stateChanged[int].connect(self.draw_nodes)
-
-
-
-    def undraw_lines(self):
-        '''
-        remove all line objects from the plot
-        '''
-
-        self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
-        self.draw_button_group.button(0).setCheckState(Qt.Unchecked)
-        self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
-
-
-
-    def undraw_master_slaves(self):
-        '''
-        remove all arrows belonging to the master-slave 
-        definitions from the plot
-        '''
-
-        self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
-        self.draw_button_group.button(1).setCheckState(Qt.Unchecked)
-        self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
-
-
-
-    def undraw_chan_dofs(self):
-        '''
-        remove all arrows and text objects belonging to the channel - 
-        DOF assignments from the plot
-        '''
-
-        self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
-        self.draw_button_group.button(2).setCheckState(Qt.Unchecked)
-        self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
-
-
-
-        
-    @pyqtSlot()
-    @pyqtSlot(int)
-    @pyqtSlot(dict, dict, dict)
-    def draw_nodes(self, xd=None, yd=None, zd=None):
-        ''''
-        draw gridpoints from self.nodes
-        if displacement values are not passed the currently stored 
-        displacement values are used for moving the nodes
-        '''
-        sender = self.sender()
-        if isinstance(sender, QCheckBox):
-            if self.grid_checkbox.checkState() == Qt.Unchecked:
-                return self.undraw_nodes()
-            elif isinstance(xd, (int, bool)):
-                xd = None
-
-        self.grid_checkbox.stateChanged[int].disconnect(self.draw_nodes)
-        self.grid_checkbox.setCheckState(Qt.Checked)
-        self.grid_checkbox.stateChanged[int].connect(self.draw_nodes)
-        
-        
-
-    def draw_lines(self, xd=None, yd=None, zd=None, beamcolor=None, beamstyle=None):
-        '''
-        draw all the beams in self.geometry_data.lines
-        self.geometry_data.lines=[line1, line2,....]
-            line = [node_start, node_end]
-            node numbering refers to elements in self.nodes
-        xd, yd, zd may be passed to draw custom deflections, else
-        the currently stored displacement values are taken
-        '''
-        #print(xd,yd,zd)
-        self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
-        self.draw_button_group.button(0).setCheckState(Qt.Checked)
-        self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
-
-        
-
-    def draw_master_slaves(self):
-        '''
-        draw arrows for all master-slave definitions stored in the
-        internal master-slave definition table
-        '''
-        self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
-        self.draw_button_group.button(1).setCheckState(Qt.Checked)
-        self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
-
-        
-
-    def draw_chan_dofs(self):
-        '''
-        draw arrows and numbers for all channel-DOF assignemnts stored 
-        in the internal channel - DOF assignment table
-        '''
-        self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
-        self.draw_button_group.button(2).setCheckState(Qt.Checked)
-        self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
-
-
-
-    @pyqtSlot()
-    def load_ssi_solutions(self, path=''):
-        '''
-        check prerequisits for drawing a modeshape
-        i.e. grid, beam, master-slave definitions, channel-DOF assignments
-        load the solutions file 
-        read all the available order numbers and add them to the combo box
-        restore the order number in the combo box, which will lead to a
-        signal being emitted that will cause the mode selection box to be 
-        updated as well
-        '''
-
-        if self.ssi_solutions_path is None:
-            #self.ssi_solutions_path = QFileDialog.getOpenFileName(
-            #    caption='Open SSI Solutions File', filter="*.slv")
-            self.ssi_solutions_path = \
-               QFileDialog.getExistingDirectory(caption='Open Directory with modal results', \
-               directory=self.ssi_solutions_path, \
-               options=QFileDialog.ShowDirsOnly)
-
-        self.frequency_file = self.ssi_solutions_path + '/frequencies.npy'
-        self.damping_file = self.ssi_solutions_path + '/damping.npy'
-        self.mode_shape_file = self.ssi_solutions_path + '/mode_shapes.npy'
-        
-        self.all_frequencies = np.load(self.frequency_file)
-        self.all_damping = np.load(self.damping_file)
-        self.all_mode_shapes = np.load(self.mode_shape_file)
 
     @pyqtSlot()
     def stop_ani(self):
@@ -1820,16 +2049,85 @@ class ModeShapeGUI(QMainWindow):
         create necessary objects to animate the currently displayed
         deformed structure
         '''
-        if self.animated:
+        if self.mode_shape_plot.animated:
             self.ani_button.setIcon(
                 self.style().standardIcon(QStyle.SP_MediaPlay))
-            self.animated = False
-            return #self.draw_msh()
+            self.mode_shape_plot.stop_ani()
         else:
+            if self.mode_shape_plot.data_animated:
+                self.ani_data_button.setIcon(
+                    self.style().standardIcon(QStyle.SP_MediaPlay))
+                self.mode_shape_plot.stop_ani()
+            self.nodes_checkbox.setCheckState(False)
+            self.axis_checkbox.setCheckState(False)
             self.ani_button.setIcon(
                 self.style().standardIcon(QStyle.SP_MediaPause))
-            self.animated = True
-
+            self.mode_shape_plot.animate()
+    
+    def prepare_filter(self):
+        lowpass = self.ani_lowpass_box.value()
+        highpass = self.ani_highpass_box.value()
+        #print(lowpass, highpass)
+        try:
+            lowpass = float(lowpass)
+        except ValueError:
+            lowpass = None
+        try:
+            highpass = float(highpass)
+        except ValueError:
+            highpass = None
+        
+        if lowpass == 0.0:
+            lowpass = None
+        if highpass == 0.0:
+            highpass = None
+        if lowpass and highpass:
+            assert lowpass > highpass
+        #print(highpass, lowpass)
+        self.mode_shape_plot.prep_data.filter_data(lowpass, highpass)
+    
+    def set_ani_time(self, pos):
+        #print(pos)
+        tot_len = self.mode_shape_plot.prep_data.measurement.shape[0]
+        #pos = int(pos*tot_len)
+        self.mode_shape_plot.line_ani.frame_seq = iter(range(pos,tot_len))
+        
+    def change_animation_speed(self, speed):
+        try:
+            speed = float(speed)
+        except ValueError:
+            return
+        
+        #print(speed)
+        self.mode_shape_plot.line_ani.event_source.interval = int(speed)
+        self.mode_shape_plot.line_ani.event_source._timer_set_interval()
+         
+    @pyqtSlot()
+    def filter_and_animate_data(self):
+        '''
+        create necessary objects to animate the currently displayed
+        deformed structure
+        '''
+        if self.mode_shape_plot.data_animated:
+            self.ani_data_button.setIcon(
+                self.style().standardIcon(QStyle.SP_MediaPlay))
+            self.mode_shape_plot.stop_ani()
+        else:
+            if self.mode_shape_plot.animated:
+                self.ani_button.setIcon(
+                    self.style().standardIcon(QStyle.SP_MediaPlay))
+                self.mode_shape_plot.stop_ani()
+            self.nodes_checkbox.setCheckState(False)
+            self.axis_checkbox.setCheckState(False)
+            self.ani_data_button.setIcon(
+                self.style().standardIcon(QStyle.SP_MediaPause))
+            self.mode_shape_plot.filter_and_animate_data(callback=self.ani_position_data.setText)
+            
+    def closeEvent(self, *args, **kwargs):
+        self.mode_shape_plot.stop_ani()
+        FigureCanvasQTAgg.resizeEvent = old_resize_event
+        self.deleteLater()
+        return QMainWindow.closeEvent(self, *args, **kwargs)   
 
 class DelayedDoubleSpinBox(QDoubleSpinBox):
     '''
@@ -2861,10 +3159,12 @@ def start_msh_gui(mode_shape_plot):
         app=QApplication(sys.argv)
 
     form = ModeShapeGUI(mode_shape_plot)
-    mode_shape_plot.animate()
+
     loop=QEventLoop()
     form.destroyed.connect(loop.quit)
     loop.exec_()
+    #FigureCanvasQTAgg.resize_event=old_resize_event
+    return
 
 if __name__ == "__main__":
     pass
