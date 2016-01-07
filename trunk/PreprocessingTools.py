@@ -384,7 +384,7 @@ class PreprocessData(object):
         else:
             start_time=datetime.datetime.now()
         self.start_time=start_time
-        print(self.start_time)
+        #print(self.start_time)
         #self.geometry_data = None
         
         self.chan_dofs = []
@@ -827,7 +827,7 @@ class PreprocessData(object):
             sample_signal = self.measurement[:,column]  
    
             # one-dimensional averaged discrete Fourier Transform for real input
-            section_length = 2048
+            section_length = 8196
             overlap = 0.5 * section_length
             increment = int(section_length - overlap)
             num_average = (len(sample_signal) - section_length) // increment

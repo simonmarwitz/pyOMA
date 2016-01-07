@@ -1318,7 +1318,7 @@ class ModeShapePlot(object):
             self.callback(str(num/self.prep_data.sampling_rate))
             disp_nodes={ i : [0,0,0] for i in self.geometry_data.nodes.keys() } 
             for chan_, node, az, elev, chan_name in self.prep_data.chan_dofs:
-                x,y,z = self.calc_xyz(az, elev)
+                x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
                 disp_nodes[node][0]+=self.prep_data.measurement_filt[num,chan_]*x*self.amplitude
                 disp_nodes[node][1]+=self.prep_data.measurement_filt[num,chan_]*y*self.amplitude
                 disp_nodes[node][2]+=self.prep_data.measurement_filt[num,chan_]*z*self.amplitude
