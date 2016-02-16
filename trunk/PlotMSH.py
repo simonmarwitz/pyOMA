@@ -1,14 +1,18 @@
 # GUI
-#from PyQt4 import QtGui, QtCore
-from PyQt4.QtGui import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
+#from PyQt5 import QtGui, QtCore
+
+from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
     QCheckBox, QButtonGroup, QLabel, QToolButton, QComboBox, QStyle,\
-    QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction, QIcon,\
+    QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction, \
     QFileDialog, QInputDialog, QMessageBox, QDoubleSpinBox, QTableWidget,\
     QSpinBox, QAbstractItemView, QTableWidgetItem, QApplication, QSizePolicy, QLineEdit, QTabWidget,\
     QSlider
-from PyQt4.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMsgHandler, QEventLoop, QSize
+from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMessageHandler, QEventLoop, QSize
 # Matplotlib
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
+import matplotlib
+matplotlib.use("Qt5Agg",force=True) 
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d.axes3d import Axes3D, proj3d  # @UnresolvedImport
@@ -117,7 +121,7 @@ class ModeShapePlot(object):
     This class is used for displaying modal values and modeshapes obtained
     by the SSICovRef class by Mihai-Andrei Udrea 2013 
     (Bauhaus-Universität Weimar, Institut für Strukturmechanik). An
-    interactive GUI based on PyQt4 is used to create such plots.
+    interactive GUI based on PyQt5 is used to create such plots.
 
     Abilities include:
 
@@ -1420,7 +1424,7 @@ class ModeShapeGUI(QMainWindow):
     This class is used for displaying modal values and modeshapes obtained
     by the SSICovRef class by Mihai-Andrei Udrea 2013 
     (Bauhaus-Universität Weimar, Institut für Strukturmechanik). An
-    interactive GUI based on PyQt4 is used to create such plots.
+    interactive GUI based on PyQt5 is used to create such plots.
 
     Abilities include:
 
@@ -3151,7 +3155,7 @@ def start_msh_gui(mode_shape_plot):
     def handler(msg_type, msg_string):
         pass
     
-    qInstallMsgHandler(handler)#suppress unimportant error msg
+    qInstallMessageHandler(handler)#suppress unimportant error msg
     if not 'app' in globals().keys():
         global app
         app=QApplication(sys.argv)

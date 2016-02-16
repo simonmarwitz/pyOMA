@@ -8,11 +8,12 @@ import numpy as np
 import sys
 import os
 import datetime
-
+import matplotlib
+matplotlib.use("Qt5Agg",force=True) 
 from matplotlib import rcParams
 from matplotlib import ticker
 from matplotlib.axes import Axes
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg, FigureCanvasQT
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, FigureCanvasQT
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.figure import Figure
 from matplotlib.text import TextPath, FontProperties
@@ -21,13 +22,14 @@ from matplotlib.markers import MarkerStyle
 from matplotlib.widgets import Cursor
 import types
 
-from PyQt4.QtGui import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
+from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
     QCheckBox, QButtonGroup, QLabel, QComboBox, \
-    QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction, QIcon,\
+    QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction,\
     QFileDialog,  QMessageBox,  \
      QApplication, QRadioButton,\
-    QLineEdit, QPalette
-from PyQt4.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMsgHandler, QEventLoop
+    QLineEdit
+from PyQt5.QtGui import QIcon, QPalette
+from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHandler, QEventLoop
 from SSICovRef import SSICovRef
 import PlotMSH
 from PreprocessingTools import PreprocessData
@@ -1575,7 +1577,7 @@ def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None
     if not isinstance(app, QApplication):
         app=QApplication(sys.argv)
         
-    qInstallMsgHandler(handler) #suppress unimportant error msg
+    qInstallMessageHandler(handler) #suppress unimportant error msg
    
     stabil_gui = StabilGUI(stabil_plot, cmpl_plot, msh_plot)
     stabil_plot.cursor.add_datapoints(select_modes)

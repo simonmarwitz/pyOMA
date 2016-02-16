@@ -439,7 +439,7 @@ class PreprocessData(object):
                     
         if chan_dofs_file is not None:
             chan_dofs = cls.load_chan_dofs(chan_dofs_file)
-        print(delete_channels)
+        #print(delete_channels)
         if delete_channels:
             #delete_channels.sort(reverse=True)
             
@@ -484,7 +484,8 @@ class PreprocessData(object):
         roving_channels = [i for i in range(num_channels) if i not in ref_channels]
         if not accel_channels and not velo_channels and not disp_channels:
             accel_channels = [i for i in range(num_channels)]
-        print(measurement.shape, ref_channels)
+        #print(measurement.shape, ref_channels)
+        #print(measurement)
         prep_data = cls(measurement, sampling_rate, total_time_steps, 
                  num_channels,ref_channels, roving_channels,
                  accel_channels, velo_channels, disp_channels, channel_headers=headers, start_time=start_time )
@@ -573,7 +574,7 @@ class PreprocessData(object):
             start_time += datetime.timedelta(seconds = float(start_sec))
             f.seek(0)
             #print(i, num_vars)
-            print(kwargs)
+            #print(kwargs)
             measurement=np.loadtxt(f, 
                           dtype=kwargs.get('dtype',float), 
                           comments=kwargs.get('comments','#'), 
@@ -585,7 +586,7 @@ class PreprocessData(object):
                           ndmin=kwargs.get('ndmin',0))
             
             assert measurement.shape [0] > measurement.shape [1]
-        print(measurement[0,:])    
+        #print(measurement[0,:])    
         print(headers, measurement.shape)
             
         return headers, units, start_time, sample_rate, measurement  

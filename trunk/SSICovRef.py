@@ -69,12 +69,13 @@ class SSICovRef(object):
             assert f.__next__().strip('\n').strip(' ')== 'Use Multiprocessing:'
             multiprocessing= f.__next__().strip('\n').strip(' ')=='yes'
             
-        
         ssi_object = cls(prep_data)
-        ssi_object.build_toeplitz_cov(num_block_columns, multiprocessing)
+        ssi_object.build_toeplitz_cov(num_block_columns, multiprocess=multiprocessing)
         ssi_object.compute_state_matrices(max_model_order)
         ssi_object.compute_modal_params(multiprocessing)
-
+        
+        return ssi_object
+        
     def build_toeplitz_cov(self, num_block_columns, num_block_rows=None, multiprocess=True):
         '''
         Builds a Block-Toeplitz Matrix of Covariances with varying time lags
@@ -84,6 +85,7 @@ class SSICovRef(object):
             |    ...    ...      ...    ...    |
             |    R_2i-1 ...      ...    R_i    |
         '''
+        #print(multiprocess)
         assert isinstance(num_block_columns, int)
         if num_block_rows is None:
             num_block_rows=num_block_columns
@@ -114,7 +116,7 @@ class SSICovRef(object):
         
         print('Computing covariances...')
         n, m = num_analised_channels*num_block_rows, num_ref_channels*num_block_columns
- 
+        
         if multiprocess:
             toeplitz_memory = mp.Array(c.c_double, np.zeros(n*m)) # shared memory, can be used by multiple processes @UndefinedVariable
             toeplitz_shape = (n,m)
@@ -185,8 +187,10 @@ class SSICovRef(object):
                         
                         begin_extract = num_block_columns + i - (ii)
                         current_signals = measurement[begin_extract : (begin_extract+extract_length), all_channels].T
-                        covariances = np.cov(refs,current_signals)
-                        this_block = covariances[num_ref_channels:(num_ref_channels + num_analised_channels),:num_ref_channels]
+                        this_block = (np.dot(refs, current_signals.T.conj()) / refs.shape[1]).T
+                        #print(this_block)
+                        #covariances = np.cov(refs,current_signals)
+                        #this_block = covariances[num_ref_channels:(num_ref_channels + num_analised_channels),:num_ref_channels]
                         
                         begin_Toeplitz_row = i*num_analised_channels
                         
@@ -202,8 +206,11 @@ class SSICovRef(object):
                      
                     begin_extract = num_block_columns + i
                     current_signals = (measurement[begin_extract:(begin_extract + extract_length),all_channels]).T
-                    covariances = np.cov(refs,current_signals)
-                    this_block = covariances[num_ref_channels:(num_ref_channels + num_analised_channels),:num_ref_channels]
+                    
+                    this_block = (np.dot(refs, current_signals.T.conj()) / refs.shape[1]).T
+                    #print(this_block)
+                    #covariances = np.cov(refs,current_signals)
+                    #this_block = covariances[num_ref_channels:(num_ref_channels + num_analised_channels),:num_ref_channels]
                      
                     Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row+num_analised_channels),
                                      0:num_ref_channels] = this_block
