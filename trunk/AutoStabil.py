@@ -60,7 +60,8 @@ class AutoStabil(StabilPlot):
         
         #modal_frequencies = self.modal_frequencies[~self.modal_frequencies.mask]
         #print(self.modal_frequencies)
-        mean = self.modal_frequencies.mean()
+        mf = self.modal_frequencies.compressed()
+        mean = np.median(mf)
         #print(self.stab_frequency, self.stab_damping, self.stab_MAC, self.d_range, self.mpc_min, self.mp_max, self.mpd_max, self.frange, self.drange)
         #print(mean)
         #clusters = [[] for i in range(num_modes)]
