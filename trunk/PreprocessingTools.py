@@ -326,7 +326,9 @@ class PreprocessData(object):
         
         if total_time_steps is None:
             total_time_steps = measurement.shape[0]
+        
         assert  measurement.shape[0] >= total_time_steps
+
         self.total_time_steps = total_time_steps
         
         if ref_channels is None:
@@ -339,9 +341,11 @@ class PreprocessData(object):
         self.num_ref_channels = len(self.ref_channels)
         self.num_roving_channels = len(self.roving_channels)
         self.num_analised_channels = self.num_ref_channels + self.num_roving_channels
+        
         if num_channels is None:
             num_channels = self.num_analised_channels
             
+        assert num_channels <= self.measurement.shape[1]    
         
         if ((self.num_ref_channels + self.num_roving_channels) > num_channels):
                 sys.exit('The sum of reference and roving channels is greater than the number of all channels!')
@@ -360,11 +364,15 @@ class PreprocessData(object):
                     sys.exit('Any channel can be either a reference OR a roving channel. Check your definitions!')
         
         for channel in self.ref_channels+self.roving_channels:
-            assert (channel in accel_channels) + (channel in velo_channels) + (channel in disp_channels) <= 1
+            if (channel in accel_channels) + (channel in velo_channels) + (channel in disp_channels) != 1:
+                import warnings
+                warnings.warn('Measuring quantity of channel {} is not defined.'.format(channel))  
             
         self.accel_channels = accel_channels
         self.velo_channels = velo_channels
         self.disp_channels = disp_channels
+        
+        #print(self.accel_channels,self.velo_channels,self.disp_channels)
         
         if setup_name is None:            
             setup_name = ''
@@ -386,6 +394,8 @@ class PreprocessData(object):
         self.start_time=start_time
         #print(self.start_time)
         #self.geometry_data = None
+        
+        self.channel_factors = [1 for channel in range(self.measurement.shape[1])]
         
         self.chan_dofs = []
         
@@ -412,11 +422,11 @@ class PreprocessData(object):
             assert f.__next__().strip('\n').strip(' ')== 'Reference Channels:'
             ref_channels=f.__next__().strip('\n').split(' ')
             if ref_channels:
-                ref_channels=[int(val) for val in ref_channels]
+                ref_channels=[int(val) for val in ref_channels if val.isnumeric()]
             assert f.__next__().strip('\n').strip(' ')== 'Delete Channels:'
             delete_channels=f.__next__().strip('\n ').split(' ')
             if delete_channels:
-                delete_channels=[int(val) for val in delete_channels]
+                delete_channels=[int(val) for val in delete_channels  if val.isnumeric()]
             assert f.__next__().strip('\n').strip(' ')== 'Accel. Channels:'
             accel_channels=f.__next__().strip('\n ').split()
             if accel_channels:
@@ -430,8 +440,15 @@ class PreprocessData(object):
             if disp_channels:
                 disp_channels=[int(val) for val in disp_channels]
         
-        headers, units, start_time, sample_rate, measurement   = cls.load_measurement_file(meas_file, ftype=kwargs.get('ftype','ascii'), **kwargs)
+        loaded_data   = cls.load_measurement_file(meas_file, **kwargs)
         
+        if not isinstance(loaded_data, np.ndarray):
+            headers, units, start_time, sample_rate, measurement = loaded_data
+        else:
+            measurement = loaded_data
+            start_time=datetime.datetime.now()
+            sample_rate = sampling_rate
+            headers = ['Channel_{}'.format(i) for i in range(measurement.shape[1])]
         if not sample_rate == sampling_rate:
             raise RuntimeError('Sampling Rate from file: {} does not correspond with specified Sampling Rate from configuration {}'.format(sample_rate, sampling_rate))
         
@@ -520,8 +537,8 @@ class PreprocessData(object):
                     continue
                 if line[0].startswith('#'):
                     break
-                
-                chan_num, node, az, elev, chan_name = [float(line[i]) if not i in [1,4] else line[i].strip(' ') for i in range(5) ]
+                while len(line)<=5:line.append('')
+                chan_num, node, az, elev, chan_name = [float(line[i]) if not i in [1,4] else line[i].strip(' ') for i in range(5)]
                 chan_dofs.append([chan_num, node, az, elev, chan_name])
         return chan_dofs
     
@@ -765,7 +782,29 @@ class PreprocessData(object):
                 self.measurement[:,ii] = tmp - tmp[0:x].mean(0)
             else:
                 self.measurement[:,ii] = tmp - tmp.mean(0)
-
+    
+    def precondition_data(self, method='iqr'):
+        
+        assert method in ['iqr', 'range']
+        
+        self.correct_offset()
+        
+        for i in range(self.measurement.shape[1]):
+            tmp = self.measurement[:,i]
+            if method == 'iqr':
+                factor = np.subtract(*np.percentile(tmp, [95, 5]))
+            elif method == 'range':
+                factor = np.max(tmp) - np.min(tmp)
+            self.measurement[:,i] /= factor
+            self.channel_factors[i]=factor
+        
+        #import matplotlib.pyplot as plot
+        #print(self.channel_factors)
+        #for i in range(self.measurement.shape[1]):
+        #    plot.hist(self.measurement[:,i],bins=50,alpha=0.1)
+        #plot.show()
+        
+    
     def decimate_data(self, decimate_factor):  
         '''
         decimates the measurement data by the supplied factor
@@ -782,6 +821,8 @@ class PreprocessData(object):
             else:
                 meas_decimated[:,ii] = signal.decimate(self.measurement[:,ii], decimate_factor, axis = 0) 
                 
+        self.sampling_rate /=decimate_factor
+        self.total_time_steps /=decimate_factor
         self.measurement = meas_decimated
     
     def correct_time_lag(self, channel, lag, sampling_rate):

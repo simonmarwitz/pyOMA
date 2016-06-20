@@ -32,9 +32,9 @@ from math import cos, pi, fmod
 #tools
 import itertools
 from numpy import disp
-from StabilDiagram import StabilPlot
+from StabilDiagram import StabilCalc
 from PreprocessingTools import PreprocessData, GeometryProcessor
-from SSICovRef import SSICovRef
+from SSICovRef import BRSSICovRef,CVASSICovRef
 from pyparsing import line
 from copy import deepcopy
 
@@ -172,7 +172,7 @@ class ModeShapePlot(object):
     chan_dofs_requested = pyqtSignal(str, bool)
 
     def __init__(self,
-                 stabil_data,
+                 stabil_calc,
                  modal_data,
                  geometry_data,
                  prep_data,       
@@ -188,14 +188,14 @@ class ModeShapePlot(object):
                  beamstyle='-'
                  ):
 
-        assert isinstance(stabil_data, StabilPlot)
-        self.stabil_data = stabil_data
+        assert isinstance(stabil_calc, StabilCalc)
+        self.stabil_calc = stabil_calc
         
-        self.setup_name = stabil_data.setup_name
-        self.start_time = stabil_data.start_time
+        self.setup_name = modal_data.setup_name
+        self.start_time = modal_data.start_time
         
-        #modal_data = stabil_data.modal_data
-        assert isinstance(modal_data, SSICovRef)
+        #modal_data = stabil_calc.modal_data
+        assert isinstance(modal_data, (BRSSICovRef,CVASSICovRef))
         self.modal_data = modal_data
         
         assert isinstance(geometry_data, GeometryProcessor)
@@ -366,7 +366,7 @@ class ModeShapePlot(object):
         and plot the mode shape
         '''
         # mode numbering starts at 1 python lists start at 0
-        selected_indices = self.stabil_data.select_modes
+        selected_indices = self.stabil_calc.select_modes
         if frequency is not None:       
             frequencies =np.array([self.modal_data.modal_frequencies[index[0],index[1]] for index in selected_indices])     
             f_delta= abs(frequencies-frequency)
@@ -379,18 +379,18 @@ class ModeShapePlot(object):
         #print(mode_index)
         frequency = self.modal_data.modal_frequencies[mode_index[0],mode_index[1]]
         damping = self.modal_data.modal_damping[mode_index[0],mode_index[1]]
-        MPC = self.stabil_data.MPC_matrix[mode_index[0],mode_index[1]]
-        MP = self.stabil_data.MP_matrix[mode_index[0],mode_index[1]]
-        MPD = self.stabil_data.MPD_matrix[mode_index[0],mode_index[1]]
+        MPC = self.stabil_calc.MPC_matrix[mode_index[0],mode_index[1]]
+        MP = self.stabil_calc.MP_matrix[mode_index[0],mode_index[1]]
+        MPD = self.stabil_calc.MPD_matrix[mode_index[0],mode_index[1]]
         
         self.mode_index = mode_index
         
         self.draw_msh()
         
-        return mode_index[0], mode_index[1], frequency, damping, MPC, MP, MPD #order, mode_num,....
+        return mode_index[1], mode_index[0], frequency, damping, MPC, MP, MPD #order, mode_num,....
 
     def get_frequencies(self):
-        selected_indices = self.stabil_data.select_modes
+        selected_indices = self.stabil_calc.select_modes
         
         frequencies =[self.modal_data.modal_frequencies[index[0],index[1]] for index in selected_indices]
         frequencies.sort()
@@ -1004,6 +1004,7 @@ class ModeShapePlot(object):
             node = self.geometry_data.nodes[key]
             disp_node = self.disp_nodes.get(key, [0,0,0])
             line = self.cn_lines_objects.get(key,None)
+            if line is None: continue
             
             x,y,z=[node[0],node[0]+disp_node[0]], [node[1],node[1]+disp_node[1]], [node[2],node[2]+disp_node[2]]
             line.set_visible(self.show_nd_lines)     
@@ -1094,7 +1095,7 @@ class ModeShapePlot(object):
         '''
 
         mode_shape = self.modal_data.mode_shapes[:,self.mode_index[1], self.mode_index[0]]
-        mode_shape = SSICovRef.rescale_mode_shape(mode_shape)
+        mode_shape = BRSSICovRef.rescale_mode_shape(mode_shape)
         ampli = self.amplitude
 
         self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() } 
