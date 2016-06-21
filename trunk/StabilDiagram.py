@@ -1621,7 +1621,7 @@ You may run "calculate_stabilization_masks(params)" to adjust stabilization "par
         proximity_matrix = self.weight_f * f_proximity_matrix + self.weight_MAC * mac_proximity_matrix + self.weight_d * d_proximity_matrix
         proximity_matrix[proximity_matrix < np.finfo(proximity_matrix.dtype).eps] = 0 # correct round off errors
         
-        self.proximity_matrix_sq = scipy.spatial.distance.squareform(proximity_matrix)
+        self.proximity_matrix_sq = scipy.spatial.distance.squareform(proximity_matrix, checks=False)
         linkage_matrix = scipy.cluster.hierarchy.linkage(self.proximity_matrix_sq, method='single')
         self.cluster_assignments = scipy.cluster.hierarchy.fcluster(linkage_matrix, self.threshold, criterion='distance')         
         
