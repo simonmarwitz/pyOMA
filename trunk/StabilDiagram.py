@@ -990,12 +990,12 @@ class StabilCalc(object):
         MPD/=90   # normalized         
         return MPD, MP     
     
-    def export_results(self, fname):
+    def export_results(self, fname, binary=False):
 
         if self.select_modes:
             self.masked_frequencies.mask = np.ma.nomask
             self.order_dummy.mask = np.ma.nomask
-
+        
             selected_freq = [self.masked_frequencies[index] for index in self.select_modes]
             selected_damp = [self.modal_data.modal_damping[index] for index in self.select_modes]
             selected_order = [self.order_dummy[index] for index in self.select_modes]
@@ -1060,9 +1060,20 @@ class StabilCalc(object):
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
         
-        f = open(fname, 'w')          
-        f.write(export_modes)
-        f.close()
+        if binary:
+            np.savez_compressed(fname,{'selected_freq':selected_freq,
+            'selected_damp':selected_damp,
+            'selected_order':selected_order,
+            'selected_MPC':selected_MPC,
+            'selected_MP':selected_MP,
+            'selected_MPD':selected_MPD,
+            'selected_modes':selected_modes})
+        else:
+            f = open(fname, 'w')          
+            f.write(export_modes)
+            f.close()
+        
+        
         
     def calculate_stabilization_masks(self, order_range = None, d_range = None, \
                                       uf_max = None, ud_max = None, \
@@ -1331,7 +1342,7 @@ class StabilCalc(object):
         
         out_dict['self.select_modes']=self.select_modes
         
-        np.savez(fname, **out_dict)
+        np.savez_compressed(fname, **out_dict)
         
     @classmethod 
     def load_state(cls, fname, modal_data, prep_data=None):
@@ -2705,7 +2716,7 @@ def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None
     if not isinstance(app, QApplication):
         app=QApplication(sys.argv)
         
-    qInstallMessageHandler(handler) #suppress unimportant error msg
+    #qInstallMessageHandler(handler) #suppress unimportant error msg
    
     stabil_gui = StabilGUI(stabil_plot, cmpl_plot, msh_plot)
     stabil_plot.cursor.add_datapoints(select_modes)
@@ -2713,6 +2724,7 @@ def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None
     stabil_gui.destroyed.connect(loop.quit)
     loop.exec_()
     print('Exiting GUI')
+    canvas = FigureCanvasBase(stabil_plot.fig)
     return
 
 class FigureCanvasQTAgg_(FigureCanvasQTAgg):

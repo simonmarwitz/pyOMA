@@ -479,7 +479,7 @@ class BRSSICovRef(object):
             out_dict['self.modal_damping'] = self.modal_damping
             out_dict['self.mode_shapes'] = self.mode_shapes
             
-        np.savez(fname, **out_dict)
+        np.savez_compressed(fname, **out_dict)
         
     @classmethod 
     def load_state(cls, fname, prep_data):
@@ -1151,7 +1151,7 @@ class CVASSICovRef(object):
             out_dict['self.modal_damping'] = self.modal_damping
             out_dict['self.mode_shapes'] = self.mode_shapes
             
-        np.savez(fname, **out_dict)
+        np.savez_compressed(fname, **out_dict)
         
     @classmethod 
     def load_state(cls, fname, prep_data):

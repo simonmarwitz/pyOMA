@@ -485,7 +485,11 @@ class ModeShapePlot(object):
         while len(self.lines_objects) < i + 1:
             self.lines_objects.append(None)
         if self.lines_objects[i] is not None:
-            self.lines_objects[i].remove()
+            try:
+                self.lines_objects[i].remove()
+            except ValueError:
+                pass
+                #del self.lines_objects[i]
         self.lines_objects[i] = line_object
 
         self.canvas.draw_idle()
@@ -512,7 +516,11 @@ class ModeShapePlot(object):
         while len(self.nd_lines_objects) < i + 1:
             self.nd_lines_objects.append(None)
         if self.nd_lines_objects[i] is not None:
-            self.nd_lines_objects[i].remove()
+            try:
+                self.nd_lines_objects[i].remove()
+            except ValueError:
+                pass
+                #del self.nd_lines_objects[i]
         self.nd_lines_objects[i] = line_object
 
         self.canvas.draw_idle() 
@@ -539,7 +547,10 @@ class ModeShapePlot(object):
                         color=beamcolor, linestyle=beamstyle,  visible = self.show_nd_lines)[0]
 
         if self.cn_lines_objects.get(i,None) is not None:
-            self.cn_lines_objects[i].remove()
+            try:
+                self.cn_lines_objects[i].remove()
+            except ValueError:
+                pass
         self.cn_lines_objects[i] = line_object
 
         self.canvas.draw_idle()   
@@ -1996,8 +2007,10 @@ class ModeShapeGUI(QMainWindow):
         #print('in change_mode: mode = ', mode)
 
         # mode numbering starts at 1 python lists start at 0
+        mode_num = mode.split(':') # if mode is empty
+        if not mode_num[0]: return
         
-        mode_num = int(float(mode.split(':')[0])) - 1 
+        mode_num = int(float(mode_num[0])) - 1 
         frequency = float(mode.split(':')[1])
         mode,order,frequency, damping, MPC, MP, MPD = self.mode_shape_plot.change_mode(frequency)
         
@@ -3156,7 +3169,7 @@ def start_msh_gui(mode_shape_plot):
     def handler(msg_type, msg_string):
         pass
     
-    qInstallMessageHandler(handler)#suppress unimportant error msg
+    #qInstallMessageHandler(handler)#suppress unimportant error msg
     if not 'app' in globals().keys():
         global app
         app=QApplication(sys.argv)

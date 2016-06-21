@@ -657,7 +657,7 @@ class PreprocessData(object):
         
         #out_dict['self.geometry_data'] = self.geometry_data
 
-        np.savez(fname, **out_dict)
+        np.savez_compressed(fname, **out_dict)
          
     @classmethod
     def load_state(cls, fname):
@@ -766,7 +766,15 @@ class PreprocessData(object):
         #plt.legend()
         #plt.show()
         
-    
+    def plot_data(self, channels=[]):
+        if len(channels)==0:
+            channels=list(range(self.num_analised_channels))
+        import matplotlib.pyplot as plot
+        import matplotlib.cm as cm
+        colors = cm.rainbow(np.linspace(0, 1, len(channels)))
+        for channel in channels:
+            plot.plot(self.measurement[:,channel], label=self.channel_headers[channel], color=colors[channel])
+        plot.show()
     
     def correct_offset(self, x=None):
         '''
@@ -820,7 +828,7 @@ class PreprocessData(object):
                 meas_decimated[:,ii] = tmp
             else:
                 meas_decimated[:,ii] = signal.decimate(self.measurement[:,ii], decimate_factor, axis = 0) 
-                
+        
         self.sampling_rate /=decimate_factor
         self.total_time_steps /=decimate_factor
         self.measurement = meas_decimated
@@ -869,7 +877,7 @@ class PreprocessData(object):
             sample_signal = self.measurement[:,column]  
    
             # one-dimensional averaged discrete Fourier Transform for real input
-            section_length = 8196
+            section_length = 2048
             overlap = 0.5 * section_length
             increment = int(section_length - overlap)
             num_average = (len(sample_signal) - section_length) // increment
