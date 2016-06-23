@@ -451,7 +451,7 @@ class PreprocessData(object):
             headers = ['Channel_{}'.format(i) for i in range(measurement.shape[1])]
         if not sample_rate == sampling_rate:
             raise RuntimeError('Sampling Rate from file: {} does not correspond with specified Sampling Rate from configuration {}'.format(sample_rate, sampling_rate))
-        
+        print(headers)
         
                     
         if chan_dofs_file is not None:
