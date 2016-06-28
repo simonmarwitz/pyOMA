@@ -79,11 +79,11 @@ class BRSSICovRef(object):
     def build_toeplitz_cov(self, num_block_columns, num_block_rows=None, multiprocess=True):
         '''
         Builds a Block-Toeplitz Matrix of Covariances with varying time lags
-        
-            |    R_i    R_i-1    ...    R_1    |
-            |    R_i+1  R_i      ...    R_2    |
-            |    ...    ...      ...    ...    |
-            |    R_2i-1 ...      ...    R_i    |
+            | <- num_block_columns*num_ref_channels-> |_
+            |     R_i      R_i-1      ...      R_1    |^
+            |     R_i+1    R_i        ...      R_2    |num_block_rows*num_analised_channels
+            |     ...      ...        ...      ...    |v
+            |     R_2i-1   ...        ...      R_i    |_
         '''
         #print(multiprocess)
         assert isinstance(num_block_columns, int)
@@ -292,7 +292,7 @@ class BRSSICovRef(object):
         U = U[:,:max_model_order]
         Oi = np.dot(U, S_2)
         C = Oi[:num_channels,:]   
-        
+        return S
         A = np.dot(np.linalg.pinv(Oi[:(num_channels * (num_block_columns - 1)),:]),
                    Oi[num_channels:(num_channels * num_block_columns),:])
        
@@ -302,6 +302,7 @@ class BRSSICovRef(object):
         
         self.state[1]=True
         self.state[2] = False # previous modal params are invalid now
+        
 
     def compute_modal_params(self, multiprocessing=True, max_model_order=None): 
         

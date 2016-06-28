@@ -456,6 +456,8 @@ class PreprocessData(object):
                     
         if chan_dofs_file is not None:
             chan_dofs = cls.load_chan_dofs(chan_dofs_file)
+        else:
+            chan_dofs = None
         #print(delete_channels)
         if delete_channels:
             #delete_channels.sort(reverse=True)
@@ -479,17 +481,18 @@ class PreprocessData(object):
                         for channel_ind in range(len(channel_list)):
                             if channel_list[channel_ind] > channel:
                                 channel_list[channel_ind] -= 1 
-                               
-                    this_num_channels = len(chan_dofs)
-                    chan_dof_ind = 0
-                    while chan_dof_ind < this_num_channels:
-                        if channel==chan_dofs[chan_dof_ind][0]:
-                            print('Channel-DOF-Assignment {} removed.'.format(chan_dofs[chan_dof_ind]))
-                            del chan_dofs[chan_dof_ind]
-                            this_num_channels -= 1
-                        elif channel < chan_dofs[chan_dof_ind][0]:
-                            chan_dofs[chan_dof_ind][0] -= 1
-                        chan_dof_ind += 1
+                                
+                    if chan_dofs:
+                        this_num_channels = len(chan_dofs)
+                        chan_dof_ind = 0
+                        while chan_dof_ind < this_num_channels:
+                            if channel==chan_dofs[chan_dof_ind][0]:
+                                print('Channel-DOF-Assignment {} removed.'.format(chan_dofs[chan_dof_ind]))
+                                del chan_dofs[chan_dof_ind]
+                                this_num_channels -= 1
+                            elif channel < chan_dofs[chan_dof_ind][0]:
+                                chan_dofs[chan_dof_ind][0] -= 1
+                            chan_dof_ind += 1
                     print('Now removing Channel {} (no. {})!'.format(headers[channel], channel))  
                     del headers[channel]
                 channel -= 1
@@ -506,7 +509,8 @@ class PreprocessData(object):
         prep_data = cls(measurement, sampling_rate, total_time_steps, 
                  num_channels,ref_channels, roving_channels,
                  accel_channels, velo_channels, disp_channels, channel_headers=headers, start_time=start_time )
-        prep_data.add_chan_dofs(chan_dofs)
+        if chan_dofs:
+            prep_data.add_chan_dofs(chan_dofs)
         
         return prep_data
     

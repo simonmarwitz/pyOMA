@@ -316,7 +316,7 @@ class StabilGUI(QMainWindow):
         self.mode_selector.currentIndexChanged[int].disconnect(self.update_mode_val_view)
         self.mode_selector.clear()
 
-        for index,i in enumerate(self.stabil_calc.select_modes.cursor.datalist):
+        for index,i in enumerate(self.stabil_calc.select_modes):
             n,f,d,mpc, mp, mpd = self.stabil_calc.get_modal_values(i)
             text = '{} - {:2.3f}'.format(index, f)
             self.mode_selector.addItem(text)
@@ -713,9 +713,9 @@ class StabilGUI(QMainWindow):
         filters = ';;'.join(filters)
         
         if fname is None:
-            fname = QFileDialog.getSaveFileName(self, caption="Choose a filename to save to",
+            fname,ext = QFileDialog.getSaveFileName(self, caption="Choose a filename to save to",
                                        directory=start, filter=filters)
-            
+            #print(fname)
         self.stabil_plot.save_figure(fname)
         
         
@@ -732,7 +732,7 @@ class StabilGUI(QMainWindow):
         
     def save_state(self):
         
-        fname = QFileDialog.getSaveFileName(self, caption="Choose a directory to save to",
+        fname,fext = QFileDialog.getSaveFileName(self, caption="Choose a directory to save to",
                                         directory=os.getcwd(), filter = 'Numpy Archive File (*.npz)')
         
         if fname == '': return
