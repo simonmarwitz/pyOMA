@@ -292,7 +292,7 @@ class BRSSICovRef(object):
         U = U[:,:max_model_order]
         Oi = np.dot(U, S_2)
         C = Oi[:num_channels,:]   
-        return S
+
         A = np.dot(np.linalg.pinv(Oi[:(num_channels * (num_block_columns - 1)),:]),
                    Oi[num_channels:(num_channels * num_block_columns),:])
        
