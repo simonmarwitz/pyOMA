@@ -12,6 +12,7 @@ from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMessageHandle
 # Matplotlib
 import matplotlib
 matplotlib.use("Qt5Agg",force=True) 
+from matplotlib import rcParams
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.figure import Figure
@@ -1291,7 +1292,7 @@ class ModeShapePlot(object):
                                       init_func=init_lines,
                                       interval=50,
                                       save_count=0,
-                                      blit=True)
+                                      blit=False)
         
         self.canvas.draw()
         
@@ -1404,7 +1405,7 @@ class ModeShapePlot(object):
                                       init_func=init_lines,
                                       interval=1/self.prep_data.sampling_rate,
                                       save_count=0,
-                                      blit=True)
+                                      blit=False)
         
         self.canvas.draw()
         
@@ -1984,16 +1985,34 @@ class ModeShapeGUI(QMainWindow):
         '''
         save the curently displayed frame as a *.png graphics file
         '''
+                # copied and modified from matplotlib.backends.backend_qt4.NavigationToolbar2QT
+        canvas=self.canvas
         
-        file_choices = "PNG (*.png)|*.png"
+        filetypes = canvas.get_supported_filetypes_grouped()
+        sorted_filetypes = list(filetypes.items())
+        sorted_filetypes.sort()
+        default_filetype = canvas.get_default_filetype()
         
-        if path is None:
-            path = str(QFileDialog.getSaveFileName(self,
-                                                   'Save file', '',
-                                                    file_choices))
-        if path:
-            self.mode_shape_plot.save_plot(path)
-            self.statusBar().showMessage('Saved to %s' % path, 2000)
+        startpath = rcParams.get('savefig.directory', '')
+        startpath = os.path.expanduser(startpath)
+        start = os.path.join(startpath, self.canvas.get_default_filename())
+        filters = []
+        selectedFilter = None
+        for name, exts in sorted_filetypes:
+            exts_list = " ".join(['*.%s' % ext for ext in exts])
+            filter = '%s (%s)' % (name, exts_list)
+            if default_filetype in exts:
+                selectedFilter = filter
+            filters.append(filter)
+        filters = ';;'.join(filters)
+        
+        
+        fname,ext = QFileDialog.getSaveFileName(self, caption="Choose a filename to save to",
+                                       directory=start, filter=filters)
+
+        if fname:
+            self.mode_shape_plot.save_plot(fname)
+            self.statusBar().showMessage('Saved to %s' % fname, 2000)
 
     @pyqtSlot(str)
     def change_mode(self, mode):

@@ -676,7 +676,10 @@ class PreprocessData(object):
         total_time_steps = int(in_dict['self.total_time_steps'])
         ref_channels = list(in_dict['self.ref_channels'])
         roving_channels = list(in_dict['self.roving_channels'])
-        channel_headers = list(in_dict['self.channel_headers'])
+        if in_dict['self.channel_headers']:
+            channel_headers = list(in_dict['self.channel_headers'])
+        else:
+            channel_headers =['' for chan in ref_channels+roving_channels]
         start_time=in_dict['self.start_time'].item()
         
         accel_channels =  list(in_dict['self.accel_channels'])

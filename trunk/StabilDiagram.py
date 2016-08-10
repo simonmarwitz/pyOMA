@@ -2518,7 +2518,7 @@ class DataCursor(Cursor, QObject):
     mode_selected = pyqtSignal(tuple)
     mode_deselected = pyqtSignal(tuple)
     
-    def __init__(self, ax, order_data, f_data, mask=None,  useblit=True, datalist=[],**lineprops):
+    def __init__(self, ax, order_data, f_data, mask=None,  useblit=False, datalist=[],**lineprops):
         
         Cursor.__init__(self, ax, useblit=True, **lineprops)
         QObject.__init__(self)
@@ -2541,7 +2541,7 @@ class DataCursor(Cursor, QObject):
 
         self.scatter_objs=[] # that list should eventually be replaced by a matplotlib.collections collection 
         
-        self.datalist = []
+        self.datalist = datalist
         if datalist:
             self.add_datapoints(datalist)
         
