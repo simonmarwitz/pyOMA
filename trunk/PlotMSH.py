@@ -1139,6 +1139,7 @@ class ModeShapePlot(object):
                 continue
             x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
             #print(x,y,z)
+            # TODO: Account for skewed measurement angles
             # assumes vectors have components in one direction (x,y,z) only
             # to convert, run: SSI_cov_ref_.compute_common_components
             self.disp_nodes[node][0] += x * disp * ampli #/ norm
