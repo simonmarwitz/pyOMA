@@ -47,7 +47,7 @@ TODO:
 #- always enforce equal aspect, set lims before every call of draw i.e. redefine draw
 - implement scale (for correct drawing of axis arrows)
 - use current axes settings when starting the animation 
-
+- rewrite the whole thing properly!
 '''
 
 def nearly_equal(a,b,sig_fig=5):
@@ -212,7 +212,7 @@ class ModeShapePlot(object):
         #geometry_data = prep_data.geometry_data          
         
         self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
-        
+        self.phi_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
         
         # linestyles available in matplotlib
         styles = ['-', '--', '-.', ':', 'None', ' ', '', None]
@@ -270,7 +270,7 @@ class ModeShapePlot(object):
         self.arrows_objects = []
         self.channels_objects = []
         self.axis_obj = {}
-
+        self.seq_num = 0
         
         self.fig = Figure((10,10), dpi=dpi, facecolor='white')
         self.fig.set_tight_layout(True)
@@ -313,6 +313,11 @@ class ModeShapePlot(object):
         self.subplot.set_xlim3d(xmin,xmax)
         self.subplot.set_ylim3d(ymin,ymax)
         self.subplot.set_zlim3d(zmin,zmax)    
+        
+        self.draw_nodes()
+        self.draw_chan_dofs()
+        self.draw_master_slaves()
+        self.draw_msh()
         
         #self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
         
@@ -459,7 +464,8 @@ class ModeShapePlot(object):
         if self.patches_objects.get(i) is not None:
             if isinstance(self.patches_objects[i], (tuple, list)):
                 for obj in self.patches_objects[i]:
-                    obj.remove()
+                    try: obj.remove()
+                    except: pass
                     
         self.patches_objects[i] = (patch, text)
         
@@ -969,11 +975,15 @@ class ModeShapePlot(object):
         for key in self.geometry_data.nodes.keys():
             node = self.geometry_data.nodes[key]
             disp_node = self.disp_nodes.get(key, [0,0,0])
+            phase_node = self.phi_nodes.get(key,[0,0,0])
             patch = self.patches_objects.get(key,None)
             if isinstance(patch, (tuple, list)):
                 for obj in patch:
                     obj.set_visible(self.show_nodes)
-                x,y,z=node[0]+disp_node[0], node[1]+disp_node[1], node[2]+disp_node[2]
+                x = node[0]+disp_node[0]* np.cos(self.seq_num / 25 * 2 * np.pi  + phase_node[0])
+                y = node[1]+disp_node[1]* np.cos(self.seq_num / 25 * 2 * np.pi  + phase_node[1])
+                z = node[2]+disp_node[2]* np.cos(self.seq_num / 25 * 2 * np.pi  + phase_node[2])
+                
                 patch[0].set_offsets([x,y])
                 patch[0].set_3d_properties(z, 'z')
                 
@@ -992,9 +1002,12 @@ class ModeShapePlot(object):
         for i, line in enumerate(self.geometry_data.lines):            
             self.add_line(line, i)
             self.add_nd_line(line, i)
+            self.refresh_lines()
+            self.refresh_nd_lines()
             
         for i in self.geometry_data.nodes.keys():
             self.add_cn_line(i)
+            
         
     def refresh_lines(self, visible=None):
         
@@ -1004,10 +1017,13 @@ class ModeShapePlot(object):
             
         for line, line_node in zip(self.lines_objects, self.geometry_data.lines):
             x = [self.geometry_data.nodes[node][0] + self.disp_nodes[node][0] 
+                 * np.cos(self.seq_num / 25 * 2 * np.pi  + self.phi_nodes[node][0])
                  for node in line_node]
             y = [self.geometry_data.nodes[node][1] + self.disp_nodes[node][1]
+                 * np.cos(self.seq_num / 25 * 2 * np.pi  + self.phi_nodes[node][1])
                  for node in line_node]
             z = [self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
+                 * np.cos(self.seq_num / 25 * 2 * np.pi  + self.phi_nodes[node][2])
                  for node in line_node]
             line.set_visible(self.show_lines)     
             line.set_data([x, y])
@@ -1016,10 +1032,16 @@ class ModeShapePlot(object):
         for key in self.geometry_data.nodes.keys():
             node = self.geometry_data.nodes[key]
             disp_node = self.disp_nodes.get(key, [0,0,0])
+            phi_node = self.phi_nodes.get(key,[0,0,0])
             line = self.cn_lines_objects.get(key,None)
             if line is None: continue
             
-            x,y,z=[node[0],node[0]+disp_node[0]], [node[1],node[1]+disp_node[1]], [node[2],node[2]+disp_node[2]]
+            x = [node[0],node[0]+disp_node[0]
+                 * np.cos(self.seq_num / 25 * 2 * np.pi  + phi_node[0])]
+            y = [node[1],node[1]+disp_node[1]
+                 * np.cos(self.seq_num / 25 * 2 * np.pi  + phi_node[1])]
+            z = [node[2],node[2]+disp_node[2]
+                 * np.cos(self.seq_num / 25 * 2 * np.pi  + phi_node[2])]
             line.set_visible(self.show_nd_lines)     
             line.set_data([x, y])
             line.set_3d_properties(z)      
@@ -1045,11 +1067,15 @@ class ModeShapePlot(object):
                
         for key, node in self.geometry_data.nodes.items():
             disp_node = self.disp_nodes.get(key, [0,0,0])
+            phi_node = self.phi_nodes.get(key, [0,0,0])
             line = self.cn_lines_objects.get(key, None)
             if line is not None:
-                x = [node[0], node[0]+disp_node[0]]
-                y = [node[1], node[1]+disp_node[1]]
-                z = [node[2], node[2]+disp_node[2]]
+                x = [node[0], node[0]+disp_node[0]
+                 * np.cos(self.seq_num / 25 * 2 * np.pi  + phi_node[0])]
+                y = [node[1], node[1]+disp_node[1]
+                 * np.cos(self.seq_num / 25 * 2 * np.pi  + phi_node[1])]
+                z = [node[2], node[2]+disp_node[2]
+                 * np.cos(self.seq_num / 25 * 2 * np.pi  + phi_node[2])]
                 line.set_visible(self.show_nd_lines)     
                 line.set_data([x, y])
                 line.set_3d_properties(z)    
@@ -1165,6 +1191,15 @@ class ModeShapePlot(object):
             self.disp_nodes[i_sl][0] += master_disp * x_sl
             self.disp_nodes[i_sl][1] += master_disp * y_sl
             self.disp_nodes[i_sl][2] += master_disp * z_sl
+            
+            master_phase =   self.phi_nodes[i_m][0] * x_m + \
+                            self.phi_nodes[i_m][1] * y_m + \
+                            self.phi_nodes[i_m][2] * z_m
+
+            self.phi_nodes[i_sl][0] += master_phase * x_sl
+            self.phi_nodes[i_sl][1] += master_phase * y_sl
+            self.phi_nodes[i_sl][2] += master_phase * z_sl                        
+            
         #for node in self.disp_nodes.keys():
             #disp_node = self.disp_nodes[node]
             #phi_node = self.phi_nodes[node]
@@ -1185,11 +1220,17 @@ class ModeShapePlot(object):
         convenience method to stop the animation and restore the still plot
         '''
         if self.animated or self.data_animated:
+            self.seq_num = next(self.line_ani.frame_seq)
             self.line_ani._stop()
             self.animated = False
             self.data_animated = False
             for c in self.connect_handles:
                 self.canvas.mpl_disconnect(c)
+            self.draw_nodes()
+            self.refresh_nodes()
+            self.draw_lines()
+            self.refresh_lines()
+            self.refresh_nd_lines()
             #self.draw_msh()
             
             
@@ -1295,6 +1336,7 @@ class ModeShapePlot(object):
                                       interval=50,
                                       save_count=0,
                                       blit=False)
+        for i in range(self.seq_num+1): next(self.line_ani.frame_seq)
         
         self.canvas.draw()
         
@@ -1835,7 +1877,7 @@ class ModeShapeGUI(QMainWindow):
         self.setCentralWidget(main_frame)
 
         self.showMaximized()
-        self.reset_view()
+        #self.reset_view()
         self.mode_combo.setCurrentIndex(1)
         imag_checkbox.setChecked(True)
         self.mode_combo.setCurrentIndex(0)
