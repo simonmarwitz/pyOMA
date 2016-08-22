@@ -830,11 +830,11 @@ class PreprocessData(object):
         
         for ii in range(self.measurement.shape [1]):
             if ii == 0:
-                tmp = signal.decimate(self.measurement[:,ii], decimate_factor, axis = 0)
+                tmp = signal.decimate(self.measurement[:,ii], decimate_factor, ftype='iir', axis = 0)
                 meas_decimated = np.zeros((tmp.shape[0],num_channels))       
                 meas_decimated[:,ii] = tmp
             else:
-                meas_decimated[:,ii] = signal.decimate(self.measurement[:,ii], decimate_factor, axis = 0) 
+                meas_decimated[:,ii] = signal.decimate(self.measurement[:,ii], decimate_factor, ftype='iir', axis = 0) 
         
         self.sampling_rate /=decimate_factor
         self.total_time_steps /=decimate_factor

@@ -49,6 +49,7 @@ from PyQt5.QtGui import QIcon, QPalette
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHandler, QEventLoop
 
 from SSICovRef import BRSSICovRef,CVASSICovRef
+from PRCE import PRCE
 
 from PreprocessingTools import PreprocessData
 
@@ -758,7 +759,7 @@ class StabilCalc(object):
 
         super().__init__()
         
-        assert isinstance(modal_data, (BRSSICovRef,CVASSICovRef))
+        assert isinstance(modal_data, (BRSSICovRef,CVASSICovRef,PRCE))
         
         self.modal_data =modal_data
         
@@ -1348,7 +1349,7 @@ class StabilCalc(object):
     def load_state(cls, fname, modal_data, prep_data=None):
         print('Now loading previous results from  {}'.format(fname))
         
-        assert isinstance(modal_data, (BRSSICovRef,CVASSICovRef))
+        assert isinstance(modal_data, (BRSSICovRef,CVASSICovRef, PRCE))
         
         in_dict=np.load(fname) 
            

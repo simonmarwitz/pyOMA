@@ -36,6 +36,7 @@ from numpy import disp
 from StabilDiagram import StabilCalc
 from PreprocessingTools import PreprocessData, GeometryProcessor
 from SSICovRef import BRSSICovRef,CVASSICovRef
+from PRCE import PRCE
 from pyparsing import line
 from copy import deepcopy
 
@@ -196,7 +197,7 @@ class ModeShapePlot(object):
         self.start_time = modal_data.start_time
         
         #modal_data = stabil_calc.modal_data
-        assert isinstance(modal_data, (BRSSICovRef,CVASSICovRef))
+        assert isinstance(modal_data, (BRSSICovRef,CVASSICovRef, PRCE))
         self.modal_data = modal_data
         
         assert isinstance(geometry_data, GeometryProcessor)
