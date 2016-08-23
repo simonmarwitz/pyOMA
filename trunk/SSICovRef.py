@@ -259,13 +259,15 @@ class BRSSICovRef(object):
             toeplitz[begin_toeplitz_row: end_toeplitz_row,
                             begin_toeplitz_col:end_toeplitz_col] = this_block
           
-    def compute_state_matrices(self, max_model_order=None):
+    def compute_state_matrices(self, max_model_order=None, max_modes=None):
         '''
         computes the state and output matrix of the state-space-model
         by applying a singular value decomposition to the block-toeplitz-matrix of covariances
         the state space model matrices are obtained by appropriate truncation 
         of the svd matrices at max_model_order
         the decision whether to take merged covariances is taken automatically
+        max_modes is the number of expected modes for estimation of the state transition /
+        system matrix A of the "crystal clear (TM)" algorithm of structural vibrations AS (Artemis)
         '''
         
         if max_model_order is not None:
@@ -292,9 +294,18 @@ class BRSSICovRef(object):
         U = U[:,:max_model_order]
         Oi = np.dot(U, S_2)
         C = Oi[:num_channels,:]   
-
-        A = np.dot(np.linalg.pinv(Oi[:(num_channels * (num_block_columns - 1)),:]),
-                   Oi[num_channels:(num_channels * num_block_columns),:])
+        
+        Oi0=Oi[:(num_channels * (num_block_columns - 1)),:]
+        Oi1=Oi[num_channels:(num_channels * num_block_columns),:]
+        
+        if max_modes is not None:
+            [u,s,v_t]=np.linalg.svd(Oi0,0)
+            s = 1./s[:max_modes]
+            Oi0p= np.dot(np.transpose(v_t[:max_modes,:]), np.multiply(s[:, np.newaxis], np.transpose(u[:,:max_modes])))
+        else:
+            Oi0p = np.linalg.pinv(Oi0)
+            
+        A = np.dot(Oi0p,Oi1)
        
         self.state_matrix = A
         self.output_matrix = C
