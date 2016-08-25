@@ -55,11 +55,13 @@ class PRCE(object):
         self.mode_shapes = None
             
     @classmethod
-    def init_from_config(cls,conf_file, prep_data):
-        assert os.path.exists(conf_file)
+    def init_from_config(cls,mod_ID_file, prep_data):
+        assert os.path.exists(mod_ID_file)
         assert isinstance(prep_data, PreprocessData)
         
-        with open(conf_file, 'r') as f:
+        #print('mod_ID_file: ', mod_ID_file)
+        
+        with open(mod_ID_file, 'r') as f:
             
             assert f.__next__().strip('\n').strip(' ') == 'Number of Correlation Samples:'
             num_corr_samples = int(f. __next__().strip('\n'))
@@ -70,7 +72,8 @@ class PRCE(object):
             
         prce_object = cls(prep_data)
         prce_object.build_corr_tensor(num_corr_samples, multiprocess=multiprocessing)
-        prce_object.compute_modal_params(multiprocessing)
+        prce_object.compute_modal_params(max_model_order, multiprocessing)
+        
         
         return prce_object
         
@@ -339,6 +342,7 @@ class PRCE(object):
             out_dict['self.modal_frequencies'] = self.modal_frequencies
             out_dict['self.modal_damping'] = self.modal_damping
             out_dict['self.mode_shapes'] = self.mode_shapes
+            out_dict['self.max_model_order'] = self.max_model_order
             
         np.savez_compressed(fname, **out_dict)
 
@@ -348,6 +352,46 @@ class PRCE(object):
         #scaling of mode shape
         modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
         return modeshape
+
+        
+    @classmethod 
+    def load_state(cls, fname, prep_data):
+        print('Now loading previous results from  {}'.format(fname))
+        
+        in_dict=np.load(fname)    
+        #             0         1         
+        #self.state= [Corr. Tensor, Modal Par.
+        if 'self.state' in in_dict:
+            state= list(in_dict['self.state'])
+        else:
+            return
+        
+        for this_state, state_string in zip(state, ['Correlation Functions Computed',
+                                                    'Modal Parameters Computed',
+                                                    ]):
+            if this_state: print(state_string)
+        
+        assert isinstance(prep_data, PreprocessData)
+        setup_name= str(in_dict['self.setup_name'].item())
+        start_time=in_dict['self.start_time'].item()
+        assert setup_name == prep_data.setup_name
+        start_time = prep_data.start_time
+        
+        assert start_time == prep_data.start_time
+        #prep_data = in_dict['self.prep_data'].item()
+        prce_object = cls(prep_data)
+        prce_object.state = state
+        if state[0]:# covariances
+            prce_object.x_corr_Tensor = in_dict['self.x_corr_Tensor']
+        if state[1]:# modal params
+            prce_object.modal_frequencies = in_dict['self.modal_frequencies']
+            prce_object.modal_damping = in_dict['self.modal_damping']
+            prce_object.mode_shapes = in_dict['self.mode_shapes']
+            prce_object.max_model_order = int(in_dict['self.max_model_order'])
+        
+        return prce_object
+ 
+
     
 def main():
     pass
