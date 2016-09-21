@@ -72,6 +72,8 @@ class SSIData(object):
         ssi_object.compute_projection_matrix(num_block_rows, multiprocess=multiprocessing)
         ssi_object.compute_state_matrices(num_block_rows, max_model_order)
         ssi_object.compute_modal_params(max_model_order, multiprocessing)
+        print('max_model_order = ', max_model_order)
+        print('ssi_object.max_model_order = ', ssi_object.max_model_order)
         
         return ssi_object
 
@@ -261,10 +263,6 @@ class SSIData(object):
             self.max_model_order = max_model_order 
             
         assert self.state[2]
-        
-        print('max_model_order = ', max_model_order)
-        print('self.max_model_order = ', self.max_model_order)
-
         
         max_model_order = self.max_model_order
         A_full = self.state_matrix
