@@ -19,6 +19,7 @@ import datetime
 
 from PreprocessingTools import PreprocessData
 
+#from decomp_qr_VZ import qr
 #####################################################################################################################################
 
 
@@ -64,12 +65,13 @@ class SSIData(object):
             max_model_order= int(f. __next__().strip('\n'))
             assert f.__next__().strip('\n').strip(' ')== 'Use Multiprocessing:'
             multiprocessing= f.__next__().strip('\n').strip(' ')=='yes'
+        
             
         ssi_object = cls(prep_data)
         ssi_object.build_block_hankel(num_block_rows, multiprocess=multiprocessing)
         ssi_object.compute_projection_matrix(num_block_rows, multiprocess=multiprocessing)
-        ssi_object.compute_state_matrices(self, num_block_rows, max_model_order)
-        ssi_object.compute_modal_params(multiprocessing)
+        ssi_object.compute_state_matrices(num_block_rows, max_model_order)
+        ssi_object.compute_modal_params(max_model_order, multiprocessing)
         
         return ssi_object
 
@@ -154,6 +156,9 @@ class SSIData(object):
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels =self.prep_data.num_ref_channels 
         i = num_block_rows
+        
+        shape = Hankel_matrix_T.shape
+        print('Hankel shape = ', shape)
 
         Q, R = linalg.qr(Hankel_matrix_T)
         Q = (Q[:,0:((num_ref_channels + num_analised_channels) * i)]).T
@@ -206,10 +211,9 @@ class SSIData(object):
         the state space model matrices are obtained by appropriate truncation 
         of the svd matrices at max_model_order
         '''        
-        
         if max_model_order is not None:
-            assert max_model_order<=self.max_model_order
-            self.max_model_order = max_model_order
+            assert isinstance(max_model_order, int)
+            self.max_model_order = max_model_order 
         
         assert self.state[1]
         
@@ -253,10 +257,14 @@ class SSIData(object):
     def compute_modal_params(self, max_model_order=None, multiprocessing=True): 
         
         if max_model_order is not None:
-            assert max_model_order<=self.max_model_order
-            self.max_model_order = max_model_order
+            assert isinstance(max_model_order, int)
+            self.max_model_order = max_model_order 
             
         assert self.state[2]
+        
+        print('max_model_order = ', max_model_order)
+        print('self.max_model_order = ', self.max_model_order)
+
         
         max_model_order = self.max_model_order
         A_full = self.state_matrix
@@ -491,7 +499,7 @@ class SSIData(object):
         modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
         return modeshape
 
-        return
+    #return
 
     
 def main():

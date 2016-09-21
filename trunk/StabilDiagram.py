@@ -50,6 +50,7 @@ from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHand
 
 from SSICovRef import BRSSICovRef,CVASSICovRef
 from PRCE import PRCE
+from SSIData import SSIData
 
 from PreprocessingTools import PreprocessData
 
@@ -759,7 +760,7 @@ class StabilCalc(object):
 
         super().__init__()
         
-        assert isinstance(modal_data, (BRSSICovRef,CVASSICovRef,PRCE))
+        assert isinstance(modal_data, (BRSSICovRef, CVASSICovRef, SSIData, PRCE))
         
         self.modal_data =modal_data
         
