@@ -491,7 +491,7 @@ class SSIData(object):
         modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
         return modeshape
 
-    return
+        return
 
     
 def main():

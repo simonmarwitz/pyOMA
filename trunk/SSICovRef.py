@@ -784,8 +784,9 @@ class CVASSICovRef(object):
         # y1, y2, ..., yj
         # ...
         # yi, yi+1, ... yi+j-1
-        # QR -> L = R.T
-
+        # QR -> L = R.T       
+        
+        
         total_time_steps = self.prep_data.total_time_steps
         ref_channels = sorted(self.prep_data.ref_channels)
         roving_channels = self.prep_data.roving_channels
@@ -801,12 +802,26 @@ class CVASSICovRef(object):
         #all_channels = [2,1,3,5,0]
         num_analised_channels=len(all_channels)
         
-        #extract_length = total_time_steps - 2*self.num_block_rows - self.num_block_columns
-        #Yf = np.zeros((self.num_block_rows*num_analised_channels,extract_length))
-        #for i in range(self.num_block_rows):
-        #    Yf[i*num_analised_channels:(i+1)*num_analised_channels,:]= self.prep_data.measurement[i:extract_length+i].T
+        extract_length = total_time_steps - 2*self.num_block_rows - self.num_block_columns
+        Yf = np.zeros((self.num_block_rows/2*num_analised_channels,extract_length))
+        Ypref = np.zeros((self.num_block_rows/2*num_ref_channels, extract_length))
+        for i in range(self.num_block_rows/2):
+            Ypref[i*num_ref_channels:(i+1)*num_ref_channels,:]=self.prep_data.measurement[i:extract_length+i, ref_channels].T
+            Yf[i*num_analised_channels:(i+1)*num_analised_channels,:] = self.prep_data.measurement[i+self.num_block_rows/2:extract_length+i+self.num_block_rows/2].T   
+        Yf/=np.sqrt(extract_length)
+        Ypref/=np.sqrt(extract_length)
+        
+        U,S,V_T=np.linalg.svd(np.dot(Yf,Yf.T))
+        W1=np.dot(U,np.diag(1/np.sqrt(S)))
+        
+        U,S,V_T=np.linalg.svd(np.dot(Ypref,Ypref.T))
+        W1=np.dot(U,np.diag(1/np.sqrt(S)))
+        
         #r=np.linalg.qr(Yf.T,'r')
-        #return r.T
+        
+        
+        
+        return r.T
     
         refs = (measurement[0:extract_length,all_channels])
         #refs -= np.mean(refs,axis=0)
