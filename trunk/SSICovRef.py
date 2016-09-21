@@ -541,6 +541,9 @@ class BRSSICovRef(object):
         #scaling of mode shape
         modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
         return modeshape
+
+
+
 class CVASSICovRef(object):
     
     def __init__(self,prep_data):    

@@ -507,7 +507,7 @@ class PreprocessData(object):
         #print(measurement.shape, ref_channels)
         #print(measurement)
         prep_data = cls(measurement, sampling_rate, total_time_steps, 
-                 num_channels,ref_channels, roving_channels,
+                 num_channels, ref_channels, roving_channels,
                  accel_channels, velo_channels, disp_channels, channel_headers=headers, start_time=start_time )
         if chan_dofs:
             prep_data.add_chan_dofs(chan_dofs)
