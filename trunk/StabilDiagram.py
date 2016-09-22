@@ -2206,6 +2206,10 @@ class StabilPlot(object):
             raise RuntimeError('Measurement Data was not provided!')
         
         ft_freq,sum_ft = self.stabil_calc.prep_data.get_fft()
+        
+        print('ft_freq = ', ft_freq)
+        print('sum_ft = ', sum_ft)
+        print('self.stabil_calc.modal_data.max_model_order = ', self.stabil_calc.modal_data.max_model_order)
         sum_ft = sum_ft / (np.amax(sum_ft)) * 0.5 * self.stabil_calc.modal_data.max_model_order
         self.psd_plot = self.ax.plot(ft_freq, sum_ft, color='grey', linestyle='solid', visible=b)
         self.fig.canvas.draw_idle()
