@@ -616,13 +616,13 @@ class CVASSICovRef(object):
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels =self.prep_data.num_ref_channels 
         # Extract reference time series for covariances 
-        extract_length = total_time_steps - (num_block_columns + num_block_rows) + 1
+        extract_length = int(total_time_steps - (num_block_columns + num_block_rows) + 1)
         
         
         all_channels = ref_channels + roving_channels
         all_channels.sort()
         
-        refs = (measurement[0:extract_length,all_channels]).T
+        refs = (measurement[0:extract_length,ref_channels]).T
         
         ### Create Toeplitz matrix and fill it with covariances 
         #    |    R_i    R_i-1    ...    R_0    |                                     #
@@ -631,7 +631,7 @@ class CVASSICovRef(object):
         #    |    R_2i-1 ...      ...    R_i    |                                     #
         
         print('Computing covariances...')
-        n, m = num_analised_channels*num_block_rows, num_analised_channels*num_block_columns
+        n, m = num_analised_channels*num_block_rows, num_ref_channels*num_block_columns
         
         if multiprocess:
             toeplitz_memory = mp.Array(c.c_double, np.zeros(n*m)) # shared memory, can be used by multiple processes @UndefinedVariable
@@ -655,7 +655,7 @@ class CVASSICovRef(object):
                                                             ii, 
                                                             num_block_columns, 
                                                             extract_length, 
-                                                            all_channels, 
+                                                            ref_channels, 
                                                             all_channels, 
                                                             refs_shape, 
                                                             measurement_shape,
@@ -666,7 +666,7 @@ class CVASSICovRef(object):
                                                             ii, 
                                                             num_block_columns, 
                                                             extract_length, 
-                                                            all_channels, 
+                                                            ref_channels, 
                                                             all_channels, 
                                                             refs_shape, 
                                                             measurement_shape,
@@ -731,10 +731,24 @@ class CVASSICovRef(object):
                     Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row+num_analised_channels),
                                      0:num_analised_channels] = this_block
         #print(Toeplitz_matrix.shape)
-        Lplus,Lminus = self.compute_cva_weighting()
-        Toeplitz_matrix = Lplus.solve_LD(Toeplitz_matrix.T)
-        Toeplitz_matrix = Lminus.solve_DLt(Toeplitz_matrix)                             
-        Toeplitz_matrix = Toeplitz_matrix.T    
+        #Lplus,Lminus = self.compute_cva_weighting()
+        #Toeplitz_matrix = Lplus.solve_LD(Toeplitz_matrix.T)
+        #Toeplitz_matrix = Lminus.solve_DLt(Toeplitz_matrix)                             
+        #Toeplitz_matrix = Toeplitz_matrix.T    
+        W1,W2 = self.compute_cva_weighting()
+        #print('Weighting Computed')
+        #print(W1.shape, W2.shape, Toeplitz_matrix.shape)
+        #import scipy.linalg
+        #W3=scipy.linalg.cho_factor(W1)
+        
+        #print('nor')
+        #Toeplitz_matrix = scipy.linalg.cho_solve(W3, Toeplitz_matrix)
+       # 
+        #W4 = scipy.linalg.cho_factor(Toeplitz_matrix)
+        #Toeplitz_matrix = scipy.linalg.cho_solve(W4, W2)
+        
+        Toeplitz_matrix = np.dot(W1,Toeplitz_matrix)
+        Toeplitz_matrix = np.dot(Toeplitz_matrix,W2)
         self.toeplitz_matrix = Toeplitz_matrix           
         #print(self.toeplitz_matrix.shape)   
         self.state[0]=True
@@ -794,34 +808,65 @@ class CVASSICovRef(object):
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels =self.prep_data.num_ref_channels
         
-        extract_length = total_time_steps - (self.num_block_columns ) +1
+        extract_length = total_time_steps - (self.num_block_columns * 2) +1
         #print(extract_length, measurement.shape)        
         
         all_channels = ref_channels + roving_channels
         all_channels.sort()
         #all_channels = [2,1,3,5,0]
         num_analised_channels=len(all_channels)
-        
-        extract_length = total_time_steps - 2*self.num_block_rows - self.num_block_columns
-        Yf = np.zeros((self.num_block_rows/2*num_analised_channels,extract_length))
-        Ypref = np.zeros((self.num_block_rows/2*num_ref_channels, extract_length))
-        for i in range(self.num_block_rows/2):
+        nbr2=int(self.num_block_rows)
+        extract_length = int(total_time_steps - 2*self.num_block_rows - self.num_block_columns)
+        Yf = np.zeros((nbr2*num_analised_channels,extract_length))
+        Ypref = np.zeros((nbr2*num_ref_channels, extract_length))
+        for i in range(nbr2):
             Ypref[i*num_ref_channels:(i+1)*num_ref_channels,:]=self.prep_data.measurement[i:extract_length+i, ref_channels].T
-            Yf[i*num_analised_channels:(i+1)*num_analised_channels,:] = self.prep_data.measurement[i+self.num_block_rows/2:extract_length+i+self.num_block_rows/2].T   
+            Yf[i*num_analised_channels:(i+1)*num_analised_channels,:] = self.prep_data.measurement[i+nbr2:extract_length+i+nbr2].T   
         Yf/=np.sqrt(extract_length)
         Ypref/=np.sqrt(extract_length)
         
-        U,S,V_T=np.linalg.svd(np.dot(Yf,Yf.T))
-        W1=np.dot(U,np.diag(1/np.sqrt(S)))
-        
-        U,S,V_T=np.linalg.svd(np.dot(Ypref,Ypref.T))
-        W1=np.dot(U,np.diag(1/np.sqrt(S)))
-        
-        #r=np.linalg.qr(Yf.T,'r')
-        
-        
-        
-        return r.T
+#         import scipy.linalg
+#         W1=np.linalg.inv(scipy.linalg.lu(np.dot(Yf,Yf.T))[1])
+#         
+#         W2=np.linalg.inv(scipy.linalg.lu(np.dot(Ypref,Ypref.T))[1]).T
+#         
+#         return W1,W2
+#         
+#         W1=np.linalg.qr(np.dot(Yf,Yf.T))[1]
+#         W2=np.linalg.qr(np.dot(Ypref,Ypref.T))[1].T
+#         
+#         return W1,W2
+        #return np.dot(Yf,Yf.T), np.dot(Ypref,Ypref.T)
+        W1=np.linalg.inv(np.linalg.cholesky(np.dot(Yf,Yf.T)))
+        W2=np.linalg.inv(np.linalg.cholesky(np.dot(Ypref,Ypref.T)))
+        W1=np.eye(W1.shape[0])
+        W2=np.eye(W2.shape[0])         
+        return W1,W2
+#         
+#         U,S,V_T=np.linalg.svd(np.dot(Yf,Yf.T))
+#         W1=np.dot(np.dot(U,np.diag(1/np.sqrt(S))),V_T)
+#         
+#         U,S,V_T=np.linalg.svd(np.dot(Ypref,Ypref.T))
+#         W2=np.dot(np.dot(U,np.diag(1/np.sqrt(S))),V_T).T
+#         
+#         return W1,W2    
+#         
+#         w,v=np.linalg.eig(np.dot(Yf,Yf.T))
+#         W1=np.dot(np.dot(v,np.diag(1/np.sqrt(w))),v.T)
+#         
+#         w,v=np.linalg.eig(np.dot(Ypref,Ypref.T))
+#         W2=np.dot(np.dot(v,np.diag(1/np.sqrt(w))),v.T)
+#         
+#         #W1=np.eye(W1.shape[0])
+#         #W2=np.eye(W2.shape[0])
+#         return W1,W2
+#         
+#         r1=np.linalg.qr(Yf.T,'r')
+#         r2=np.linalg.qr(Ypref.T,'r')
+#         
+#         
+#         
+#         return r1.T,r2
     
         refs = (measurement[0:extract_length,all_channels])
         #refs -= np.mean(refs,axis=0)
@@ -998,10 +1043,13 @@ class CVASSICovRef(object):
         
         [U,S,V_T] = np.linalg.svd(toeplitz_matrix,0)
         #print(U.shape, S.shape, V_T.shape)
-    
+        
         # choose highest possible model order
         if max_model_order is None:
-            max_model_order=len(S)
+            max_model_order=len(S)        
+        else:
+            max_model_order = min(max_model_order,len(S))
+        
     
         S_2 = np.diag(np.power(S[:max_model_order], 0.5))
         U = U[:,:max_model_order]
@@ -1088,7 +1136,9 @@ class CVASSICovRef(object):
             
                 # integrate acceleration and velocity channels to level out all channels in phase and amplitude
                 mode_shapes_j = self.integrate_quantities(mode_shapes_j, accel_channels, velo_channels, np.abs(lambda_k))                
-                        
+                
+                mode_shapes_j*=self.prep_data.channel_factors
+                
                 modal_frequencies[order,index]=freq_j
                 modal_damping[order,index]=damping_j
                 mode_shapes[:,index,order]=mode_shapes_j
