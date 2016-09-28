@@ -725,9 +725,9 @@ class StabilGUI(QMainWindow):
                   
     def save_results(self):
         
-        fname = QFileDialog.getSaveFileName(self, caption="Choose a directory to save to",
+        fname,fext = QFileDialog.getSaveFileName(self, caption="Choose a directory to save to",
                                         directory=os.getcwd(), filter = 'Text File (*.txt)')
-        fname, fext = os.path.splitext(fname)
+        #fname, fext = os.path.splitext(fname)
         
         if fext != 'txt': fname += '.txt'
         
