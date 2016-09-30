@@ -1064,7 +1064,7 @@ class StabilCalc(object):
             os.makedirs(dirname)
         
         if binary:
-            np.savez_compressed(fname,{'selected_freq':selected_freq,
+            np.savez_compressed(fname,**{'selected_freq':selected_freq,
             'selected_damp':selected_damp,
             'selected_order':selected_order,
             'selected_MPC':selected_MPC,
