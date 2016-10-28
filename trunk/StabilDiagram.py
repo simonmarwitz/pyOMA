@@ -921,9 +921,10 @@ class StabilCalc(object):
             MP = np.arctan2(2*ssxy , (ssxx-ssyy))/2    
             
             # rotates complex plane by angle MP
-            v_r = v*(np.cos(-MP)+1j*np.sin(-MP))
+            v_r = v*np.exp(-1j*MP)#(np.cos(-MP)+1j*np.sin(-MP))
             #calculates phase in range -180 and 180
-            phase = np.angle(v_r,True)
+            phase = np.angle(v_r,True)                
+            
             # rotates into 1st and 4th quadrant
             phase[phase>90]-=180
             phase[phase<-90]+=180
@@ -932,10 +933,12 @@ class StabilCalc(object):
             if not weighted:
                 MPD = np.std(phase, axis = 0)
             else:
-                MPD = np.sqrt(np.average(np.power(phase,2), weights=np.absolute(v_r), axis = 0))
+                MPD = np.sqrt(np.average(np.power(phase-np.mean(phase,axis=0),2), weights=np.absolute(v_r), axis = 0))
+            
+            print(np.mean(phase,axis=0),np.sqrt(np.mean(np.power(phase,2),axis=0)),np.std(phase,axis=0),MPD)
             
             MP*=180/np.pi
-
+            
             
         elif regression_type == 'arithm':
             phase = np.angle(v,True)
@@ -987,6 +990,11 @@ class StabilCalc(object):
                 
                 MPD[k] = np.degrees((sum(numerator)/sum(denominator)))
                 MP[k] = np.degrees(np.arctan(-V_T[1,0]/V_T[1,1]))
+                #phase=np.angle(v[:,k]*np.exp(-1j*np.radians(MP[k])),True)
+                #print(np.mean(phase))
+                #phase[phase>90]-=180
+                #phase[phase<-90]+=180
+                #print(np.mean(phase),np.sqrt(np.mean(phase**2)),np.std(phase),MPD[k])
         
         MP[MP<0]+=180 # restricted to +imag region
         MPD[MPD<0]*=-1 
