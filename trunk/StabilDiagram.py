@@ -48,7 +48,7 @@ from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
 from PyQt5.QtGui import QIcon, QPalette
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHandler, QEventLoop
 
-from SSICovRef import BRSSICovRef,CVASSICovRef
+from SSICovRef import BRSSICovRef,VarSSICovRef
 from SSIData import SSIData
 from PRCE import PRCE
 from PLSCF import PLSCF
@@ -364,8 +364,8 @@ class StabilGUI(QMainWindow):
             self.cmplx_plot_widget.show()
     
     def update_value_view(self,i):
-        n,f,d,mpc,mp,mpd = self.stabil_calc.get_modal_values(i)
-        s='Frequency=%1.3fHz, \n Order=%1.0f, \n Damping=%1.3f%%,  \n MPC=%1.5f, \n MP=%1.3f\u00b0, \n MPD=%1.5f\u00b0'%(f,n,d,mpc,mp,mpd)        
+        n,f,stdf,d,stdd,mpc,mp,mpd = self.stabil_calc.get_modal_values(i)
+        s='Frequency=%1.3fHz, \n Std Frequency=%1.3e, \n Order=%1.0f, \n Damping=%1.3f%%,  \n StdDamping=%1.3e,  \n MPC=%1.5f, \n MP=%1.3f\u00b0, \n MPD=%1.5f\u00b0'%(f,stdf, n,d,stdd,mpc,mp,mpd)        
         self.current_value_view.setText(s)
         height=self.current_value_view.document().size().toSize().height()+3
         self.current_value_view.setFixedHeight(height)
@@ -761,7 +761,7 @@ class StabilCalc(object):
 
         super().__init__()
         
-        assert isinstance(modal_data, (BRSSICovRef, CVASSICovRef, SSIData, PRCE, PLSCF))
+        assert isinstance(modal_data, (BRSSICovRef, VarSSICovRef, SSIData, PRCE, PLSCF))
         
         self.modal_data =modal_data
         
@@ -1013,13 +1013,17 @@ class StabilCalc(object):
             selected_MPC = [self.MPC_matrix[index] for index in self.select_modes]
             selected_MP = [self.MP_matrix[index] for index in self.select_modes]
             selected_MPD = [self.MPD_matrix[index] for index in self.select_modes]
+            selected_stdf = [self.modal_data.std_frequencies[index] for index in self.select_modes]
+            selected_stdd = [self.modal_data.std_damping[index] for index in self.select_modes]
             
+            selected_stdmsh = np.zeros((self.modal_data.mode_shapes.shape[0], len(self.select_modes)), dtype = complex)        
             selected_modes = np.zeros((self.modal_data.mode_shapes.shape[0], len(self.select_modes)), dtype = complex)
              
             for num,ind in enumerate(self.select_modes):
                 row_index = ind[0]
                 col_index = ind[1]
                 mode_tmp = self.modal_data.mode_shapes[:, col_index, row_index]
+                std_mode = self.modal_data.std_mode_shapes[:,col_index,row_index]
                 
                 #scaling of mode shape
                 abs_mode_tmp = np.abs(mode_tmp)
@@ -1028,32 +1032,44 @@ class StabilCalc(object):
                 mode_tmp = mode_tmp / this_max
                 
                 selected_modes[:,num] = mode_tmp
+                selected_stdmsh[:,num] = std_mode
         
         freq_str = ''
+        std_freq_str = ''
         damp_str = ''
+        std_damp_str = ''
         ord_str = ''
         msh_str = ''
+        std_msh_str = ''
         mpc_str = ''
         mp_str = ''
         mpd_str = ''
         for col in range(len(self.select_modes)):
             freq_str += '{:3.3f} \t\t'.format(selected_freq[col])
+            std_freq_str +='{:3.3e} \t\t'.format(selected_stdf[col])
             damp_str += '{:3.3f} \t\t'.format(selected_damp[col])
+            std_damp_str += '{:3.3e} \t\t'.format(selected_stdd[col])            
             ord_str += '{:3d} \t\t'.format(selected_order[col])
             mpc_str += '{:3.3f}\t \t'.format(selected_MPC[col])
             mp_str += '{:3.2f} \t\t'.format(selected_MP[col])
             mpd_str += '{:3.2f} \t\t'.format(selected_MPD[col])
             
+            
         for row in range(selected_modes.shape[0]):
             msh_str+='\n           \t\t'
+            std_msh_str+='\n           \t\t'
             for col in range(selected_modes.shape[1]):
-                msh_str+='{:+3.4f} \t'.format(selected_modes[row,col])       
+                msh_str+='{:+3.4f} \t'.format(selected_modes[row,col])   
+                std_msh_str+='{:+3.3e} \t'.format(selected_stdmsh[row,col])       
         
         export_modes = 'MANUAL MODAL ANALYSIS\n'\
                       + '=======================\n'\
                       + 'Frequencies [Hz]:\t'         + freq_str       + '\n'\
+                      + 'Standard deviations of the Frequencies [Hz]:\t'         + std_freq_str       + '\n'\
                       + 'Damping [%]:\t\t'            + damp_str       + '\n'\
+                      + 'Standard deviations of the Damping [%]:\t'         + std_damp_str       + '\n'\
                       + 'Mode shapes:\t\t'            + msh_str        + '\n'\
+                      + 'Standard Deviations of the Mode shapes:\t\t'            + std_msh_str        + '\n'\
                       + 'Model order:\t\t'            + ord_str        + '\n'\
                       + 'MPC [-]:\t\t'                + mpc_str        + '\n'\
                       + 'MP  [\u00b0]:\t\t'           + mp_str         + '\n'\
@@ -1309,12 +1325,18 @@ class StabilCalc(object):
         mpc = self.MPC_matrix[i]
         mp = self.MP_matrix[i]
         mpd = self.MPD_matrix[i]*90    
+        
         #MAC_diffs=self.MAC_diffs[i]
         #MAC_diffs=MAC_diffs[MAC_diffs!=0]
         #print(MAC_diffs)
         #print(np.mean(MAC_diffs), np.std(MAC_diffs))
+        if isinstance(self.modal_data, VarSSICovRef):
+            stdf = self.modal_data.std_frequencies[i]
+            stdd = self.modal_data.std_damping[i]
         
-        return n,  f, d, mpc, mp, mpd
+            return n,  f, stdf, d, stdd, mpc, mp, mpd
+        else:
+            return n,  f, np.nan,  d, np.nan, mpc, mp, mpd
     
     def get_mode_shape(self,i):
         assert isinstance(i, (list, tuple))
@@ -1359,7 +1381,7 @@ class StabilCalc(object):
     def load_state(cls, fname, modal_data, prep_data=None):
         print('Now loading previous results from  {}'.format(fname))
         
-        assert isinstance(modal_data, (BRSSICovRef,CVASSICovRef, PRCE, PLSCF))
+        assert isinstance(modal_data, (BRSSICovRef,VarSSICovRef, PRCE, PLSCF))
         
         in_dict=np.load(fname) 
            
@@ -2142,7 +2164,8 @@ class StabilPlot(object):
                 self.plot_stabil('plot_autoclear')
             if self.stabil_calc.state >= 5:
                 self.plot_stabil('plot_autosel')
-        
+                
+        self.plot_stabil('plot_uf')
         #update the cursors snap mask
         if self.cursor:
             cursor_name_mask = self.cursor.name_mask
@@ -2177,7 +2200,30 @@ class StabilPlot(object):
                              facecolors=color, edgecolors='none',
                              marker=marker, alpha=0.4,
                              s=size, label=label, visible=visibility))
-        else:
+                
+        elif name == 'plot_uf':
+            
+            if self.stable_plot[name] is not None:
+                
+                visibility = self.stable_plot[name][1][0].get_visible()
+                self.stable_plot[name][1][0].remove()
+                self.stable_plot[name][1][1].remove()
+                self.stable_plot[name][2][0].remove()
+                
+            else:
+                visibility=True
+            mask=self.stabil_calc.get_stabilization_mask('mask_stable')    
+            self.stabil_calc.masked_frequencies.mask = mask
+            self.stabil_calc.order_dummy.mask = mask
+            if isinstance(self.stabil_calc.modal_data, VarSSICovRef):
+                std_frequencies = np.ma.array(self.stabil_calc.modal_data.std_frequencies)
+                std_frequencies.mask = mask
+            
+                self.stable_plot[name]=self.ax.errorbar(self.stabil_calc.masked_frequencies.compressed(), 
+                             self.stabil_calc.order_dummy.compressed(), xerr = std_frequencies.compressed(), zorder=zorder, 
+                             fmt='none',  ecolor=color, label=label, visible=visibility)
+            
+        else:            
             if self.stable_plot[name] is not None:
                 visibility=self.stable_plot[name].get_visible()
                 self.stable_plot[name].remove()
