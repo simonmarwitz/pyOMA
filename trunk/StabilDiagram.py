@@ -2204,11 +2204,14 @@ class StabilPlot(object):
         elif name == 'plot_uf':
             
             if self.stable_plot[name] is not None:
-                
-                visibility = self.stable_plot[name][1][0].get_visible()
-                self.stable_plot[name][1][0].remove()
-                self.stable_plot[name][1][1].remove()
-                self.stable_plot[name][2][0].remove()
+                try:
+                    visibility = self.stable_plot[name][1][0].get_visible()                
+                    self.stable_plot[name][1][0].remove()
+                    self.stable_plot[name][1][1].remove()
+                    self.stable_plot[name][2][0].remove()
+                except IndexError:
+                    visibility = True
+
                 
             else:
                 visibility=True
@@ -2446,18 +2449,33 @@ class StabilPlot(object):
                 rcParams['savefig.directory'] = os.path.dirname(str(fname))
             try:
                 scatter_objs = []
+                ord_mask = self.stabil_calc.order_dummy.mask
+                self.stabil_calc.order_dummy.mask = np.ma.nomask
+                f_mask = self.stabil_calc.masked_frequencies.mask
+                self.stabil_calc.masked_frequencies.mask = np.ma.nomask
+            
                 for mode in self.stabil_calc.select_modes:
                     mode=tuple(mode)
                     y,x=self.stabil_calc.order_dummy[mode],self.stabil_calc.masked_frequencies[mode]
                     #print(x,y)
                     scatter_objs.append(self.ax.scatter(x,y,facecolors='none',edgecolors='red',s=200, visible=True))
-                self.ax.annotate(str(self.stabil_calc.start_time),xy=(0.85,0.99),xycoords='figure fraction')
-                self.fig.canvas.print_figure( str(fname) )
-                #for scatter_obj in scatter_objs:
-                #    scatter_obj.remove()
-                #del scatter_objs
+                
+                self.stabil_calc.order_dummy.mask = ord_mask
+                self.stabil_calc.masked_frequencies.mask = f_mask
+                
+                text=self.ax.annotate(str(self.stabil_calc.start_time),xy=(0.85,0.99),xycoords='figure fraction')
+                
+                self.fig.canvas.print_figure(str(fname))
+                
+                text.remove()
+                
+                for scatter_obj in scatter_objs:
+                    scatter_obj.remove()
+                del scatter_objs
+                
             except Exception as e:
-                print(e)
+                import traceback
+                traceback.print_exc()
                 
 
     
@@ -2579,9 +2597,9 @@ class DataCursor(Cursor, QObject):
     mode_selected = pyqtSignal(tuple)
     mode_deselected = pyqtSignal(tuple)
     
-    def __init__(self, ax, order_data, f_data, mask=None,  useblit=False, datalist=[],**lineprops):
+    def __init__(self, ax, order_data, f_data, mask=None,  useblit=True, datalist=[],**lineprops):
         
-        Cursor.__init__(self, ax, useblit=True, **lineprops)
+        Cursor.__init__(self, ax, useblit=useblit, **lineprops)
         QObject.__init__(self)
         self.ax = ax
           

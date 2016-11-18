@@ -217,7 +217,30 @@ class BRSSICovRef(object):
                     Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row+num_analised_channels),
                                      0:num_ref_channels] = this_block
                                      
-
+#         import matplotlib.pyplot as plot
+#           
+#         for num_channel,ref_channel in enumerate(self.prep_data.ref_channels):
+#             inds=([],[])
+#             for i in range(num_block_columns):
+#                 row = ref_channel
+#                 col = (num_block_columns-i-1)*num_ref_channels+num_channel
+#                 inds[0].append(row)
+#                 inds[1].append(col)
+#             for ii in range(1,num_block_rows):
+#                 row = (ii)*num_analised_channels+ref_channel
+#                 col = num_channel
+#                 inds[0].append(row)
+#                 inds[1].append(col)
+#             means = Toeplitz_matrix[inds]
+#             #print(means.shape, sigma_r[inds,inds].shape, len(inds))
+#             #plot.errorbar(range(num_block_rows+num_block_rows-1), means, yerr=np.sqrt(sigma_r[inds,inds]))
+#             #print(np.sqrt(sigma_r[inds,inds]))
+#                 
+#             #plot.plot(vec_R[inds,0])
+#             #plot.plot(vec_R[inds,1])
+#             plot.plot(range(1,num_block_columns+num_block_rows), means)
+#         plot.show()
+        
         self.toeplitz_matrix = Toeplitz_matrix              
         self.state[0]=True
          
@@ -243,11 +266,11 @@ class BRSSICovRef(object):
         refs = np.frombuffer(refs_memory.get_obj()).reshape(refs_shape)
         toeplitz = np.frombuffer(toeplitz_memory.get_obj()).reshape(toeplitz_shape)
             
-        begin_extract = num_block_columns + i - (ii)
+        begin_extract = num_block_columns + i - (ii) 
 
         current_signals = (measurement[begin_extract:(begin_extract + extract_length), all_channels]).T
 
-        this_block = (np.dot(refs, current_signals.T.conj()) / refs_shape[1]).T/extract_length
+        this_block = (np.dot(refs, current_signals.T.conj())).T/extract_length
         
         
         begin_toeplitz_row = i*num_analised_channels 
@@ -280,6 +303,7 @@ class BRSSICovRef(object):
         toeplitz_matrix = self.toeplitz_matrix
         num_channels = self.prep_data.num_analised_channels
         num_block_columns = self.num_block_columns
+        num_block_rows = self.num_block_rows
         print('Computing state matrices...')
         
         [U,S,V_T] = np.linalg.svd(toeplitz_matrix,0)
@@ -296,8 +320,8 @@ class BRSSICovRef(object):
         Oi = np.dot(U, S_2)
         C = Oi[:num_channels,:]   
         
-        Oi0=Oi[:(num_channels * (num_block_columns - 1)),:]
-        Oi1=Oi[num_channels:(num_channels * num_block_columns),:]
+        Oi0=Oi[:(num_channels * (num_block_rows - 1)),:]
+        Oi1=Oi[num_channels:(num_channels * num_block_rows),:]
         
         if max_modes is not None:
             [u,s,v_t]=np.linalg.svd(Oi0,0)
@@ -369,7 +393,8 @@ class BRSSICovRef(object):
             if multiprocessing:
                 eigenvalues_single, eigenvectors_single = return_dict[order]
             else:
-                eigenvalues_paired, eigenvectors_paired = np.linalg.eig(state_matrix[0:order, 0:order])
+                #eigenvalues_paired, eigenvectors_paired = np.linalg.eig(state_matrix[0:order, 0:order])
+                eigenvalues_paired, eigvec_l, eigenvectors_paired = scipy.linalg.eig(a=state_matrix[0:order, 0:order],b=None,left=True,right=True)
                 
                 eigenvalues_single,eigenvectors_single = \
                     self.remove_conjugates_new(eigenvalues_paired,eigenvectors_paired)
@@ -611,9 +636,9 @@ def vectorize(matrix):
     | 9 |
     '''
     return np.reshape(matrix,(np.product(matrix.shape),1),'F')
-
+import scipy.sparse
 def permutation(a,b):
-    P = np.zeros((a*b, a*b))#zeros((a*b,a*b))     
+    P = scipy.sparse.csr_matrix((a*b, a*b))#zeros((a*b,a*b))     
     ind1=np.array(range(a*b))#range(a*b)
     ind2=np.mod(ind1*a,a*b-1) #mod(ind1*a,a*b-1)
     ind2[-1]=a*b-1 #a*b-1
@@ -664,10 +689,10 @@ class VarSSICovRef(object):
             multiprocessing= f.__next__().strip('\n').strip(' ')=='yes'
             
         ssi_object = cls(prep_data)
-        ssi_object.build_hankel_cov(num_block_columns, multiprocess=multiprocessing, num_blocks=1)
+        ssi_object.build_hankel_cov(num_block_columns, multiprocess=multiprocessing, num_blocks=200)
         ssi_object.compute_state_matrices(max_model_order)
-        #ssi_object.compute_modal_params(multiprocessing)
-        ssi_object.compute_modal_params_optim(multiprocessing)
+        ssi_object.compute_modal_params(multiprocessing)
+        #ssi_object.compute_modal_params_optim(multiprocessing)
         
         return ssi_object
         
@@ -697,109 +722,68 @@ class VarSSICovRef(object):
         measurement = self.prep_data.measurement
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels =self.prep_data.num_ref_channels 
-        # Extract reference time series for covariances 
-        extract_length =int(np.floor((total_time_steps - (num_block_columns + num_block_rows) + 1)/num_blocks))
-        print((num_block_columns+num_block_rows - 1) * num_analised_channels * num_ref_channels)
-        #sigma_R = np.zeros(((num_block_columns+num_block_rows - 1) * num_analised_channels * num_ref_channels, (num_block_columns+num_block_rows - 1) * num_analised_channels * num_ref_channels))
-        
+
+
+        tau_max = num_block_columns+num_block_rows-1
+        extract_length =int(np.floor((total_time_steps - tau_max)/num_blocks))
         
         all_channels = ref_channels + roving_channels
         all_channels.sort()
         
-        corr_matrices = []
+        corr_matrices_mem = []
+        
+        corr_mats_shape = (tau_max * num_analised_channels, num_ref_channels)
+        for n_block in range(num_blocks):
+            corr_memory = mp.Array(c.c_double, np.zeros((np.product(corr_mats_shape)))) # shared memory, can be used by multiple processes @UndefinedVariable
+            corr_matrices_mem.append(corr_memory)
+            
+        measurement_shape=measurement.shape
+        measurement_memory = mp.Array(c.c_double, measurement.reshape(measurement.size, 1))
+                
+        pool=mp.Pool(processes = os.cpu_count(), initializer=self.init_child_process, initargs=(measurement_memory, corr_matrices_mem))
+        
+        iterators = []
+        curr_it = []
+        it_len = int(np.ceil(tau_max*num_blocks/os.cpu_count()))
         
         for n_block in range(num_blocks):
-            this_measurement = measurement[(n_block)*extract_length:(n_block+1)*extract_length+num_block_columns+num_block_rows+1,:]
-            refs = (this_measurement[:extract_length,ref_channels]).T
+            for tau in range(1,tau_max+1):
+                curr_it.append((n_block, tau))
+                if len(curr_it)>it_len:
+                    iterators.append(curr_it)
+                    curr_it = []
+        else:
+            iterators.append(curr_it)
+            
+        #print(len(iterators))
         
-            print('Computing covariances for block {} of {} blocks...'.format(n_block, num_blocks))
-            #n, m = num_analised_channels*num_block_rows, num_ref_channels*num_block_columns
-        
-            #hankel_memory = mp.Array(c.c_double, np.zeros(n*m)) # shared memory, can be used by multiple processes @UndefinedVariable
-            #hankel_shape = (n,m)
-            
-            corr_mats_shape = ((num_block_columns+num_block_rows -1 ) * num_analised_channels, num_ref_channels)
-            corr_memory = mp.Array(c.c_double, np.zeros((np.product(corr_mats_shape)))) # shared memory, can be used by multiple processes @UndefinedVariable
-                        
-            measurement_shape=this_measurement.shape
-            measurement_memory = mp.Array(c.c_double, this_measurement.reshape(this_measurement.size, 1))
-            
-            refs_memory = mp.Array(c.c_double, refs.reshape(refs.size,1 ))
-            refs_shape=refs.shape
-            
-            pool=mp.Pool(initializer=self.init_child_process, initargs=(refs_memory,  measurement_memory, corr_memory, ))
-            
-            for tau in range(1,num_block_columns+num_block_rows):
-                pool.apply_async(self.compute_covariance , args=(tau,
-                                                            extract_length, 
-                                                            ref_channels, 
-                                                            all_channels, 
-                                                            refs_shape, 
-                                                            measurement_shape,
-                                                            corr_mats_shape))
-            
-            
-            
-            
-#             for i in range(0,num_block_rows):
-#                 if i == 0:
-#                     # in multiprocessing, errors in the single processes are sometimes not reported to console, in this case 
-#                     # the resulting block hankelmatrix will be filled with zeros
-#                     # try to change pool.apply_async to pool.apply and run in debug mode
-#                     for ii in range(0,self.num_block_columns):#fill the first block row
-#                         pool.apply_async(self.compute_covariance , args=(i, 
-#                                                             ii, 
-#                                                             n_block,
-#                                                             num_block_columns, 
-#                                                             extract_length, 
-#                                                             ref_channels, 
-#                                                             all_channels, 
-#                                                             refs_shape, 
-#                                                             measurement_shape,
-#                                                             hankel_shape))
-#                 else: #fill the first block column
-#                     ii = self.num_block_columns - 1
-#                     pool.apply_async(self.compute_covariance , args=(i, 
-#                                                             ii, 
-#                                                             n_block,
-#                                                             num_block_columns, 
-#                                                             extract_length, 
-#                                                             ref_channels, 
-#                                                             all_channels, 
-#                                                             refs_shape, 
-#                                                             measurement_shape,
-#                                                             hankel_shape))
-#                         
-            pool.close()
-            pool.join()               
-#             
-#             del measurement_memory
-#             del refs_memory
-#             del refs  
+        for curr_it in iterators:
+            print(len(curr_it))
+            pool.apply_async(self.compute_covariance , args=(curr_it,
+                                                        tau_max,
+                                                        extract_length, 
+                                                        ref_channels, 
+                                                        all_channels, 
+                                                        measurement_shape,
+                                                        corr_mats_shape))
+                                  
+        pool.close()
+        pool.join()               
 
-            corr_mats = np.frombuffer(corr_memory.get_obj()).reshape(corr_mats_shape) 
-#             Hankel_matrix = np.frombuffer(hankel_memory.get_obj()).reshape((n,m)) 
 
-            
-#             for i in range(1,num_block_rows): #finish assembling block hankel matrix
-#                 # copys and shifts contents from previous block row to next block row
-#                 # shifts by one block column to the right
-#                 previous_Hankel_row = (i-1)*num_analised_channels
-#                 this_block = Hankel_matrix[previous_Hankel_row:(previous_Hankel_row+num_analised_channels),
-#                                              num_ref_channels:(num_ref_channels * num_block_columns)]
-#                 begin_Hankel_row = i*num_analised_channels
-#                 Hankel_matrix[begin_Hankel_row:(begin_Hankel_row+num_analised_channels),
-#                                 0:num_ref_channels* (num_block_columns - 1)] = this_block
-            
+        corr_matrices = []
+        for corr_mats_mem in corr_matrices_mem:
+            corr_mats = np.frombuffer(corr_mats_mem.get_obj()).reshape(corr_mats_shape) 
             corr_matrices.append(corr_mats)
+            #print(corr_mats)
             
-        corr_mats_mean = np.mean(corr_matrices, axis=0)           
+        corr_mats_mean = np.sum(corr_matrices, axis=0)           
         
         self.hankel_matrix= np.zeros((num_block_rows*num_analised_channels, num_block_columns*num_ref_channels))
         for block_column in range(num_block_columns):
             this_block_column = corr_mats_mean[block_column*num_analised_channels:(num_block_rows+block_column)*num_analised_channels,:]
             self.hankel_matrix[:,block_column*num_ref_channels:(block_column+1)*num_ref_channels]=this_block_column        
-        
+        #print(np.where(self.hankel_matrix==0))
         hankel_matrices = []
         for n_block in range(num_blocks):
             corr_matrix = corr_matrices[n_block]
@@ -811,79 +795,97 @@ class VarSSICovRef(object):
         
         
 #         import matplotlib.pyplot as plot
-#  
-#         for ref_channel in range(num_ref_channels):
-#             #plot.errorbar(range(num_block_rows+num_block_rows-1), means[:,ref_channel], yerr=stds[:,ref_channel])
-#             #plot.errorbar(range(num_block_rows+num_block_rows-1), means[:,ref_channel], yerr=np.std([raws1[:,ref_channel],raws2[:,ref_channel]],axis=0))
-#             ref_channels = np.array(self.prep_data.ref_channels)
-#             inds=np.hstack([i+ref_channel for i in range(0,(num_block_columns+num_block_rows-1)*num_analised_channels*num_ref_channels,num_ref_channels*num_analised_channels)])
-#             means = np.mean(vec_R[inds,:],axis=1)
-#             #print(means.shape, sigma_r[inds,inds].shape, len(inds))
-#             plot.errorbar(range(num_block_rows+num_block_rows-1), means, yerr=np.sqrt(sigma_r[inds,inds]))
-#             #print(np.sqrt(sigma_r[inds,inds]))
-#              
-#             plot.plot(vec_R[inds,0])
-#             plot.plot(vec_R[inds,1])
+#         for hankel_matrix in hankel_matrices+[self.hankel_matrix]:
+#             for num_channel,ref_channel in enumerate(self.prep_data.ref_channels):
+#                 inds=([],[])
+#                 for i in range(num_block_columns):
+#                     row = ref_channel
+#                     col = i*num_ref_channels+num_channel
+#                     inds[0].append(row)
+#                     inds[1].append(col)
+#                 for ii in range(1,num_block_rows):
+#                     row = (ii)*num_analised_channels+ref_channel
+#                     col = (num_block_columns-1)*num_ref_channels+num_channel
+#                     inds[0].append(row)
+#                     inds[1].append(col)
+#                 means = hankel_matrix[inds]
+#                 #print(means.shape, sigma_r[inds,inds].shape, len(inds))
+#                 #plot.errorbar(range(num_block_rows+num_block_rows-1), means, yerr=np.sqrt(sigma_r[inds,inds]))
+#                 #print(np.sqrt(sigma_r[inds,inds]))
+#                     
+#                 #plot.plot(vec_R[inds,0])
+#                 #plot.plot(vec_R[inds,1])
+#                 plot.plot(range(1,num_block_columns+num_block_rows), means)
 #             
 #         plot.show()
-        #sigma_R = np.zeros(((num_block_columns+num_block_rows - 1) * num_analised_channels * num_ref_channels, (num_block_columns+num_block_rows - 1) * num_analised_channels * num_ref_channels))
-        #sigma_R=None
-        #for n_block in range(num_blocks):
-        #    this_corr = vectorize(corr_matrices[n_block])-vectorize(corr_mats_mean)
-        #    if sigma_R is None:
-        #        sigma_R = np.dot(this_corr,this_corr.T)
-        #    else:
-        #        sigma_R += np.dot(this_corr,this_corr.T)
-        #sigma_R /= (num_blocks*(num_blocks-1))
-        #self.sigma_R = sigma_R
-        
+
         T=np.zeros((num_block_rows*num_block_columns*num_analised_channels*num_ref_channels,num_blocks))
         for n_block in range(num_blocks):
             this_hankel = hankel_matrices[n_block]
             T[:,n_block:n_block+1]=vectorize(this_hankel)-vectorize(self.hankel_matrix)
         T/=np.sqrt(num_blocks*(num_blocks-1))        
         self.hankel_cov_matrix = T
+        #print(T)
+        sigma_R = np.zeros(((num_block_columns+num_block_rows - 1) * num_analised_channels * num_ref_channels, (num_block_columns+num_block_rows - 1) * num_analised_channels * num_ref_channels))
+        sigma_R=None
+        for n_block in range(num_blocks):
+            this_corr = vectorize(corr_matrices[n_block])-vectorize(corr_mats_mean)
+            if sigma_R is None:
+                sigma_R = np.dot(this_corr,this_corr.T)
+            else:
+                sigma_R += np.dot(this_corr,this_corr.T)
+        sigma_R /= (num_blocks*(num_blocks-1))
+        self.sigma_R = sigma_R
         
-        #import scipy.sparse 
-        #S3=[]
-        #for k in range(num_block_columns):
-        #    S3.append(scipy.sparse.kron(scipy.sparse.identity(num_ref_channels),scipy.sparse.hstack([np.zeros((num_block_rows*num_analised_channels, (k)*num_analised_channels)),
-        #                                                              scipy.sparse.identity(num_block_rows*num_analised_channels),
-        #                                                              np.zeros((num_block_rows*num_analised_channels, (num_block_columns-k-1)*num_analised_channels))])).T)
-        #S3=scipy.sparse.hstack(S3).T
-        #self.S3 = S3
+        import scipy.sparse 
+        S3=[]
+        for k in range(num_block_columns):
+            S3.append(scipy.sparse.kron(scipy.sparse.identity(num_ref_channels),np.hstack([np.zeros((num_block_rows*num_analised_channels, (k)*num_analised_channels)),
+                                                                      np.identity(num_block_rows*num_analised_channels),
+                                                                      np.zeros((num_block_rows*num_analised_channels, (num_block_columns-k-1)*num_analised_channels))])).T)
+        S3=scipy.sparse.hstack(S3).T
+        self.S3 = S3
         
         #print(np.allclose(np.dot(S3,np.dot(sigma_R,S3.T)),np.dot(T,T.T)))
         #print(self.hankel_matrix.shape)   
         self.state[0]=True
          
         
-    def init_child_process(self, refs_memory_, measurement_memory_, corr_memory_):
+    def init_child_process(self, measurement_memory_, corr_matrices_mem_):
         #make the  memory arrays available to the child processes
-        global refs_memory
-        refs_memory = refs_memory_
         
         global measurement_memory
         measurement_memory = measurement_memory_   
         
-        global corr_memory
-        corr_memory = corr_memory_
+        global corr_matrices_mem
+        corr_matrices_mem = corr_matrices_mem_
     
    
-    def compute_covariance(self, tau, extract_length, ref_channels, all_channels, refs_shape, measurement_shape, corr_mats_shape):
-        # compute R_iii where iii = i+ii+1 equals the time lag
-        
-        num_analised_channels = len(all_channels)
-        
-        measurement = np.frombuffer(measurement_memory.get_obj()).reshape(measurement_shape)
-        refs = np.frombuffer(refs_memory.get_obj()).reshape(refs_shape)
-        corr_mats = np.frombuffer(corr_memory.get_obj()).reshape(corr_mats_shape)
-        
-        current_signals = (measurement[tau:(tau + extract_length), all_channels]).T
-        this_block = (np.dot(refs, current_signals.T.conj()) / refs_shape[1]).T/extract_length
-        
-        with corr_memory.get_lock():
-            corr_mats[(tau-1)*num_analised_channels:tau*num_analised_channels,:] = this_block
+    def compute_covariance(self, curr_it, tau_max, extract_length, ref_channels, all_channels, measurement_shape, corr_mats_shape):
+        normalize=False
+        for n_block, tau in curr_it:
+            
+            num_analised_channels = len(all_channels)
+            
+            measurement = np.frombuffer(measurement_memory.get_obj()).reshape(measurement_shape)
+            
+            this_measurement2 = measurement[(n_block)*extract_length:(n_block+1)*extract_length+tau_max,:]
+            
+            if normalize:this_measurement = this_measurement2 - np.mean(this_measurement2,axis=0)
+            else: this_measurement = this_measurement2
+            
+            refs = (this_measurement[:extract_length,ref_channels]).T
+            
+            current_signals = (this_measurement[tau:(tau + extract_length), all_channels]).T
+            
+            this_block = (np.dot(refs, current_signals.T.conj())).T/(extract_length-1)
+
+            corr_memory = corr_matrices_mem[n_block]
+            
+            corr_mats = np.frombuffer(corr_memory.get_obj()).reshape(corr_mats_shape)
+            
+            with corr_memory.get_lock():
+                corr_mats[(tau-1)*num_analised_channels:tau*num_analised_channels,:] = this_block
           
     def compute_state_matrices(self, max_model_order=None):
         '''
@@ -914,7 +916,7 @@ class VarSSICovRef(object):
             max_model_order=len(S)        
         else:
             max_model_order = min(max_model_order,len(S))
-        
+        #print(S)
     
         S_2 = np.diag(np.power(np.copy(S)[:max_model_order], 0.5))
         U = U[:,:max_model_order]
@@ -975,7 +977,9 @@ class VarSSICovRef(object):
         Q3=np.zeros((max_model_order**2, num_blocks))
         Q4=np.zeros((max_model_order*num_channels, num_blocks))
 
-        for i in range(1,max_model_order):     
+        for i in range(1,max_model_order):
+            print('(a) Step up order: ',i) 
+            continue
             v_i_T =  V_T[i-1:i,:]
             u_i = U[:,i-1:i]
             s_i = S[i-1]
@@ -1012,14 +1016,14 @@ class VarSSICovRef(object):
                     
             #T_i,1; T_i,2
             
-            T_i1 = np.dot(np.kron(np.identity(num_block_columns*num_ref_channels),u_i.T),T)
-            T_i2 = np.dot(np.kron(v_i_T, np.identity(self.num_block_rows*num_channels)),T)
+            T_i1 = scipy.sparse.kron(scipy.sparse.identity(num_block_columns*num_ref_channels),u_i.T).dot(T)
+            T_i2 = scipy.sparse.kron(v_i_T, scipy.sparse.identity(self.num_block_rows*num_channels)).dot(T)
                         
             # (I_O,H T)_i
             
-            I_OHT = (0.5*s_i**(-0.5)*np.dot(u_i,np.dot(v_i_T,T_i1))+
-                         s_i**(0.5)*np.dot(B_i1,np.vstack([T_i2-np.dot(u_i,np.dot(u_i.T,T_i2)),
-                                                           T_i1-np.dot(v_i_T.T,np.dot(v_i_T,T_i1))])))
+            I_OHT = (0.5*s_i**(-0.5)*np.dot(u_i,T_i1.T.dot(v_i_T.T).T)+
+                         s_i**(0.5)*np.dot(B_i1,np.vstack([T_i2-np.dot(u_i,T_i2.T.dot(u_i).T),
+                                                           T_i1-np.dot(v_i_T.T,T_i1.T.dot(v_i_T.T).T)])))
             #print(np.dot(np.dot(Oi_up.T,S1),I_OHT).shape)
             beg,end=(i-1,i)
             #beg_end=(i,i+1)
@@ -1061,6 +1065,7 @@ class VarSSICovRef(object):
         Q2 = self.Q2
         Q3 = self.Q3
         Q4 = self.Q4
+
         num_channels = self.prep_data.num_analised_channels
         num_block_columns = self.num_block_columns
         
@@ -1080,13 +1085,16 @@ class VarSSICovRef(object):
         mode_shapes = np.zeros((num_channels, max_model_order, max_model_order),dtype=complex)
         std_mode_shapes = np.zeros((num_channels, max_model_order, max_model_order),dtype=complex)
         
-        
+        # params: order, max_model_order, num_channels, num_block_columns, accel_channels, velo_channels, self.prep_data.channel_factors
+        # read: state_matrix, output_matrix, Oi,  Q1,Q2,Q3,Q4, 
+        # functions: remove_conjugates(), integrate_quantities(), self.rescale_mode_shape()
+        # write: modal_frequencies, std_frequencies, modal_damping, std_damping, mode_shapes, std_mode_shapes
         
         for order in range(1,max_model_order,1):        
-            print('Step up order: ',order)        
-            if order>= 38: 
-                pass
-            
+            print('(b) Step up order: ',order)        
+            #if order>= 38: 
+            #    pass
+
             eigval, eigvec_l, eigvec_r = scipy.linalg.eig(a=state_matrix[0:order, 0:order],b=None,left=True,right=True)
             eigval, eigvec_l, eigvec_r = self.remove_conjugates_new(eigval, eigvec_l, eigvec_r) 
             
@@ -1095,13 +1103,13 @@ class VarSSICovRef(object):
             
             Oin = Oi[:,:order]
             
-            S4 = np.kron(np.hstack([np.identity(order),np.zeros((order,max_model_order-order))]),
-                         np.hstack([np.identity(order),np.zeros((order,max_model_order-order))]))
- 
-            Q1n = np.dot(S4,Q1)
-            Q2n = np.dot(S4,Q2)
-            Q3n = np.dot(S4,Q3)
-            Q4n = np.dot(np.hstack([np.identity(num_channels*order),np.zeros((num_channels*order,num_channels*(max_model_order-order)))]),Q4)
+            S4 = scipy.sparse.kron(scipy.sparse.hstack([scipy.sparse.identity(order),np.zeros((order,max_model_order-order))]),
+                         scipy.sparse.hstack([scipy.sparse.identity(order),np.zeros((order,max_model_order-order))]))
+            
+            Q1n = S4.dot(Q1)
+            Q2n = S4.dot(Q2)
+            Q3n = S4.dot(Q3)
+            Q4n = scipy.sparse.hstack([scipy.sparse.identity(num_channels*order),np.zeros((num_channels*order,num_channels*(max_model_order-order)))]).dot(Q4)
             
             #Computation of (Oi_up Oi_up)^-1 , (P_nn + I_n2) Q1 and the sum P Q2 +Q3
             
@@ -1111,8 +1119,9 @@ class VarSSICovRef(object):
 
             Pnn = permutation(order,order)            
             
-            PQ1 = np.dot(Pnn + np.identity(order**2) , Q1n)
-            PQ23 = np.dot(Pnn, Q2n) + Q3n
+            PQ1 = (Pnn + scipy.sparse.identity(order**2)).dot(Q1n)
+            PQ23 = Pnn.dot(Q2n) + Q3n
+
             #print(eigval)
             
             for j,lambda_j in enumerate(eigval):
@@ -1121,9 +1130,9 @@ class VarSSICovRef(object):
                 b_j=np.log(np.abs(lambda_j))
                 freq_j = np.sqrt(a_j**2+b_j**2)*sampling_rate/2/np.pi
                 damping_j = 100*np.abs(b_j)/np.sqrt(a_j**2+b_j**2)     
-                #lambda_cj=np.log(complex(lambda_j))*sampling_rate
-                #freq_j=np.abs(lambda_cj)/2/np.pi
-                #damping_j=-100*np.real(lambda_cj)/np.abs(lambda_cj)
+                lambda_cj=np.log(complex(lambda_j))*sampling_rate
+                freq_j=np.abs(lambda_cj)/2/np.pi
+                damping_j=-100*np.real(lambda_cj)/np.abs(lambda_cj)
                 
                 mode_shape_j = np.dot(output_matrix[:, 0:order], eigvec_r[:,j])
                 mode_shape_j = np.array(mode_shape_j, dtype=complex)
@@ -1137,6 +1146,7 @@ class VarSSICovRef(object):
                 modal_frequencies[order,j]=freq_j
                 modal_damping[order,j]=damping_j
                 mode_shapes[:,j,order]=mode_shape_j
+                
                 
                 #print(modal_frequencies[order,j], modal_damping[order,j], mode_shapes[:,j,order])
             
@@ -1292,46 +1302,32 @@ class VarSSICovRef(object):
             # K_i, B_i,1; 
             BC=[]
             vu=[]
+            P = permutation(num_block_rows*num_channels, num_block_columns*num_ref_channels)
             for i in range(0,order):
-                #print(i)
+                print(i)
                 v_i_T =  self.V_T[i:i+1,:]
                 u_i = self.U[:,i:i+1]
                 s_i = self.S[i]
                 
-                B_i=np.vstack([np.hstack([np.identity(num_block_rows*num_channels), -1/s_i*hankel_matrix]),
-                              np.hstack([-1/s_i*hankel_matrix.T, np.identity(num_block_columns*num_ref_channels)])])
+                B_i=scipy.sparse.vstack([scipy.sparse.hstack([scipy.sparse.identity(num_block_rows*num_channels), -1/s_i*hankel_matrix]),
+                              scipy.sparse.hstack([-1/s_i*hankel_matrix.T, scipy.sparse.identity(num_block_columns*num_ref_channels)])])
                 
-#                 P = np.zeros(((num_block_rows*num_channels)**2, (num_block_columns*num_ref_channels)**2))
-#                 for k in range(num_block_rows*num_channels):
-#                     for l in range(num_block_columns*num_ref_channels):
-#                         Ekl=np.zeros((num_block_rows*num_channels, num_block_columns*num_ref_channels))
-#                         Ekl[k,l]=1
-#                         Elk=np.zeros((num_block_rows*num_channels, num_block_columns*num_ref_channels))
-#                         Elk[l,k]=1
-#                         pp=np.kron(Ekl,Elk)
-#                         #print(pp)
-#                         P+=pp
+                C_i=1/s_i*scipy.sparse.vstack([scipy.sparse.kron(v_i_T, (scipy.sparse.identity(num_block_rows*num_channels))-np.dot(u_i,u_i.T)),
+                                     P.T.dot(scipy.sparse.kron(u_i.T,(scipy.sparse.identity(num_block_columns*num_ref_channels)-np.dot(v_i_T.T,v_i_T))).T).T])
                 
-                P = permutation(num_block_rows*num_channels, num_block_columns*num_ref_channels)
-                #print('P1',np.all(P==P2))
-
-                
-                C_i=1/s_i*np.vstack([np.kron(v_i_T, (np.identity(num_block_rows*num_channels))-np.dot(u_i,u_i.T)),
-                                     np.dot(np.kron(u_i.T,(np.identity(num_block_columns*num_ref_channels)-np.dot(v_i_T.T,v_i_T))),P)])
-                
-                BC.append(np.dot(np.linalg.pinv(B_i),np.dot(C_i,S3)))
-                vu.append(np.dot(np.kron(v_i_T.T,u_i).T,S3))
-            BC=np.vstack(BC)
-            vu=np.vstack(vu)     
+                BC.append(C_i.dot(S3).T.dot(np.linalg.pinv(B_i.toarray()).T).T)
+                vu.append(S3.T.dot(np.kron(v_i_T.T,u_i)).T)
+            BC=scipy.sparse.vstack(BC)
+            vu=scipy.sparse.vstack(vu)     
                     
             S4=np.zeros((order**2,order))
             for k in range(order):
                 S4[(k-1)*order+k,k]+=1
                 
-            I_OHS3 = (0.5*np.dot(np.dot(np.kron(np.identity(order), np.dot(self.U[:,:order], np.diag(np.power(np.copy(self.S)[:order], -0.5)))),S4),vu)+
-                    np.dot(np.kron(np.diag(np.power(np.copy(self.S)[:order], 0.5)),
-                                   np.hstack([np.identity(num_block_rows*num_channels),np.zeros((num_block_rows*num_channels, num_block_columns*num_ref_channels))]))
-                           ,BC))
+            I_OHS3 = (0.5*scipy.sparse.kron(scipy.sparse.identity(order), np.dot(self.U[:,:order], np.diag(np.power(np.copy(self.S)[:order], -0.5)))).T.dot(S4).T.dot(vu)+
+                    BC.T.dot(scipy.sparse.kron(np.diag(np.power(np.copy(self.S)[:order], 0.5)),
+                                   scipy.sparse.hstack([scipy.sparse.identity(num_block_rows*num_channels),scipy.sparse.csr_matrix((num_block_rows*num_channels, num_block_columns*num_ref_channels))])).T
+                           ).T)
 #             P = np.zeros(((num_block_rows*num_channels)*order, (num_block_rows*num_channels)*order))
 #             for k in range(num_block_rows*num_channels):
 #                 for l in range(order):
@@ -1345,17 +1341,17 @@ class VarSSICovRef(object):
             P = permutation(num_block_rows*num_channels, order)                    
             #print('P2',np.all(P==P2))
 
-            I_AO=(np.kron(np.identity(order),np.dot(np.linalg.pinv(Oi_up[:,:order]),S2))-
-                  np.kron(state_matrix[0:order, 0:order].T,np.dot(np.linalg.pinv(Oi_up[:,:order]),S1))+
-                  np.dot(np.kron(np.dot(Oi_down[:,:order].T,S2)-
+            I_AO=(scipy.sparse.kron(scipy.sparse.identity(order),np.dot(np.linalg.pinv(Oi_up[:,:order]),S2))-
+                  scipy.sparse.kron(state_matrix[0:order, 0:order].T,np.dot(np.linalg.pinv(Oi_up[:,:order]),S1))+
+                  P.T.dot(np.kron(np.dot(Oi_down[:,:order].T,S2)-
                                  np.dot(np.dot(state_matrix[0:order, 0:order],Oi_up[:,:order].T),S2),
-                                 np.linalg.inv(np.dot(Oi_up[:,:order].T,Oi_up[:,:order])))
-                  ,P))
+                                 np.linalg.inv(np.dot(Oi_up[:,:order].T,Oi_up[:,:order]))).T
+                  ).T)
             
-            I_CO=np.kron(np.identity(order),np.hstack([np.identity(num_channels),np.zeros((num_channels,(num_block_rows-1)*num_channels))]))
-            A=np.dot(np.vstack([I_AO,I_CO]), I_OHS3)
+            I_CO=scipy.sparse.kron(scipy.sparse.identity(order),scipy.sparse.hstack([scipy.sparse.identity(num_channels),scipy.sparse.csr_matrix((num_channels,(num_block_rows-1)*num_channels))]))
+            A=scipy.sparse.vstack([I_AO,I_CO]).dot(I_OHS3)
             
-            sigma_AC = np.dot(np.dot(A,self.sigma_R),A.T)
+            sigma_AC = A.dot(self.sigma_R).dot(A.T)
             
                         
             for j,lambda_j in enumerate(eigval):
@@ -1405,14 +1401,14 @@ class VarSSICovRef(object):
                  )
                 
                 J_fiAxiA = np.dot(J_fixiili,np.vstack([np.real(J_liA),np.imag(J_liA)]))
-                var_fixi = np.dot(np.hstack([J_fiAxiA, np.zeros((2,num_channels*order))]),np.dot(sigma_AC,np.hstack([J_fiAxiA, np.zeros((2,num_channels*order))]).T))
+                var_fixi = np.dot(np.hstack([J_fiAxiA, np.zeros((2,num_channels*order))]),sigma_AC.dot(np.hstack([J_fiAxiA, np.zeros((2,num_channels*order))]).T))
                 
                 k = np.argmax(np.abs(mode_shape_j))
                 J_phiiAC = (1/mode_shape_j[k]*
                 np.dot(np.identity(num_channels, dtype=complex)-np.hstack([np.zeros((num_channels,k),dtype=complex),np.reshape(mode_shape_j,(num_channels,1)),np.zeros((num_channels,num_channels-(k+1)),dtype=complex)]),
                        np.hstack([np.dot(output_matrix[:, 0:order],J_PhiA),np.kron(Phi_j.T,np.identity(num_channels))])))
                 
-                var_phii= np.dot(np.vstack([np.real(J_phiiAC),np.imag(J_phiiAC)]),np.dot(sigma_AC,np.vstack([np.real(J_phiiAC),np.imag(J_phiiAC)]).T))
+                var_phii= np.dot(np.vstack([np.real(J_phiiAC),np.imag(J_phiiAC)]),sigma_AC.dot(np.vstack([np.real(J_phiiAC),np.imag(J_phiiAC)]).T))
                 
                 std_frequencies[order,j]=np.sqrt(var_fixi[0,0])
                 std_damping[order, j]=np.sqrt(var_fixi[1,1])
@@ -1464,8 +1460,8 @@ class VarSSICovRef(object):
         for i in range(num_val):
             this_val=eigval[i]
             this_conj_val = np.conj(this_val)
-            #if this_val == this_conj_val: #remove real eigvals
-            #    conj_indices.append(i)
+            if this_val == this_conj_val: #remove real eigvals
+                conj_indices.append(i)
             for j in range(i+1, num_val): #catches unordered conjugates but takes slightly longer
                 if eigval[j] == this_conj_val:
         

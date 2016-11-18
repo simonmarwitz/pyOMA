@@ -792,7 +792,12 @@ class PreprocessData(object):
         by subtracting the average value of the x first measurements from every
         value
         '''
-        print('Correcting offset of {} first measurements.'.format(x))
+        print('Correcting offset of measurements.')
+        #print(self.measurement.mean(axis=0))
+        self.measurement -= self.measurement.mean(axis=0)
+        #print(self.measurement.mean(axis=0))
+        return
+    
         for ii in range(self.measurement.shape[1]):
             tmp = self.measurement[:,ii]
             if x is not None:
