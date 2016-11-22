@@ -691,8 +691,8 @@ class VarSSICovRef(object):
         ssi_object = cls(prep_data)
         ssi_object.build_hankel_cov(num_block_columns, multiprocess=multiprocessing, num_blocks=200)
         ssi_object.compute_state_matrices(max_model_order)
-        ssi_object.compute_modal_params(multiprocessing)
-        #ssi_object.compute_modal_params_optim(multiprocessing)
+        #ssi_object.compute_modal_params(multiprocessing)
+        ssi_object.compute_modal_params_optim(multiprocessing)
         
         return ssi_object
         
@@ -777,7 +777,8 @@ class VarSSICovRef(object):
             corr_matrices.append(corr_mats)
             #print(corr_mats)
             
-        corr_mats_mean = np.sum(corr_matrices, axis=0)           
+        #corr_mats_mean = np.sum(corr_matrices, axis=0)           
+        corr_mats_mean = np.mean(corr_matrices, axis=0)
         
         self.hankel_matrix= np.zeros(((num_block_rows+1)*num_analised_channels, num_block_columns*num_ref_channels))
         for block_column in range(num_block_columns):
@@ -822,14 +823,14 @@ class VarSSICovRef(object):
         T=np.zeros(((num_block_rows+1)*num_block_columns*num_analised_channels*num_ref_channels,num_blocks))
         for n_block in range(num_blocks):
             this_hankel = hankel_matrices[n_block]
-            T[:,n_block:n_block+1]=vectorize(this_hankel)-vectorize(self.hankel_matrix)
+            T[:,n_block:n_block+1]=vectorize(this_hankel)-vectorize(self.hankel_matrix)#/num_blocks
         T/=np.sqrt(num_blocks*(num_blocks-1))        
         self.hankel_cov_matrix = T
         #print(T)
         sigma_R = np.zeros(((num_block_columns+num_block_rows) * num_analised_channels * num_ref_channels, (num_block_columns+num_block_rows) * num_analised_channels * num_ref_channels))
         #sigma_R=None
         for n_block in range(num_blocks):
-            this_corr = vectorize(corr_matrices[n_block])-vectorize(corr_mats_mean)
+            this_corr = vectorize(corr_matrices[n_block])-vectorize(corr_mats_mean)#/num_blocks
             sigma_R += np.dot(this_corr,this_corr.T)
         sigma_R /= (num_blocks*(num_blocks-1))
         self.sigma_R = sigma_R
@@ -842,7 +843,7 @@ class VarSSICovRef(object):
         S3=scipy.sparse.hstack(S3).T
         self.S3 = S3
         
-        print(np.allclose(S3.dot((S3.dot(sigma_R)).T).T,np.dot(T,T.T)))
+        #print(np.allclose(S3.dot((S3.dot(sigma_R)).T).T,np.dot(T,T.T)))
         #print(self.hankel_matrix.shape)   
         self.state[0]=True
          
@@ -858,7 +859,7 @@ class VarSSICovRef(object):
     
    
     def compute_covariance(self, curr_it, tau_max, extract_length, ref_channels, all_channels, measurement_shape, corr_mats_shape):
-        normalize=False
+        normalize=True
         for n_block, tau in curr_it:
             
             num_analised_channels = len(all_channels)
@@ -874,7 +875,7 @@ class VarSSICovRef(object):
             
             current_signals = (this_measurement[tau:(tau + extract_length), all_channels]).T
             
-            this_block = (np.dot(refs, current_signals.T.conj())).T/(extract_length-1)
+            this_block = (np.dot(current_signals, refs.T))/(extract_length-1)
 
             corr_memory = corr_matrices_mem[n_block]
             
@@ -1031,7 +1032,7 @@ class VarSSICovRef(object):
             Q4[beg*   num_channels:end*num_channels,   :] = np.dot(np.hstack([np.identity(num_channels),np.zeros((num_channels,(num_block_rows)*num_channels))]),I_OHTi)
         
         self.I_OH = I_OH
-        print(np.allclose(np.dot(I_OH,T),I_OHT))
+        #print(np.allclose(np.dot(I_OH,T),I_OHT))
         
         self.Q1 = Q1
         self.Q2 = Q2  
@@ -1113,7 +1114,7 @@ class VarSSICovRef(object):
             
             Oi_up = Oin[:num_channels * (num_block_columns -1),:]
             Oi_up2 = np.dot(Oi_up.T, Oi_up)
-            #Oi_up2inv = np.linalg.inv(Oi_up2)
+            Oi_up2inv = np.linalg.pinv(Oi_up2)
 
             Pnn = permutation(order,order)            
             
@@ -1158,14 +1159,15 @@ class VarSSICovRef(object):
                  np.dot(np.dot(np.array([[1/(2*np.pi),  0                         ],
                                          [0,            100/(np.abs(tlambda_j)**2)]]),
                                np.array([[np.real(tlambda_j),       np.imag(tlambda_j)],
-                                         [-np.imag(tlambda_j)**2,   np.real(tlambda_j)*np.imag(tlambda_j)]])),
+                                         [-(np.imag(tlambda_j)**2),   np.real(tlambda_j)*np.imag(tlambda_j)]])),
                         np.array([[np.real(lambda_j),   np.imag(lambda_j)],
                                   [-np.imag(lambda_j),  np.real(lambda_j)]]))
                  )
                 
                 # compute J_liA J_AO J_OHT in (43)
 
-                J_liAOHT = 1/np.dot(Chi_j.T.conj(),Phi_j)*np.dot(Chi_j.conj().T,np.linalg.solve(Oi_up2,Q_j))
+#                J_liAOHT = 1/np.dot(Chi_j.T.conj(),Phi_j)*np.dot(Chi_j.conj().T,np.linalg.solve(Oi_up2,Q_j))
+                J_liAOHT = 1/np.dot(Chi_j.T.conj(),Phi_j)*np.dot(Chi_j.conj().T,np.dot(Oi_up2inv,Q_j))
                 
                 # Compute U_fixi in (42)
                 U_fixi = np.dot(J_fixiili,np.vstack([np.real(J_liAOHT),np.imag(J_liAOHT)]))
@@ -1176,14 +1178,15 @@ class VarSSICovRef(object):
                 
                 #Compute J_phi,A J_A,O J_O,HT in (46)
                 
-#                 J3T_phii1 = np.dot(np.linalg.pinv(np.dot(lambda_j,np.identity(order)-state_matrix[0:order, 0:order])),
-#                                   np.dot(np.identity(order)-np.dot(Phi_j, Chi_j.T.conj())/np.dot(Chi_j.T.conj(),Phi_j),
-#                                          np.dot(Oi_up2inv,
-#                                                 Q_j)))
                 J_PhiiHT = np.dot(np.linalg.pinv(np.dot(lambda_j,np.identity(order)-state_matrix[0:order, 0:order])),
                                   np.dot(np.identity(order)-np.dot(Phi_j, Chi_j.T.conj())/np.dot(Chi_j.T.conj(),Phi_j),
-                                         np.linalg.solve(Oi_up2,
+                                         np.dot(Oi_up2inv,
                                                 Q_j)))
+#                 J_PhiiHT = np.dot(np.linalg.pinv(np.dot(lambda_j,np.identity(order)-state_matrix[0:order, 0:order])),
+#                                   np.dot(np.identity(order)-np.dot(Phi_j, Chi_j.T.conj())/np.dot(Chi_j.T.conj(),Phi_j),
+#                                          np.linalg.solve(Oi_up2,
+#                                                 Q_j)))
+
                
                 
                 #Compute U_phi from (41) and (45)
@@ -1383,7 +1386,18 @@ class VarSSICovRef(object):
             I_AOI_OHT= np.dot(np.kron(np.identity(order),np.linalg.inv(Oi_up2)),np.dot(-1*np.kron(self.state_matrix[:order,:order].T,np.identity(order)),PQ1)+PQ23)
             #I_COHT=Q4n
             #print('I_COHT',np.allclose(I_COHT, I_CO.dot(np.dot(self.I_OH[:order*(num_block_rows+1)*num_channels,:],self.hankel_cov_matrix))))
-            print('I_AOHT',np.allclose(I_AOI_OHT, I_AO.dot(np.dot(self.I_OH[:order*(num_block_rows+1)*num_channels,:],self.hankel_cov_matrix))))
+            I_AOI_OHTQ=I_AO.dot(np.dot(self.I_OH[:order*(num_block_rows+1)*num_channels,:],self.hankel_cov_matrix))
+            print('I_AOHT',np.allclose(I_AOI_OHT, I_AOI_OHTQ))
+#             import matplotlib.pyplot as plot
+#             #plot.figure()
+#             plot.matshow(I_AOI_OHT, vmin=-0.001,vmax=0.001)
+#             plot.colorbar()
+#             #plot.figure()
+#             plot.matshow(I_AOI_OHTQ, vmin=-0.001,vmax=0.001)
+#             plot.colorbar()
+#             plot.matshow(I_AOI_OHT/I_AOI_OHTQ,vmin=-1,vmax=1)
+#             plot.colorbar()
+#             plot.show()
             
             #U_AC = np.vstack([I_AOI_OHT,I_COHT])
             #sigma_ACQ=np.dot(U_AC,U_AC.T)
@@ -1432,7 +1446,7 @@ class VarSSICovRef(object):
                  np.dot(np.dot(np.array([[1/2/np.pi,    0                         ],
                                          [0,            100/(np.abs(tlambda_j)**2)]]),
                                np.array([[np.real(tlambda_j),       np.imag(tlambda_j)],
-                                         [-np.imag(tlambda_j)**2,   np.real(tlambda_j)*np.imag(tlambda_j)]])),
+                                         [-(np.imag(tlambda_j)**2),   np.real(tlambda_j)*np.imag(tlambda_j)]])),
                         np.array([[np.real(lambda_j),   np.imag(lambda_j)],
                                   [-np.imag(lambda_j),  np.real(lambda_j)]]))
                  )
