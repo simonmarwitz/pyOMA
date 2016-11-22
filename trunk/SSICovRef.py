@@ -827,21 +827,21 @@ class VarSSICovRef(object):
         T/=np.sqrt(num_blocks*(num_blocks-1))        
         self.hankel_cov_matrix = T
         #print(T)
-        sigma_R = np.zeros(((num_block_columns+num_block_rows) * num_analised_channels * num_ref_channels, (num_block_columns+num_block_rows) * num_analised_channels * num_ref_channels))
-        #sigma_R=None
-        for n_block in range(num_blocks):
-            this_corr = vectorize(corr_matrices[n_block])-vectorize(corr_mats_mean)#/num_blocks
-            sigma_R += np.dot(this_corr,this_corr.T)
-        sigma_R /= (num_blocks*(num_blocks-1))
-        self.sigma_R = sigma_R
-        
-        S3=[]
-        for k in range(num_block_columns):
-            S3.append(scipy.sparse.kron(scipy.sparse.identity(num_ref_channels),np.hstack([np.zeros(((num_block_rows+1)*num_analised_channels, (k)*num_analised_channels)),
-                                                                      np.identity((num_block_rows+1)*num_analised_channels),
-                                                                      np.zeros(((num_block_rows+1)*num_analised_channels, (num_block_columns-k-1)*num_analised_channels))])).T)
-        S3=scipy.sparse.hstack(S3).T
-        self.S3 = S3
+#         sigma_R = np.zeros(((num_block_columns+num_block_rows) * num_analised_channels * num_ref_channels, (num_block_columns+num_block_rows) * num_analised_channels * num_ref_channels))
+#         #sigma_R=None
+#         for n_block in range(num_blocks):
+#             this_corr = vectorize(corr_matrices[n_block])-vectorize(corr_mats_mean)#/num_blocks
+#             sigma_R += np.dot(this_corr,this_corr.T)
+#         sigma_R /= (num_blocks*(num_blocks-1))
+#         self.sigma_R = sigma_R
+#         
+#         S3=[]
+#         for k in range(num_block_columns):
+#             S3.append(scipy.sparse.kron(scipy.sparse.identity(num_ref_channels),np.hstack([np.zeros(((num_block_rows+1)*num_analised_channels, (k)*num_analised_channels)),
+#                                                                       np.identity((num_block_rows+1)*num_analised_channels),
+#                                                                       np.zeros(((num_block_rows+1)*num_analised_channels, (num_block_columns-k-1)*num_analised_channels))])).T)
+#         S3=scipy.sparse.hstack(S3).T
+#         self.S3 = S3
         
         #print(np.allclose(S3.dot((S3.dot(sigma_R)).T).T,np.dot(T,T.T)))
         #print(self.hankel_matrix.shape)   
@@ -973,8 +973,8 @@ class VarSSICovRef(object):
         Q2=np.zeros((max_model_order**2, num_blocks))
         Q3=np.zeros((max_model_order**2, num_blocks))
         Q4=np.zeros((max_model_order*num_channels, num_blocks))
-        I_OH=np.zeros((max_model_order*(num_block_rows+1)*num_channels,num_block_columns*num_ref_channels*(num_block_rows+1)*num_channels))
-        I_OHT=np.zeros((max_model_order*(num_block_rows+1)*num_channels, num_blocks))
+        #I_OH=np.zeros((max_model_order*(num_block_rows+1)*num_channels,num_block_columns*num_ref_channels*(num_block_rows+1)*num_channels))
+        #I_OHT=np.zeros((max_model_order*(num_block_rows+1)*num_channels, num_blocks))
         #for i in range(1,max_model_order+1):
         for i in range(max_model_order):
             print('(a) Step up order: ',i) 
@@ -1011,10 +1011,10 @@ class VarSSICovRef(object):
                     sol_hank_K_i/s_i])                           
             #T_i,1; T_i,2
             
-            C_i = 1/s_i*np.vstack([np.dot(np.identity((num_block_rows+1)*num_channels)-np.dot(u_i,u_i.T),np.kron(v_i_T,np.identity((num_block_rows+1)*num_channels))),
-                                    np.dot(np.identity(num_block_columns*num_ref_channels)-np.dot(v_i_T.T,v_i_T),np.kron(np.identity(num_block_columns*num_ref_channels),u_i.T))])
+#             C_i = 1/s_i*np.vstack([np.dot(np.identity((num_block_rows+1)*num_channels)-np.dot(u_i,u_i.T),np.kron(v_i_T,np.identity((num_block_rows+1)*num_channels))),
+#                                     np.dot(np.identity(num_block_columns*num_ref_channels)-np.dot(v_i_T.T,v_i_T),np.kron(np.identity(num_block_columns*num_ref_channels),u_i.T))])
             
-            I_OH[beg*(num_block_rows+1)*num_channels:end*(num_block_rows+1)*num_channels,:]=0.5*s_i**(-0.5)*np.dot(u_i,np.kron(v_i_T.T,u_i).T)+s_i**(0.5)*np.dot(B_i1,C_i)
+            #I_OH[beg*(num_block_rows+1)*num_channels:end*(num_block_rows+1)*num_channels,:]=0.5*s_i**(-0.5)*np.dot(u_i,np.kron(v_i_T.T,u_i).T)+s_i**(0.5)*np.dot(B_i1,C_i)
             
             T_i1 = scipy.sparse.kron(scipy.sparse.identity(num_block_columns*num_ref_channels),u_i.T).dot(T)
             T_i2 = scipy.sparse.kron(v_i_T, scipy.sparse.identity((num_block_rows+1)*num_channels)).dot(T)
@@ -1025,13 +1025,13 @@ class VarSSICovRef(object):
                          s_i**(-0.5)*np.dot(B_i1,np.vstack([T_i2-np.dot(u_i,T_i2.T.dot(u_i).T),
                                                            T_i1-np.dot(v_i_T.T,T_i1.T.dot(v_i_T.T).T)])))
             
-            I_OHT[beg*(num_block_rows+1)*num_channels:end*(num_block_rows+1)*num_channels,:]=I_OHTi
+            #I_OHT[beg*(num_block_rows+1)*num_channels:end*(num_block_rows+1)*num_channels,:]=I_OHTi
             Q1[beg*max_model_order:end*max_model_order,:] = np.dot(np.dot(Oi_up.T,S1),I_OHTi)
             Q2[beg*max_model_order:end*max_model_order,:] = np.dot(np.dot(Oi_down.T,S1),I_OHTi)
             Q3[beg*max_model_order:end*max_model_order,:] = np.dot(np.dot(Oi_up.T,S2),I_OHTi)
             Q4[beg*   num_channels:end*num_channels,   :] = np.dot(np.hstack([np.identity(num_channels),np.zeros((num_channels,(num_block_rows)*num_channels))]),I_OHTi)
         
-        self.I_OH = I_OH
+        #self.I_OH = I_OH
         #print(np.allclose(np.dot(I_OH,T),I_OHT))
         
         self.Q1 = Q1
@@ -1124,7 +1124,7 @@ class VarSSICovRef(object):
 
             
             for j,lambda_j in enumerate(eigval):
-                print('Step up eigval: ',j)
+                #print('Step up eigval: ',j)
                 a_j=np.abs(np.arctan2(np.imag(lambda_j),np.real(lambda_j)))
                 b_j=np.log(np.abs(lambda_j))
                 freq_j = np.sqrt(a_j**2+b_j**2)*sampling_rate/2/np.pi
