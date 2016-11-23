@@ -741,8 +741,8 @@ class PreprocessData(object):
             b, a = scipy.signal.butter(filt_order, highpass/nyq, btype = 'high')
             
 
-        import matplotlib.pyplot as plt
-        
+        #import matplotlib.pyplot as plt
+        #
         #w, h = scipy.signal.freqz(b, a, worN=2000)
         #plt.close()
         #plt.figure()
@@ -763,6 +763,8 @@ class PreprocessData(object):
             #pass
             self.measurement_filt[:,ii]  -= self.measurement_filt[:,ii].mean(0)
         #plt.plot(self.measurement_filt[:,1], label='Filtered signal (Hz)')
+        return
+    
         for i in range(num_int):
             #size = 2**np.floor(np.log2(self.measurement_filt.shape[0]))+1
             for ii in range(self.measurement_filt.shape[1]):

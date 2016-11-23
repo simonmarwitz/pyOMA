@@ -1291,7 +1291,7 @@ class StabilCalc(object):
             self.masks['mask_ad'] = mask
             
         if stdf_max is not None:
-            mask = self.modal_data.std_frequencies*self.modal_data.modal_frequencies<=stdf_max
+            mask = self.modal_data.std_frequencies<=stdf_max*self.modal_data.modal_frequencies
             mask = np.logical_and(mask_pre, mask)
             self.masks['mask_stdf']=mask
             #import warnings
