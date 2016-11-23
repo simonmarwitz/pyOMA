@@ -280,11 +280,16 @@ class StabilGUI(QMainWindow):
     def update_mode_val_view(self,index):
         #display information about currently selected mode
         i=self.stabil_calc.select_modes[index]
-        #print(i)
-        n,f,d,mpc, mp, mpd = self.stabil_calc.get_modal_values(i)
-        #print(self.stabil_calc.get_modal_values(i))
+
+        n,f, stdf, d, stdd, mpc, mp, mpd, mtn = self.stabil_calc.get_modal_values(i)
         self.current_mode=i
-        s='Frequency=%1.3fHz, \n Order=%1.0f, \n Damping=%1.3f%%, \n MPC=%1.5f, \n MP=%1.3f\u00b0, \n MPD=%1.5f\u00b0'%(f,n,d,mpc,mp,mpd)        
+        s=''
+        for text, val in zip(['Frequency=%1.3fHz, \n'%(f), 'Std Frequency=%1.3e, \n'%(stdf), 
+                              'Order=%1.0f, \n'%(n), 'Damping=%1.3f%%,  \n'%(d), 'StdDamping=%1.3e,  \n'%(stdd), 
+                              'MPC=%1.5f, \n'%(mpc), 'MP=%1.3f\u00b0, \n'%(mp), 'MPD=%1.5f\u00b0, \n'%(mpd),'MTN=%1.5f, \n'%(mtn)],
+                             [f,stdf,n,d,stdd,mpc,mp,mpd,mtn]):
+            if val is not np.nan:
+                s.append(text)
         self.mode_val_view.setText(s)
         height=self.mode_val_view.document().size().toSize().height()+3
         self.mode_val_view.setFixedHeight(height)   
@@ -364,8 +369,17 @@ class StabilGUI(QMainWindow):
             self.cmplx_plot_widget.show()
     
     def update_value_view(self,i):
-        n,f,stdf,d,stdd,mpc,mp,mpd = self.stabil_calc.get_modal_values(i)
-        s='Frequency=%1.3fHz, \n Std Frequency=%1.3e, \n Order=%1.0f, \n Damping=%1.3f%%,  \n StdDamping=%1.3e,  \n MPC=%1.5f, \n MP=%1.3f\u00b0, \n MPD=%1.5f\u00b0'%(f,stdf, n,d,stdd,mpc,mp,mpd)        
+        
+        n,f, stdf, d, stdd, mpc, mp, mpd, mtn = self.stabil_calc.get_modal_values(i)
+        self.current_mode=i
+        s=''
+        for text, val in zip(['Frequency=%1.3fHz, \n'%(f), 'Std Frequency=%1.3e, \n'%(stdf), 
+                              'Order=%1.0f, \n'%(n), 'Damping=%1.3f%%,  \n'%(d), 'StdDamping=%1.3e,  \n'%(stdd), 
+                              'MPC=%1.5f, \n'%(mpc), 'MP=%1.3f\u00b0, \n'%(mp), 'MPD=%1.5f\u00b0, \n'%(mpd),'MTN=%1.5f, \n'%(mtn)],
+                             [f,stdf,n,d,stdd,mpc,mp,mpd,mtn]):
+            if val is not np.nan:
+                s.append(text)
+        
         self.current_value_view.setText(s)
         height=self.current_value_view.document().size().toSize().height()+3
         self.current_value_view.setFixedHeight(height)
@@ -373,14 +387,35 @@ class StabilGUI(QMainWindow):
     def update_stabil_view(self):
         df_max = float(self.df_edit.text())/100
         dd_max = float(self.dd_edit.text())/100
-        dmac_max = float(self.mac_edit.text())/100
+        
+        if self.stabil_calc.capabilities['stdf']:
+            stdf_max=float(self.stdf_edit.text())/100
+        else:
+            stdf_max=None
+        
+        if self.stabil_calc.capabilities['stdd']:
+            stdd_max=float(self.stdd_edit.text())
+        else:
+            stdd_max=None
+            
+        if self.stabil_calc.capabilities['msh']:
+            dmac_max = float(self.mac_edit.text())/100
+        else:
+            dmac_max=None
+            
         d_range = (float(self.d_min_edit.text()) , float(self.d_max_edit.text()))
-        mpc_min = float(self.mpc_edit.text())
-        mpd_max = float(self.mpd_edit.text())
+        
+        if self.stabil_calc.capabilities['msh']:
+            mpc_min = float(self.mpc_edit.text())
+            mpd_max = float(self.mpd_edit.text())
+        else:
+            mpc_min=None
+            mpd_max=None
+        
         f_range = (float(self.freq_low.text()) , float(self.freq_high.text()))
         order_range = (int(self.n_low.text()), int(self.n_step.text()), int(self.n_high.text()))
         
-        self.stabil_plot.update_stabilization(df_max=df_max, dd_max=dd_max, dmac_max=dmac_max, d_range=d_range, mpc_min=mpc_min, mpd_max=mpd_max, order_range=order_range)
+        self.stabil_plot.update_stabilization(df_max=df_max,stdf_max=stdf_max, dd_max=dd_max, stdd_max=stdd_max, dmac_max=dmac_max, d_range=d_range, mpc_min=mpc_min, mpd_max=mpd_max, order_range=order_range)
         self.stabil_plot.update_xlim(f_range)
         self.stabil_plot.update_ylim((order_range[0],order_range[2]))
         
@@ -434,65 +469,102 @@ class StabilGUI(QMainWindow):
         layout.addWidget(QLabel('Stabilization Criteria'), 1,1,1,3)
         
         layout.setColumnStretch(2,1)
+        i=2
         
-        layout.addWidget(QLabel('Frequency [%]'), 2,1)
-        self.df_edit=QLineEdit(str(df_max))
-        self.df_edit.setMaxLength(3)
-        self.df_edit.setFixedWidth(60)
-        layout.addWidget(self.df_edit, 2,3)
+        if self.stabil_calc.capabilities['f']:
+            layout.addWidget(QLabel('Frequency [%]'), i,1)
+            self.df_edit=QLineEdit(str(df_max))
+            self.df_edit.setMaxLength(3)
+            self.df_edit.setFixedWidth(60)
+            layout.addWidget(self.df_edit, i,3)
+            i+=1
+            
+        if self.stabil_calc.capabilities['stdf']:
+            layout.addWidget(QLabel('Std. F. [% of F]'), i,1)
+            self.stdf_edit=QLineEdit('100')
+            self.stdf_edit.setMaxLength(3)
+            self.stdf_edit.setFixedWidth(60)
+            layout.addWidget(self.stdf_edit, i,3)
+            i+=1        
+            
+        if self.stabil_calc.capabilities['d']:
+            layout.addWidget(QLabel('Damping[%]'), i,1)
+            self.dd_edit=QLineEdit(str(dd_max))
+            self.dd_edit.setMaxLength(3)
+            self.dd_edit.setFixedWidth(60)
+            layout.addWidget(self.dd_edit, i,3)
+            i+=1
+            
+        if self.stabil_calc.capabilities['stdd']:
+            layout.addWidget(QLabel('Std. D. [-]'), i,1)
+            self.stdd_edit=QLineEdit('100')
+            self.stdd_edit.setMaxLength(3)
+            self.stdd_edit.setFixedWidth(60)
+            layout.addWidget(self.stdd_edit, i,3)
+            i+=1   
         
-        layout.addWidget(QLabel('Damping[%]'), 3,1)
-        self.dd_edit=QLineEdit(str(dd_max))
-        self.dd_edit.setMaxLength(3)
-        self.dd_edit.setFixedWidth(60)
-        layout.addWidget(self.dd_edit, 3,3)
+        if self.stabil_calc.capabilities['msh']:
+            layout.addWidget(QLabel('MAC [%]'), i,1)
+            self.mac_edit = QLineEdit(str(d_mac))
+            self.mac_edit.setMaxLength(3)
+            self.mac_edit.setFixedWidth(60)
+            layout.addWidget(self.mac_edit, i,3)
+            i+=1
+            
+        if self.stabil_calc.capabilities['d']:
+            layout.addWidget(QLabel('Damping range [%]'), i,1)
+            self.d_min_edit = QLineEdit(str(d_range[0]))
+            self.d_min_edit.setMaxLength(3)
+            self.d_min_edit.setFixedWidth(60)
+            self.d_max_edit = QLineEdit(str(d_range[1]))
+            self.d_max_edit.setMaxLength(3)
+            self.d_max_edit.setFixedWidth(60)
+            lay=QHBoxLayout()
+            lay.addStretch()
+            lay.addWidget(self.d_min_edit)
+            lay.addWidget(QLabel('to'))
+            lay.addWidget(self.d_max_edit)
+            layout.addLayout(lay, i,2,1,2)
+            i+=1
         
-        layout.addWidget(QLabel('MAC [%]'), 4,1)
-        self.mac_edit = QLineEdit(str(d_mac))
-        self.mac_edit.setMaxLength(3)
-        self.mac_edit.setFixedWidth(60)
-        layout.addWidget(self.mac_edit, 4,3)
+        layout.setRowStretch(i, 2)
+        i+=1
         
-        layout.addWidget(QLabel('Damping range [%]'), 5,1)
-        self.d_min_edit = QLineEdit(str(d_range[0]))
-        self.d_min_edit.setMaxLength(3)
-        self.d_min_edit.setFixedWidth(60)
-        self.d_max_edit = QLineEdit(str(d_range[1]))
-        self.d_max_edit.setMaxLength(3)
-        self.d_max_edit.setFixedWidth(60)
-        lay=QHBoxLayout()
-        lay.addStretch()
-        lay.addWidget(self.d_min_edit)
-        lay.addWidget(QLabel('to'))
-        lay.addWidget(self.d_max_edit)
-        layout.addLayout(lay, 5,2,1,2)
-        
-        layout.setRowStretch(6, 2)
-        
-        layout.addWidget(QLabel('MPC_min '), 7,1)
-        self.mpc_edit=QLineEdit(str(mpc_min))
-        self.mpc_edit.setMaxLength(6)
-        self.mpc_edit.setFixedWidth(60)
-        layout.addWidget(self.mpc_edit, 7,3)
-        
-
-        
-        layout.addWidget(QLabel('MPD_max [°]'), 8,1)
-        self.mpd_edit = QLineEdit(str(mpd_max))
-        self.mpd_edit.setMaxLength(3)
-        self.mpd_edit.setFixedWidth(60)
-        layout.addWidget(self.mpd_edit, 8,3)
-                
-        if isinstance(self.stabil_calc, StabilCluster):
+        if self.stabil_calc.capabilities['msh']:
+            layout.addWidget(QLabel('MPC_min '), i,1)
+            self.mpc_edit=QLineEdit(str(mpc_min))
+            self.mpc_edit.setMaxLength(6)
+            self.mpc_edit.setFixedWidth(60)
+            layout.addWidget(self.mpc_edit, i,3)
+            i+=1
+    
+            
+            layout.addWidget(QLabel('MPD_max [°]'), i,1)
+            self.mpd_edit = QLineEdit(str(mpd_max))
+            self.mpd_edit.setMaxLength(3)
+            self.mpd_edit.setFixedWidth(60)
+            layout.addWidget(self.mpd_edit, i,3)
+            i+=1
+            
+        if self.stabil_calc.capabilities['mtn']:
+            layout.addWidget(QLabel('MTN_max []'), i,1)
+            self.mtn_edit = QLineEdit('0')
+            self.mtn_edit.setMaxLength(3)
+            self.mtn_edit.setFixedWidth(60)
+            layout.addWidget(self.mtn_edit, i,3)
+            i+=1
+            
+        if self.stabil_calc.capabilities['auto']:
             b0=QPushButton('Clear automatically')
             b0.released.connect(self.prepare_auto_clearing)
             
             self.num_iter_edit = QLineEdit(str(self.stabil_calc.num_iter))
             self.scales_edit = QLineEdit(str(self.stabil_calc.clearing_scales))
             
-            layout.addWidget(b0,9,1)
-            layout.addWidget(self.num_iter_edit,9,2)
-            layout.addWidget(self.scales_edit,9,3)
+            layout.addWidget(b0,i,1)
+            layout.addWidget(self.num_iter_edit,i,2)
+            layout.addWidget(self.scales_edit,i,3)
+            i+=1
             
             
             b1=QPushButton('Classify automatically')
@@ -504,22 +576,24 @@ class StabilGUI(QMainWindow):
             self.threshold_box = QLineEdit()
             self.threshold_box.setPlaceholderText(str(self.stabil_calc.threshold))
             
-            layout.addWidget(b1,10,1)
-            layout.addWidget(self.use_stabil_box,10,2)
-            layout.addWidget(self.threshold_box,10,3)
+            layout.addWidget(b1,i,1)
+            layout.addWidget(self.use_stabil_box,i,2)
+            layout.addWidget(self.threshold_box,i,3)
+            i+=1
             
             b2=QPushButton('Select automatically')
             b2.released.connect(self.prepare_auto_selection)
             
             self.num_modes_box = QLineEdit(str(0))
-
-            layout.addWidget(b2,11,1)
-            layout.addWidget(self.num_modes_box,11,2)
+            
+            layout.addWidget(b2,i,1)
+            layout.addWidget(self.num_modes_box,i,2)
             
             
         return layout
             
     def prepare_auto_clearing(self):
+        assert self.stabil_calc.capabilities['auto']
         num_iter = int(self.num_iter_edit.text())
         scales = [float(scale.strip(', ')) for scale in self.scales_edit.text().strip('[ ]').split(',')]
         
@@ -531,6 +605,7 @@ class StabilGUI(QMainWindow):
             
             
     def prepare_auto_classification(self):
+        assert self.stabil_calc.capabilities['auto']
         use_stabil = self.use_stabil_box.isChecked()
         
         threshold = self.threshold_box.text()
@@ -545,6 +620,7 @@ class StabilGUI(QMainWindow):
             self.check_select.setChecked(True)
             
     def prepare_auto_selection(self):
+        assert self.stabil_calc.capabilities['auto']
         num_modes = self.num_modes_box.text()
         if num_modes.isnumeric():
             num_modes = int(num_modes)
@@ -592,16 +668,17 @@ class StabilGUI(QMainWindow):
         layout.addWidget(snap_sd,i,2)
         i+=1
         
-        check_sv=QCheckBox('Unstable in MAC only')
-        check_sv.setChecked(show_sv)
-        self.stabil_plot.toggle_dmac(show_sv)
-        check_sv.stateChanged.connect(self.stabil_plot.toggle_dmac)
-        snap_sv = QRadioButton()
-        snap_sv.toggled.connect(self.stabil_plot.snap_vector)
-        snap_sv.setChecked(snap_to=='sv')
-        layout.addWidget(check_sv,i,1) 
-        layout.addWidget(snap_sv,i,2)
-        i+=1
+        if self.stabil_calc.capabilities['msh']:
+            check_sv=QCheckBox('Unstable in MAC only')
+            check_sv.setChecked(show_sv)
+            self.stabil_plot.toggle_dmac(show_sv)
+            check_sv.stateChanged.connect(self.stabil_plot.toggle_dmac)
+            snap_sv = QRadioButton()
+            snap_sv.toggled.connect(self.stabil_plot.snap_vector)
+            snap_sv.setChecked(snap_to=='sv')
+            layout.addWidget(check_sv,i,1) 
+            layout.addWidget(snap_sv,i,2)
+            i+=1
         
         check_sa=QCheckBox('Stable Pole')
         check_sa.setChecked(show_sa)
@@ -625,7 +702,7 @@ class StabilGUI(QMainWindow):
         layout.addWidget(snap_all,i,2)
         i+=1
         
-        if isinstance(self.stabil_calc, StabilCluster):
+        if self.stabil_calc.capabilities['auto']:
             show_clear = self.stabil_calc.state >= 3
             check_clear=QCheckBox('AutoClear')
             check_clear.setChecked(show_clear)
@@ -652,12 +729,13 @@ class StabilGUI(QMainWindow):
             layout.addWidget(snap_select,i,2)  
             i+=1  
             
-        psd_check=QCheckBox('Show PSD')
-        psd_check.setChecked(show_psd)
-        self.stabil_plot.plot_fft(show_psd)
-        psd_check.stateChanged.connect(self.stabil_plot.plot_fft)
-        layout.addWidget(psd_check,i,1,1,2) 
-        i+=1  
+        if self.stabil_calc.capabilities['data']:    
+            psd_check=QCheckBox('Show PSD')
+            psd_check.setChecked(show_psd)
+            self.stabil_plot.plot_fft(show_psd)
+            psd_check.stateChanged.connect(self.stabil_plot.plot_fft)
+            layout.addWidget(psd_check,i,1,1,2) 
+            i+=1  
         
         lay = QHBoxLayout()
         lay.addWidget(QLabel('Freq. range:'))
@@ -781,8 +859,8 @@ class StabilCalc(object):
         #stable-in-... masks
         self.masks = {'mask_pre':   None, # some constraints (f>0.0, order_range, etc)
                       'mask_ad':    None, # absolute damping            
-                      'mask_uf':    None, # uncertainty frequency 
-                      'mask_ud':    None, # uncertainty damping
+                      'mask_stdf':    None, # uncertainty frequency 
+                      'mask_stdd':    None, # uncertainty damping
                       'mask_mpc':  None, # absolute modal phase collineratity                  
                       'mask_mpd':  None, # absolute mean phase deviation                  
                       'mask_mtn':  None, # absolute modal transfer norm                  
@@ -796,8 +874,8 @@ class StabilCalc(object):
         
         #only-unstable-in-... masks
         self.nmasks = {'mask_ad':    None, # absolute damping            
-                      'mask_uf':    None, # uncertainty frequency 
-                      'mask_ud':    None, # uncertainty damping
+                      'mask_stdf':    None, # uncertainty frequency 
+                      'mask_stdd':    None, # uncertainty damping
                       'mask_ampc':  None, # absolute modal phase collineratity                  
                       'mask_ampd':  None, # absolute mean phase deviation                  
                       'mask_amtn':  None, # absolute modal transfer norm                  
@@ -811,6 +889,19 @@ class StabilCalc(object):
         self.select_modes = []
         self.select_callback = None
         self.state=0
+        
+        has_mode_shapes=self.modal_data.__dict__.get('mode_shapes', None) is not None
+        has_variances=self.modal_data.__dict__.get('std_frequencies', None) is not None
+        has_data = prep_data is not None
+        
+        self.capabilities={'f':1,
+                           'd':1,
+                           'msh':has_mode_shapes,
+                           'stdf':has_variances,
+                           'stdd':has_variances,
+                           'mtn':0,
+                           'auto':isinstance(self, StabilCluster),
+                           'data':has_data}
         #self.calculate_soft_critera_matrices()
         
     def calculate_soft_critera_matrices(self):
@@ -1103,7 +1194,7 @@ class StabilCalc(object):
         
         
     def calculate_stabilization_masks(self, order_range = None, d_range = None, \
-                                      uf_max = None, ud_max = None, \
+                                      stdf_max = None, stdd_max = None, \
                                       mpc_min=None, mpd_max=None,  mtn_min = None,\
                                       df_max=None, dd_max=None, dmac_max=None, \
                                       dev_min=None, dmtn_min=None):
@@ -1114,10 +1205,10 @@ class StabilCalc(object):
             order_range=(0,1,self.modal_data.max_model_order)
         if d_range is None:
             d_range = (0,100)
-        if uf_max is  None:
-            uf_max = 100
-        if ud_max is  None:
-            ud_max = 100
+        if stdf_max is  None:
+            stdf_max = 100
+        if stdd_max is  None:
+            stdd_max = 100
         if mpc_min is None:
             mpc_min = 0
         if mpd_max is None:
@@ -1137,13 +1228,13 @@ class StabilCalc(object):
             
         self.state=2
         
-        self.update_stabilization_masks(order_range, d_range, uf_max, ud_max, \
+        self.update_stabilization_masks(order_range, d_range, stdf_max, stdd_max, \
                                         mpc_min, mpd_max, mtn_min, df_max, \
                                         dd_max, dmac_max, dev_min, dmtn_min)
         
         
     def update_stabilization_masks(self, order_range = None, d_range = None, \
-                                      uf_max = None, ud_max = None, \
+                                      stdf_max = None, stdd_max = None, \
                                       mpc_min=None, mpd_max=None,  mtn_min = None,\
                                       df_max=None, dd_max=None, dmac_max=None, \
                                       dev_min=None, dmtn_min=None):    
@@ -1154,10 +1245,10 @@ class StabilCalc(object):
             self.order_range = order_range
         if d_range is not None:
             self.d_range = d_range
-        if uf_max is not None:
-            self.uf_max = uf_max
-        if ud_max is not None:
-            self.ud_max = ud_max
+        if stdf_max is not None:
+            self.stdf_max = stdf_max
+        if stdd_max is not None:
+            self.stdd_max = stdd_max
         if mpc_min is not None:
             self.mpc_min = mpc_min
         if mpd_max is not None:
@@ -1198,13 +1289,19 @@ class StabilCalc(object):
             mask = np.logical_and(mask, self.modal_data.modal_damping <= d_range[1])
             self.masks['mask_ad'] = mask
             
-        if uf_max is not None:
-            import warnings
-            warnings.warn('Uncertainty bounds are not yet implemented! Ignoring!')
+        if stdf_max is not None:
+            mask = self.modal_data.std_frequencies*self.modal_data.modal_frequencies<=stdf_max
+            mask = np.logical_and(mask_pre, mask)
+            self.masks['mask_stdf']
+            #import warnings
+            #warnings.warn('Uncertainty bounds are not yet implemented! Ignoring!')
             
-        if ud_max is not None:
-            import warnings
-            warnings.warn('Uncertainty bounds are not yet implemented! Ignoring')     
+        if stdd_max is not None:
+            mask = self.modal_data.std_frequencies*self.modal_data.modal_damping<=stdd_max
+            mask = np.logical_and(mask_pre, mask)
+            self.masks['mask_stdd']
+            #import warnings
+            #warnings.warn('Uncertainty bounds are not yet implemented! Ignoring')     
         
         if mpc_min is not None:
             mask = np.logical_and(mask_pre, self.MPC_matrix >= mpc_min)
@@ -1322,28 +1419,38 @@ class StabilCalc(object):
         n = self.order_dummy[i]
         f = self.masked_frequencies[i]
         d = self.modal_data.modal_damping[i]
-        mpc = self.MPC_matrix[i]
-        mp = self.MP_matrix[i]
-        mpd = self.MPD_matrix[i]*90    
         
-        #MAC_diffs=self.MAC_diffs[i]
-        #MAC_diffs=MAC_diffs[MAC_diffs!=0]
-        #print(MAC_diffs)
-        #print(np.mean(MAC_diffs), np.std(MAC_diffs))
-        if isinstance(self.modal_data, VarSSICovRef):
-            stdf = self.modal_data.std_frequencies[i]
-            stdd = self.modal_data.std_damping[i]
-        
-            return n,  f, stdf, d, stdd, mpc, mp, mpd
+        if self.capabilities['msh']:
+            mpc = self.MPC_matrix[i]
+            mp = self.MP_matrix[i]
+            mpd = self.MPD_matrix[i]*90    
         else:
-            return n,  f, np.nan,  d, np.nan, mpc, mp, mpd
+            mpc=np.nan
+            mp=np.nan
+            mpd=np.nan
+        
+        if self.capabilities['stdf']:
+            stdf = self.modal_data.std_frequencies[i]
+        else:
+            stdf=np.nan
+            
+        if self.capabilities['stdd']:
+            stdd = self.modal_data.std_damping[i]
+        else:
+            stdd=np.nan
+            
+        if self.capabilities['mtn']:
+            mtn=np.nan
+        else:
+            mtn=np.nan
+
+        return n,  f, stdf,  d, stdd, mpc, mp, mpd, mtn
     
     def get_mode_shape(self,i):
         assert isinstance(i, (list, tuple))
         assert len(i)==2
         assert i[0] <= self.modal_data.max_model_order
         assert i[1] <= self.modal_data.max_model_order
-        #print(self.modal_data.mode_shapes[:, i[1], i[0]])
         return self.modal_data.mode_shapes[:, i[1], i[0]]
             
     def save_state(self, fname):
@@ -2018,8 +2125,8 @@ class StabilPlot(object):
         self.stable_plot = {
             'plot_pre':   None, # some constraints (f>0.0, order_range, etc)
             'plot_ad':    None, # absolute damping            
-            'plot_uf':    None, # uncertainty frequency 
-            'plot_ud':    None, # uncertainty damping
+            'plot_stdf':    None, # uncertainty frequency 
+            'plot_stdd':    None, # uncertainty damping
             'plot_mpc':  None, # absolute modal phase collineratity                  
             'plot_mpd':  None, # absolute mean phase deviation                  
             'plot_mtn':  None, # absolute modal transfer norm                  
@@ -2035,8 +2142,8 @@ class StabilPlot(object):
         self.colors = {
             'plot_pre':   'grey',  # some constraints (f>0.0, order_range, etc)
             'plot_ad':    'grey', # absolute damping            
-            'plot_uf':    'grey', # uncertainty frequency 
-            'plot_ud':    'grey', # uncertainty damping
+            'plot_stdf':    'grey', # uncertainty frequency 
+            'plot_stdd':    'grey', # uncertainty damping
             'plot_mpc':   'grey', # absolute modal phase collineratity                  
             'plot_mpd':   'grey', # absolute mean phase deviation                  
             'plot_mtn':   'grey', # absolute modal transfer norm                  
@@ -2068,8 +2175,8 @@ class StabilPlot(object):
         self.markers = {
             'plot_pre':   'o',  # some constraints (f>0.0, order_range, etc)
             'plot_ad':    TextPath((-2, -4), '\u00b7 d', prop=fp, size=10), # absolute damping            
-            'plot_uf':    'd', # uncertainty frequency 
-            'plot_ud':    'd', # uncertainty damping
+            'plot_stdf':    'd', # uncertainty frequency 
+            'plot_stdd':    'd', # uncertainty damping
             'plot_mpc':   TextPath((-2, -4), '\u00b7 v', prop=fp, size=10), # absolute modal phase collineratity                  
             'plot_mpd':   TextPath((-2, -4), '\u00b7 v', prop=fp, size=10), # absolute mean phase deviation                  
             'plot_mtn':   '>', # absolute modal transfer norm                  
@@ -2086,8 +2193,8 @@ class StabilPlot(object):
         self.labels = {
             'plot_pre':   'all poles',  # some constraints (f>0.0, order_range, etc)
             'plot_ad':    'damping criterion', # absolute damping            
-            'plot_uf':    'uncertainty bounds frequency criterion', # uncertainty frequency 
-            'plot_ud':    'uncertainty bounds damping criterion', # uncertainty damping
+            'plot_stdf':    'uncertainty bounds frequency criterion', # uncertainty frequency 
+            'plot_stdd':    'uncertainty bounds damping criterion', # uncertainty damping
             'plot_mpc':   'modal phase collinearity criterion', # absolute modal phase collineratity                  
             'plot_mpd':   'mean phase deviation criterion', # absolute mean phase deviation                  
             'plot_mtn':   'modal transfer norm criterion', # absolute modal transfer norm                  
@@ -2136,10 +2243,10 @@ class StabilPlot(object):
         # update stabil plots if values have changed
         if 'd_range' in criteria:
             self.plot_stabil('plot_ad')
-        if 'uf_max' in criteria:
-            self.plot_stabil('plot_uf')
-        if 'ud_max' in criteria:
-            self.plot_stabil('plot_ud')
+        if 'stdf_max' in criteria:
+            self.plot_stabil('plot_stdf')
+        if 'stdd_max' in criteria:
+            self.plot_stabil('plot_stdd')
         if 'mpc_min' in criteria:
             self.plot_stabil('plot_mpc')
         if 'mpd_max' in criteria:
@@ -2165,7 +2272,7 @@ class StabilPlot(object):
             if self.stabil_calc.state >= 5:
                 self.plot_stabil('plot_autosel')
                 
-        self.plot_stabil('plot_uf')
+        self.plot_stabil('plot_stdf')
         #update the cursors snap mask
         if self.cursor:
             cursor_name_mask = self.cursor.name_mask
@@ -2201,7 +2308,7 @@ class StabilPlot(object):
                              marker=marker, alpha=0.4,
                              s=size, label=label, visible=visibility))
                 
-        elif name == 'plot_uf':
+        elif name == 'plot_stdf':
             
             if self.stable_plot[name] is not None:
                 try:
@@ -2331,15 +2438,15 @@ class StabilPlot(object):
         self.fig.canvas.draw_idle()
     
     @pyqtSlot(bool)          
-    def toggle_uf(self, b):
-        plot_obj=self.stable_plot['plot_uf']
+    def toggle_stdf(self, b):
+        plot_obj=self.stable_plot['plot_stdf']
         if plot_obj is None: return
         plot_obj.set_visible(b)
         self.fig.canvas.draw_idle()
      
     @pyqtSlot(bool)          
-    def toggle_ud(self, b):
-        plot_obj=self.stable_plot['plot_ud']
+    def toggle_stdd(self, b):
+        plot_obj=self.stable_plot['plot_stdd']
         if plot_obj is None: return
         plot_obj.set_visible(b)
         self.fig.canvas.draw_idle()              
