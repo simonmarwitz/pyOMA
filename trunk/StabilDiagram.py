@@ -289,7 +289,7 @@ class StabilGUI(QMainWindow):
                               'MPC=%1.5f, \n'%(mpc), 'MP=%1.3f\u00b0, \n'%(mp), 'MPD=%1.5f\u00b0, \n'%(mpd),'MTN=%1.5f, \n'%(mtn)],
                              [f,stdf,n,d,stdd,mpc,mp,mpd,mtn]):
             if val is not np.nan:
-                s.append(text)
+                s+=text
         self.mode_val_view.setText(s)
         height=self.mode_val_view.document().size().toSize().height()+3
         self.mode_val_view.setFixedHeight(height)   
@@ -299,7 +299,7 @@ class StabilGUI(QMainWindow):
     @pyqtSlot(tuple)
     def mode_selector_add(self,i):
         #add mode tomode_selector and select it
-        n,f,d,mpc, mp, mpd = self.stabil_calc.get_modal_values(i)
+        n,f, stdf, d, stdd, mpc, mp, mpd, mtn = self.stabil_calc.get_modal_values(i)
         index = self.stabil_calc.select_modes.index(i)
         #print(n,f,d,mpc, mp, mpd)
         #print(index)
@@ -378,7 +378,7 @@ class StabilGUI(QMainWindow):
                               'MPC=%1.5f, \n'%(mpc), 'MP=%1.3f\u00b0, \n'%(mp), 'MPD=%1.5f\u00b0, \n'%(mpd),'MTN=%1.5f, \n'%(mtn)],
                              [f,stdf,n,d,stdd,mpc,mp,mpd,mtn]):
             if val is not np.nan:
-                s.append(text)
+                s+=text
         
         self.current_value_view.setText(s)
         height=self.current_value_view.document().size().toSize().height()+3
@@ -1241,6 +1241,7 @@ class StabilCalc(object):
         if self.state < 2:
             self.calculate_stabilization_masks()
         #update 
+        #print(order_range , d_range , stdf_max , stdd_max, mpc_min, mpd_max,  mtn_min,df_max, dd_max, dmac_max, dev_min, dmtn_min)
         if order_range is not None:
             self.order_range = order_range
         if d_range is not None:
@@ -1292,14 +1293,14 @@ class StabilCalc(object):
         if stdf_max is not None:
             mask = self.modal_data.std_frequencies*self.modal_data.modal_frequencies<=stdf_max
             mask = np.logical_and(mask_pre, mask)
-            self.masks['mask_stdf']
+            self.masks['mask_stdf']=mask
             #import warnings
             #warnings.warn('Uncertainty bounds are not yet implemented! Ignoring!')
             
         if stdd_max is not None:
             mask = self.modal_data.std_frequencies*self.modal_data.modal_damping<=stdd_max
             mask = np.logical_and(mask_pre, mask)
-            self.masks['mask_stdd']
+            self.masks['mask_stdd']=mask
             #import warnings
             #warnings.warn('Uncertainty bounds are not yet implemented! Ignoring')     
         
@@ -1364,24 +1365,15 @@ class StabilCalc(object):
             if mask_name == 'mask_autosel': continue
             if mask_name == 'mask_autoclear': continue
             if mask is not None:
-                #print([name if value is mask else None for name,value in self.masks.items()])
                 stable_mask = np.logical_and(stable_mask,mask)
         self.masks['mask_stable']=stable_mask
-        #print(np.any(stable_mask))
         
         #compute the only-unstable-in-... masks
-        self.nmasks = {name:np.logical_not(stable_mask) for name, mask in self.masks.items() if mask is not None}
-        #del self.nmasks['mask_stable']
-        #del self.nmasks['mask_pre']
-        #self.nmasks.pop('mask_autoclear',None)
-        #self.nmasks.pop('mask_autosel',None)
-        #print(list(self.nmasks.keys()))
-        
+        self.nmasks = {name:np.logical_not(stable_mask) for name, mask in self.masks.items() if mask is not None}      
 
         for nname,nmask in self.nmasks.items():
             if nname in ['mask_pre','mask_stable', 'mask_autosel','mask_autoclear']:
                 continue
-            #print('pre',nname,nmask.any())
             for name, mask in self.masks.items():
                 if mask is None or name in ['mask_pre','mask_stable', 'mask_autosel','mask_autoclear']: continue
                 if name == nname:
@@ -1389,7 +1381,6 @@ class StabilCalc(object):
                 else:
                     nmask = np.logical_and(nmask, mask)
             self.nmasks[nname]=nmask
-            
         
         self.nmasks['mask_stable'] = stable_mask
         self.nmasks['mask_pre'] = self.masks['mask_pre']
