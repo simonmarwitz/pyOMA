@@ -325,13 +325,16 @@ class StabilGUI(QMainWindow):
         self.mode_selector.clear()
 
         for index,i in enumerate(self.stabil_calc.select_modes):
-            n,f,d,mpc, mp, mpd = self.stabil_calc.get_modal_values(i)
+            n,  f, stdf,  d, stdd, mpc, mp, mpd, mtn = self.stabil_calc.get_modal_values(i)
             text = '{} - {:2.3f}'.format(index, f)
             self.mode_selector.addItem(text)
             if self.current_mode == i:        
                 for ind in range(self.mode_selector.count()):
                     if text == self.mode_selector.itemText(ind):
                         break
+            else:
+                ind = 0
+                
         if self.mode_selector.count():
             self.mode_selector.setCurrentIndex(ind)
             self.update_mode_val_view(ind)
@@ -1124,6 +1127,8 @@ class StabilCalc(object):
                 
                 selected_modes[:,num] = mode_tmp
                 selected_stdmsh[:,num] = std_mode
+        else:
+            return
         
         freq_str = ''
         std_freq_str = ''
@@ -1289,15 +1294,15 @@ class StabilCalc(object):
             mask = np.logical_and(mask_pre, self.modal_data.modal_damping >= d_range[0])
             mask = np.logical_and(mask, self.modal_data.modal_damping <= d_range[1])
             self.masks['mask_ad'] = mask
-            
-        if stdf_max is not None:
+        
+        if stdf_max is not None and self.capabilities['stdf']:
             mask = self.modal_data.std_frequencies<=stdf_max*self.modal_data.modal_frequencies
             mask = np.logical_and(mask_pre, mask)
             self.masks['mask_stdf']=mask
             #import warnings
             #warnings.warn('Uncertainty bounds are not yet implemented! Ignoring!')
             
-        if stdd_max is not None:
+        if stdd_max is not None and self.capabilities['stdd']:
             mask = self.modal_data.std_frequencies*self.modal_data.modal_damping<=stdd_max
             mask = np.logical_and(mask_pre, mask)
             self.masks['mask_stdd']=mask
@@ -2379,126 +2384,137 @@ class StabilPlot(object):
         self.fig.canvas.draw_idle()          
 
     
-    @pyqtSlot(bool)  
+    #@pyqtSlot(bool)  
     def snap_frequency(self,b=True):
         if b:
             mask=self.stabil_calc.get_stabilization_mask('mask_df')
             self.cursor.set_mask(mask,'mask_df')
             
-    @pyqtSlot(bool)          
+    #@pyqtSlot(bool)          
     def snap_damping(self,b=True):
         if b:
             mask=self.stabil_calc.get_stabilization_mask('mask_dd')                  
             self.cursor.set_mask(mask,'mask_dd')
             
-    @pyqtSlot(bool)  
+    #@pyqtSlot(bool)  
     def snap_vector(self, b=True):
         if b:
             mask=self.stabil_calc.get_stabilization_mask('mask_dmac')                     
             self.cursor.set_mask(mask,'mask_dmac')
             
-    @pyqtSlot(bool)         
+    #@pyqtSlot(bool)         
     def snap_stable(self, b=True):
         if b:
             mask=self.stabil_calc.get_stabilization_mask('mask_stable')                      
             self.cursor.set_mask(mask,'mask_stable')
             
-    @pyqtSlot(bool)          
+    #@pyqtSlot(bool)          
     def snap_all(self, b=True):
         if b:
             mask=self.stabil_calc.get_stabilization_mask('mask_pre')                  
             self.cursor.set_mask(mask,'mask_pre')
                  
-    @pyqtSlot(bool)         
+    #@pyqtSlot(bool)         
     def snap_clear(self, b=True):
         if b:
             mask=self.stabil_calc.get_stabilization_mask('mask_autoclear')                      
             self.cursor.set_mask(mask,'mask_autoclear')      
                   
-    @pyqtSlot(bool)         
+    #@pyqtSlot(bool)         
     def snap_select(self, b=True):
         if b:
             mask=self.stabil_calc.get_stabilization_mask('mask_autoselect')                      
             self.cursor.set_mask(mask,'mask_autoselect')      
-                                     
-    @pyqtSlot(bool)          
+                                             
+    #@pyqtSlot(int)          
     def toggle_df(self, b):
         plot_obj=self.stable_plot['plot_df']
         if plot_obj is None: return
         plot_obj.set_visible(b)
         self.fig.canvas.draw_idle()
     
-    @pyqtSlot(bool)          
+    #@pyqtSlot(bool)           
+    #@pyqtSlot(int)          
     def toggle_stdf(self, b):
         plot_obj=self.stable_plot['plot_stdf']
         if plot_obj is None: return
         plot_obj.set_visible(b)
         self.fig.canvas.draw_idle()
      
-    @pyqtSlot(bool)          
+    #@pyqtSlot(bool)           
+    #@pyqtSlot(int)          
     def toggle_stdd(self, b):
         plot_obj=self.stable_plot['plot_stdd']
         if plot_obj is None: return
         plot_obj.set_visible(b)
         self.fig.canvas.draw_idle()              
         
-    @pyqtSlot(bool)  
+    #@pyqtSlot(bool)            
+    #@pyqtSlot(int) 
     def toggle_ad(self, b):
         plot_obj=self.stable_plot['plot_ad']
         if plot_obj is None: return
         plot_obj.set_visible(b)       
         self.fig.canvas.draw_idle() 
                
-    @pyqtSlot(bool)  
+    #@pyqtSlot(bool)            
+    #@pyqtSlot(int) 
     def toggle_dd(self, b):
         plot_obj=self.stable_plot['plot_dd']
         if plot_obj is None: return
         plot_obj.set_visible(b)       
         self.fig.canvas.draw_idle()
         
-    @pyqtSlot(bool)      
+    #@pyqtSlot(bool)           
+    #@pyqtSlot(int)      
     def toggle_dmac(self, b):
         plot_obj=self.stable_plot['plot_dmac']
         if plot_obj is None: return
         plot_obj.set_visible(b)          
         self.fig.canvas.draw_idle()
     
-    @pyqtSlot(bool)      
+    #@pyqtSlot(bool)           
+    #@pyqtSlot(int)      
     def toggle_mpc(self, b):
         plot_obj=self.stable_plot['plot_mpc']
         if plot_obj is None: return
         plot_obj.set_visible(b)          
         self.fig.canvas.draw_idle()
     
-    @pyqtSlot(bool)      
+    #@pyqtSlot(bool)           
+    #@pyqtSlot(int)      
     def toggle_mpd(self, b):
         plot_obj=self.stable_plot['plot_dmac']
         if plot_obj is None: return
         plot_obj.set_visible(b)          
         self.fig.canvas.draw_idle()    
      
-    @pyqtSlot(bool)      
+    #@pyqtSlot(bool)            
+    #@pyqtSlot(int)     
     def toggle_mtn(self, b):
         plot_obj=self.stable_plot['plot_mtn']
         if plot_obj is None: return
         plot_obj.set_visible(b)          
         self.fig.canvas.draw_idle()  
       
-    @pyqtSlot(bool)      
+    #@pyqtSlot(bool)            
+    #@pyqtSlot(int)     
     def toggle_dev(self, b):
         plot_obj=self.stable_plot['plot_dev']
         if plot_obj is None: return
         plot_obj.set_visible(b)          
         self.fig.canvas.draw_idle()      
            
-    @pyqtSlot(bool)      
+    #@pyqtSlot(bool)            
+    #@pyqtSlot(int)     
     def toggle_dmtn(self, b):
         plot_obj=self.stable_plot['plot_dmtn']
         if plot_obj is None: return
         plot_obj.set_visible(b)          
         self.fig.canvas.draw_idle()     
                                 
-    @pyqtSlot(bool)      
+    #@pyqtSlot(bool)            
+    #@pyqtSlot(int)     
     def toggle_stable(self, b):
         #print('plot_stable',b)
         plot_obj=self.stable_plot['plot_stable']
@@ -2506,7 +2522,8 @@ class StabilPlot(object):
         plot_obj.set_visible(b)           
         self.fig.canvas.draw_idle()
         
-    @pyqtSlot(bool)      
+    #@pyqtSlot(bool)            
+    #@pyqtSlot(int)     
     def toggle_clear(self, b):
         #print('plot_autoclear',b)
         plot_obj=self.stable_plot['plot_autoclear']
@@ -2514,7 +2531,8 @@ class StabilPlot(object):
         plot_obj.set_visible(b)           
         self.fig.canvas.draw_idle()
          
-    @pyqtSlot(bool)      
+    #@pyqtSlot(bool)           
+    #@pyqtSlot(int)      
     def toggle_select(self, b):
         plot_obj=self.stable_plot['plot_autosel']
         if plot_obj is None: return
@@ -2522,7 +2540,8 @@ class StabilPlot(object):
             plot_obj_.set_visible(b)           
         self.fig.canvas.draw_idle()          
           
-    @pyqtSlot(bool)
+    #@pyqtSlot(bool)          
+    #@pyqtSlot(int) 
     def toggle_all(self,b):
         plot_obj=self.stable_plot['plot_pre']
         if plot_obj is None: 

@@ -19,7 +19,7 @@ from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d.axes3d import Axes3D, proj3d  # @UnresolvedImport
 from matplotlib.patches import FancyArrowPatch
 from matplotlib.colors import is_color_like
-from matplotlib.animation import FuncAnimation
+import matplotlib.animation 
 from matplotlib.markers import MarkerStyle
 
 # system i/o
@@ -287,7 +287,7 @@ class ModeShapePlot(object):
         #instantiate the x,y,z axis arrows
         self.draw_axis()
     
-    @pyqtSlot()
+    #@pyqtSlot()
     def reset_view(self):
         '''
         restore viewport, 
@@ -326,7 +326,7 @@ class ModeShapePlot(object):
         self.canvas.draw()
         
 
-    @pyqtSlot()
+    #@pyqtSlot()
     def change_viewport(self, viewport=None):
         '''
         change the viewport
@@ -366,7 +366,7 @@ class ModeShapePlot(object):
                 line.set_visible(False)
             self.line_ani._setup_blit()
 
-    @pyqtSlot(str)
+    #@pyqtSlot(str)
     def change_mode(self, frequency=None, index=None, mode_index=None):
         '''
         if user selects a new mode,
@@ -405,8 +405,8 @@ class ModeShapePlot(object):
         frequencies.sort()
         return frequencies
     
-    @pyqtSlot()
-    @pyqtSlot(float)
+    #@pyqtSlot()
+    #@pyqtSlot(float)
     def change_amplitude(self, amplitude=None):
         '''
         changes the amplitude
@@ -420,7 +420,7 @@ class ModeShapePlot(object):
         self.amplitude = amplitude
         self.draw_msh()
 
-    @pyqtSlot(bool)
+    #@pyqtSlot(bool)
     def change_part(self, b):
         '''
         change, which part of the complex number modeshapes should be 
@@ -442,7 +442,7 @@ class ModeShapePlot(object):
             self.canvas.print_figure(path, dpi=self.dpi)
             
             
-    @pyqtSlot(float, float, float, int)
+    #@pyqtSlot(float, float, float, int)
     def add_node(self, x, y, z, i):
         '''
         receive a node from a signal
@@ -473,7 +473,7 @@ class ModeShapePlot(object):
         
         self.canvas.draw_idle()
 
-    @pyqtSlot(tuple, int)
+    #@pyqtSlot(tuple, int)
     def add_line(self, line, i):
         '''
         receive a line coordinates from a signal
@@ -504,7 +504,7 @@ class ModeShapePlot(object):
 
         self.canvas.draw_idle()
         
-    @pyqtSlot(tuple, int)
+    #@pyqtSlot(tuple, int)
     def add_nd_line(self, line, i):
         '''
         receive a line coordinates from a signal
@@ -535,7 +535,7 @@ class ModeShapePlot(object):
 
         self.canvas.draw_idle() 
            
-    @pyqtSlot(tuple, int)
+    #@pyqtSlot(tuple, int)
     def add_cn_line(self, i):
         '''
         receive a line coordinates from a signal
@@ -566,7 +566,7 @@ class ModeShapePlot(object):
         self.canvas.draw_idle()   
      
         
-    @pyqtSlot(int, float, float, float, int, float, float, float, int)
+    #@pyqtSlot(int, float, float, float, int, float, float, float, int)
     def add_master_slave(self, i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl, i):
         '''
         receive master-slave definitions from a signal
@@ -664,7 +664,7 @@ class ModeShapePlot(object):
         #z=r*np.cos(elev)# for elevation angle defined from Z-axis down
         return x,y,z
     
-    @pyqtSlot(int, int, tuple, int)
+    #@pyqtSlot(int, int, tuple, int)
     def add_chan_dof(self, chan, node, az, elev, chan_name, i):
         '''
         draw an arrow indicating the DOF 
@@ -696,7 +696,7 @@ class ModeShapePlot(object):
 
         self.canvas.draw_idle()
 
-    @pyqtSlot(float, float, float, int)
+    #@pyqtSlot(float, float, float, int)
     def take_node(self, x, y, z, node):
         '''
         take a node at coordinates received by a signal
@@ -736,7 +736,7 @@ class ModeShapePlot(object):
 
         self.canvas.draw_idle()
 
-    @pyqtSlot(tuple)
+    #@pyqtSlot(tuple)
     def take_line(self, line):
         '''
         remove a line between to node received by a signal
@@ -814,7 +814,7 @@ class ModeShapePlot(object):
                 print('line_object not found')
         self.canvas.draw_idle()
 
-    @pyqtSlot(int, float, float, float, int, float, float, float)
+    #@pyqtSlot(int, float, float, float, int, float, float, float)
     def take_master_slave(self, i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl):
         '''
         remove the two arrows associated with the master-slave definition
@@ -875,7 +875,7 @@ class ModeShapePlot(object):
 
         self.canvas.draw_idle()
 
-    @pyqtSlot(int, int, tuple, int)
+    #@pyqtSlot(int, int, tuple, int)
     def take_chan_dof(self, chan, node, dof):
         '''
         remove the arrow and text objects associated with the channel -
@@ -959,7 +959,7 @@ class ModeShapePlot(object):
                 obj.set_visible(self.show_axis)
         self.canvas.draw_idle()
         
-    @pyqtSlot()
+    #@pyqtSlot()
     def draw_nodes(self):
         ''''
         draw gridpoints from self.geometry_data.nodes
@@ -1216,7 +1216,7 @@ class ModeShapePlot(object):
 
         self.canvas.draw()
 
-    @pyqtSlot()
+    #@pyqtSlot()
     def stop_ani(self):
         '''
         convenience method to stop the animation and restore the still plot
@@ -1236,7 +1236,7 @@ class ModeShapePlot(object):
             #self.draw_msh()
             
             
-    @pyqtSlot()
+    #@pyqtSlot()
     def animate(self):
         '''
         create necessary objects to animate the currently displayed
@@ -1261,6 +1261,44 @@ class ModeShapePlot(object):
             self.subplot.set_ylim3d(miny, maxy)
             self.subplot.set_zlim3d(minz, maxz)
             
+#             this_dirs={}
+#             
+#             for node in ['1','2','3','4','5','6','7']:
+#                 this_chans, this_az = [],[]
+#                 for chan, node_, az,elev,header in self.modal_data.prep_data.chan_dofs:
+#                     if node == node_:
+#                         this_chans.append(chan)
+#                         this_az.append(az)
+#                 if len(this_chans) != 2:
+#                     continue    
+#                 
+#                 this_dirs[node]={}    
+#                 
+#                 x,y=[],[]
+#                 for t in np.linspace(-np.pi,np.pi,359):
+#                     x.append(0)
+#                     y.append(0)
+#                     for j,az in enumerate(this_az):
+#                         x_,y_= self.calc_xy(np.radians(az))
+#                         x[-1]+= np.abs(msh[j])*x_* np.cos(t  + np.angle(msh[j]))
+#                         y[-1]+= np.abs(msh[j])*y_* np.cos(t  + np.angle(msh[j]))
+#                 #plot.figure(figsize=(8,8))
+#                 if i == 1 and k==0:
+#                     ind = ['1','4','5','6','3','2'].index(node)
+#                     import matplotlib.cm
+#                     color=list(matplotlib.cm.hsv(np.linspace(0, 1, 7)))[ind]
+#                     plot.plot(x,y, label=['108','126','145','160','188','TMD'][ind], color=color)
+            clist = itertools.cycle(matplotlib.rcParams['axes.color_cycle'])
+            for line, line_node in zip(self.lines_objects, self.geometry_data.lines):
+                
+                self.subplot.scatter([self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
+                     * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][0]) 
+                     for node in line_node],[self.geometry_data.nodes[node][1] + self.disp_nodes[node][1]
+                     * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][1]) 
+                     for node in line_node],[self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
+                     * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][2]) 
+                     for node in line_node], marker = ',', s=1, edgecolor='none', color = next(clist))
+            
             return self.lines_objects + \
             self.nd_lines_objects + \
             list(self.cn_lines_objects.values())
@@ -1271,6 +1309,9 @@ class ModeShapePlot(object):
             subfunction to calculate displacements based on magnitude and phase angle
             '''
             #print(num)
+            
+#             if not self.traced: clist = itertools.cycle(matplotlib.rcParams['axes.color_cycle'])
+            
             for line, line_node in zip(self.lines_objects, self.geometry_data.lines):
                 x = [self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
                      * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][0]) 
@@ -1281,6 +1322,16 @@ class ModeShapePlot(object):
                 z = [self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
                      * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][2]) 
                      for node in line_node]
+#                 if not self.traced:
+#                     self.subplot.scatter([self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
+#                          * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][0]) 
+#                          for node in line_node],[self.geometry_data.nodes[node][1] + self.disp_nodes[node][1]
+#                          * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][1]) 
+#                          for node in line_node],[self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
+#                          * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][2]) 
+#                          for node in line_node], marker = ',', s=1, edgecolor='none', color = next(clist))
+#                     if num == 24:
+#                         self.traced = True
                 # NOTE: there is no .set_data() for 3 dim data...
                 line.set_visible(self.show_lines)
                 line.set_data([x, y])
@@ -1290,22 +1341,23 @@ class ModeShapePlot(object):
             for line in self.nd_lines_objects:
                 line.set_visible(self.show_nd_lines)
                 
-            for key in self.geometry_data.nodes.keys():
-                node = self.geometry_data.nodes[key]
-                disp_node = self.disp_nodes.get(key,[0,0,0])
-                phi_node = self.phi_nodes.get(key, [0,0,0])
-                x = [node[0],node[0] + disp_node[0]
-                     * np.cos(num / 25 * 2 * np.pi  + phi_node[0])]
-                y = [node[1],node[1] + disp_node[1]
-                     * np.cos(num / 25 * 2 * np.pi  + phi_node[1])]
-                z = [node[2],node[2] + disp_node[2]
-                     * np.cos(num / 25 * 2 * np.pi  + phi_node[2])]
-                line = self.cn_lines_objects.get(key,None)
-                if line is not None:
-                    line.set_data([x, y])
-                    line.set_visible(self.show_nd_lines)
-                    line.set_3d_properties(z)
-                
+#             for key in self.geometry_data.nodes.keys():
+#                 node = self.geometry_data.nodes[key]
+#                 disp_node = self.disp_nodes.get(key,[0,0,0])
+#                 phi_node = self.phi_nodes.get(key, [0,0,0])
+#                 x = [node[0],node[0] + disp_node[0]
+#                      * np.cos(num / 25 * 2 * np.pi  + phi_node[0])]
+#                 y = [node[1],node[1] + disp_node[1]
+#                      * np.cos(num / 25 * 2 * np.pi  + phi_node[1])]
+#                 z = [node[2],node[2] + disp_node[2]
+#                      * np.cos(num / 25 * 2 * np.pi  + phi_node[2])]
+#                 line = self.cn_lines_objects.get(key,None)
+#                 if line is not None:
+#                     line.set_data([x, y])
+#                     line.set_visible(self.show_nd_lines)
+#                     line.set_3d_properties(z)
+#                 
+#             self.fig.savefig('ani_{}.pdf'.format(num))
             return self.lines_objects + \
             self.nd_lines_objects + \
             list(self.cn_lines_objects.values())
@@ -1332,20 +1384,27 @@ class ModeShapePlot(object):
         c3 = self.canvas.mpl_connect('button_release_event', self._button_release)
         self.connect_handles=[c1,c2,c3]
         self.button_pressed = None
-        self.line_ani = FuncAnimation(fig=self.fig,
+        #self.traced=False
+        self.line_ani = matplotlib.animation.FuncAnimation(fig=self.fig,
                                       func=update_lines,
                                       init_func=init_lines,
                                       interval=50,
-                                      save_count=0,
+                                      save_count=50,
                                       blit=False)
         for i in range(self.seq_num+1): next(self.line_ani.frame_seq)
         
+        #print(self.fig.get_size_inches())
+        # Set up formatting for the movie files
+        #Writer = matplotlib.animation.writers['ffmpeg']
+        #writer = Writer(fps=25, metadata=dict(artist='Me'), bitrate=1800)
+        #self.line_ani.save('lines.mp4', writer=writer)
+        #print(self.fig.get_size_inches())
         self.canvas.draw()
         
         #self.line_ani._start()
         #print(self.animated, self.line_ani)
         
-    @pyqtSlot()
+    #@pyqtSlot()
     def filter_and_animate_data(self, callback=None):
         '''
         create necessary objects to animate the currently displayed
@@ -1414,7 +1473,7 @@ class ModeShapePlot(object):
                     line.set_data([x, y])
                     line.set_visible(self.show_nd_lines)
                     line.set_3d_properties(z)
-                
+                    
             return self.lines_objects + \
             self.nd_lines_objects + \
             list(self.cn_lines_objects.values())        
@@ -1445,7 +1504,7 @@ class ModeShapePlot(object):
         #self.prep_data.filter_data(lowpass, highpass)
         if callback is not None:
             self.callback = callback
-        self.line_ani = FuncAnimation(fig=self.fig,
+        self.line_ani = matplotlib.animaation.FuncAnimation(fig=self.fig,
                                       func=update_lines,
                                       frames=range(self.prep_data.measurement_filt.shape[0]),
                                       init_func=init_lines,
@@ -1945,7 +2004,7 @@ class ModeShapeGUI(QMainWindow):
         self.val_widgets['Z'][1].setText(str(lims[4]))
         self.val_widgets['Z'][2].setText(str(lims[5]))
             
-    @pyqtSlot()
+    ##@pyqtSlot()
     def change_view(self):
         '''
         shift the view along specified axis by +-20 % (hardcoded)
@@ -2010,7 +2069,7 @@ class ModeShapeGUI(QMainWindow):
                 
 
             
-    @pyqtSlot()
+    #@pyqtSlot()
     def change_viewport(self, viewport=None):
         '''
         change the viewport
@@ -2026,7 +2085,7 @@ class ModeShapeGUI(QMainWindow):
             
         self.mode_shape_plot.change_viewport(viewport)
                     
-    @pyqtSlot()
+    #@pyqtSlot()
     def save_plot(self, path=None):
         '''
         save the curently displayed frame as a *.png graphics file
@@ -2060,7 +2119,7 @@ class ModeShapeGUI(QMainWindow):
             self.mode_shape_plot.save_plot(fname)
             self.statusBar().showMessage('Saved to %s' % fname, 2000)
 
-    @pyqtSlot(str)
+    #@pyqtSlot(str)
     def change_mode(self, mode):
         '''
         if user selects a new mode,
@@ -2092,7 +2151,7 @@ class ModeShapeGUI(QMainWindow):
         self.info_box.setText(text)
 
 
-    @pyqtSlot(int)
+    #@pyqtSlot(int)
     def toggle_draw(self, i):
         '''
         helper function to receive the signal from the draw_button_group
@@ -2116,7 +2175,7 @@ class ModeShapeGUI(QMainWindow):
         self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
 
 
-    @pyqtSlot()
+    #@pyqtSlot()
     def stop_ani(self):
         '''
         convenience method to stop the animation and restore the still plot
@@ -2126,7 +2185,7 @@ class ModeShapeGUI(QMainWindow):
                 self.style().standardIcon(QStyle.SP_MediaPlay))
             self.animated = False
 
-    @pyqtSlot()
+    #@pyqtSlot()
     def animate(self):
         '''
         create necessary objects to animate the currently displayed
@@ -2185,7 +2244,7 @@ class ModeShapeGUI(QMainWindow):
         self.mode_shape_plot.line_ani.event_source.interval = int(speed)
         self.mode_shape_plot.line_ani.event_source._timer_set_interval()
          
-    @pyqtSlot()
+    #@pyqtSlot()
     def filter_and_animate_data(self):
         '''
         create necessary objects to animate the currently displayed
@@ -2242,7 +2301,7 @@ class DelayedDoubleSpinBox(QDoubleSpinBox):
         self.valueChanged[float].connect(self.timer.start)
 
 
-    @pyqtSlot()
+    #@pyqtSlot()
     def delayed_emit(self):
         '''
         stop the timer and send the current value of the QDoubleSpinBox

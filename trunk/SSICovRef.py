@@ -765,7 +765,7 @@ class VarSSICovRef(object):
         #print(len(iterators))
         
         for curr_it in iterators:
-            print(len(curr_it))
+            #print(len(curr_it))
             pool.apply_async(self.compute_covariance , args=(curr_it,
                                                         tau_max,
                                                         extract_length, 
@@ -787,6 +787,7 @@ class VarSSICovRef(object):
         
         corr_mats_mean = np.mean(corr_matrices, axis=0)
         self.corr_mats_mean = corr_mats_mean
+        self.corr_mats_std = np.std(corr_matrices, axis=0)
         
         self.hankel_matrix= np.zeros(((num_block_rows+1)*num_analised_channels, num_block_columns*num_ref_channels))
         for block_column in range(num_block_columns):
@@ -824,7 +825,7 @@ class VarSSICovRef(object):
     def compute_corr_cov(self):
         num_block_rows = self.num_block_rows
         num_block_columns = self.num_block_columns
-        num_analised_channels = self.prep_datanum_analised_channels
+        num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels = self.prep_data.num_ref_channels
         num_blocks = self.num_blocks
         corr_matrices = self.corr_matrices
@@ -850,7 +851,17 @@ class VarSSICovRef(object):
         num_block_rows = self.num_block_rows
         num_block_columns = self.num_block_columns
         num_ref_channels = self.prep_data.num_ref_channels     
-        num_analised_channels = self.prep_datanum_analised_channels   
+        num_analised_channels = self.prep_data.num_analised_channels   
+        
+#         hankel_matrices = []
+#         for n_block in range(self.num_blocks):
+#             corr_matrix = self.corr_matrices[n_block]
+#             this_hankel_matrix= np.zeros(((num_block_rows+1)*num_analised_channels, num_block_columns*num_ref_channels))
+#             for block_column in range(num_block_columns):
+#                 this_block_column = corr_matrix[block_column*num_analised_channels:(num_block_rows+1+block_column)*num_analised_channels,:]
+#                 this_hankel_matrix[:,block_column*num_ref_channels:(block_column+1)*num_ref_channels]=this_block_column
+#             hankel_matrices.append(this_hankel_matrix)
+        #self.hankel_matrices = hankel_matrices
         hankel_matrices = self.hankel_matrices
         
         import matplotlib.pyplot as plot
@@ -1015,7 +1026,7 @@ class VarSSICovRef(object):
             I_OHT=np.zeros((max_model_order*(num_block_rows+1)*num_channels, num_blocks))
 
         for i in range(max_model_order):
-            print('(a) Step up order: ',i) 
+            #print('(a) Step up order: ',i) 
 
             beg,end=(i,i+1)
             v_i_T =  V_T[beg:end,:]
@@ -1314,7 +1325,7 @@ class VarSSICovRef(object):
         S2 = scipy.sparse.hstack([ scipy.sparse.csr_matrix(((num_block_rows)*num_channels,num_channels)), 
                                   scipy.sparse.identity((num_block_rows)*num_channels)])
         
-        for order in range(1,max_model_order):
+        for order in range(19,max_model_order):
             print('(c) Step up order: ',order)        
             eigval, eigvec_l, eigvec_r = scipy.linalg.eig(a=state_matrix[0:order, 0:order],b=None,left=True,right=True)
 
@@ -1380,11 +1391,11 @@ class VarSSICovRef(object):
 
             P = permutation((num_block_rows+1)*num_channels, order)
 
-            I_AO=(scipy.sparse.kron(scipy.sparse.identity(order),np.dot(np.linalg.pinv(Oi_up),S2))-
-                  scipy.sparse.kron(state_matrix[0:order, 0:order].T,np.dot(np.linalg.pinv(Oi_up),S1))+
-                  P.T.dot(np.kron(np.dot(Oi_down.T,S1) - np.dot(np.dot(state_matrix[0:order, 0:order].T,
-                                                                                 Oi_up.T),
-                                                                          S1),
+            I_AO=(scipy.sparse.kron(scipy.sparse.identity(order),S2.T.dot(np.linalg.pinv(Oi_up).T).T)-
+                  scipy.sparse.kron(state_matrix[0:order, 0:order].T,S1.T.dot(np.linalg.pinv(Oi_up).T).T)+
+                  P.T.dot(np.kron(S1.T.dot(Oi_down).T - S1.T.dot(np.dot(state_matrix[0:order, 0:order].T,
+                                                                                 Oi_up.T).T
+                                                                          ).T,
                                   np.linalg.inv(np.dot(Oi_up[:,:order].T,Oi_up[:,:order]))).T
                   ).T)
             
@@ -1511,6 +1522,8 @@ class VarSSICovRef(object):
         
         self.state[2]=True
         
+        #return sigma_AC, eigval, eigvec_l, eigvec_r
+        
     
     def multiprocess_evd(self, a, truncation_orders, return_dict):
         
@@ -1593,6 +1606,8 @@ class VarSSICovRef(object):
         out_dict['self.start_time']=self.start_time
         #out_dict['self.prep_data']=self.prep_data
         if self.state[0]:# covariances
+            out_dict['self.corr_mats_mean'] = self.corr_mats_mean
+            out_dict['self.corr_mats_std'] = self.corr_mats_std
             out_dict['self.hankel_matrix'] = self.hankel_matrix
             out_dict['self.hankel_matrices'] = self.hankel_matrices
             out_dict['self.num_block_columns'] = self.num_block_columns
@@ -1650,24 +1665,27 @@ class VarSSICovRef(object):
         ssi_object = cls(prep_data)
         ssi_object.state = state
         if state[0]:# covariances
+            
+            ssi_object.corr_mats_mean = in_dict['self.corr_mats_mean']
+            ssi_object.corr_mats_std = in_dict['self.corr_mats_std']
             ssi_object.hankel_matrix = in_dict['self.hankel_matrix']
-            #ssi_object.hankel_matrices = in_dict['self.hankel_matrices']
+            ssi_object.hankel_matrices = in_dict['self.hankel_matrices']
             ssi_object.num_block_columns = int(in_dict['self.num_block_columns'])
             ssi_object.num_block_rows = int(in_dict['self.num_block_rows'])
-            #ssi_object.num_blocks = in_dict['self.num_blocks']
+            ssi_object.num_blocks = in_dict['self.num_blocks']
         if state[1]:# state models
-            #ssi_object.hankel_cov_matrix = in_dict['self.hankel_cov_matrix']
+            ssi_object.hankel_cov_matrix = in_dict['self.hankel_cov_matrix']
             ssi_object.max_model_order = int(in_dict['self.max_model_order'])
             ssi_object.state_matrix= in_dict['self.state_matrix']
             ssi_object.output_matrix = in_dict['self.output_matrix']
-            #ssi_object.Oi =  in_dict['self.Oi']
-            #ssi_object.U =  in_dict['self.U']
-            #ssi_object.S =  in_dict['self.S']
-            #ssi_object.V_T =  in_dict['self.V_T']
-            #ssi_object.Q1 =  in_dict['self.Q1']
-            #ssi_object.Q2 =  in_dict['self.Q2']
-            #ssi_object.Q3 =  in_dict['self.Q3']
-            #ssi_object.Q4 =  in_dict['self.Q4']
+            ssi_object.Oi =  in_dict['self.Oi']
+            ssi_object.U =  in_dict['self.U']
+            ssi_object.S =  in_dict['self.S']
+            ssi_object.V_T =  in_dict['self.V_T']
+            ssi_object.Q1 =  in_dict['self.Q1']
+            ssi_object.Q2 =  in_dict['self.Q2']
+            ssi_object.Q3 =  in_dict['self.Q3']
+            ssi_object.Q4 =  in_dict['self.Q4']
             
         if state[2]:# modal params
             ssi_object.modal_frequencies = in_dict['self.modal_frequencies']

@@ -418,7 +418,7 @@ class PreprocessData(object):
             assert f.__next__().strip('\n').strip(' ') == 'Setup Name:'
             name = f. __next__().strip('\n')
             assert f.__next__().strip('\n').strip(' ')== 'Sampling Rate [Hz]:'
-            sampling_rate= int(f. __next__().strip('\n'))
+            sampling_rate= float(f. __next__().strip('\n'))
             assert f.__next__().strip('\n').strip(' ')== 'Reference Channels:'
             ref_channels=f.__next__().strip('\n').split(' ')
             if ref_channels:
@@ -451,7 +451,7 @@ class PreprocessData(object):
             headers = ['Channel_{}'.format(i) for i in range(measurement.shape[1])]
         if not sample_rate == sampling_rate:
             raise RuntimeError('Sampling Rate from file: {} does not correspond with specified Sampling Rate from configuration {}'.format(sample_rate, sampling_rate))
-        print(headers)
+        #print(headers)
         
                     
         if chan_dofs_file is not None:
@@ -719,7 +719,7 @@ class PreprocessData(object):
         #preprocessor.add_geometry_data(in_dict['self.geometry_data'].item())  
         return preprocessor
     
-    def filter_data(self, lowpass=None, highpass=None, filt_order=3, num_int=0):
+    def filter_data(self, lowpass=None, highpass=None, filt_order=4, num_int=0,overwrite=False):
         '''
         Applies various filters to the data
         '''
@@ -759,9 +759,11 @@ class PreprocessData(object):
         #plt.figure()
         #plt.plot(self.measurement[:,1], label='Original signal (Hz)')
         self.measurement_filt = scipy.signal.filtfilt(b,a,self.measurement,axis=0, padlen=0)
-        for ii in range(self.measurement_filt.shape[1]):
+        if overwrite:
+            self.measurement = self.measurement_filt
+        #for ii in range(self.measurement_filt.shape[1]):
             #pass
-            self.measurement_filt[:,ii]  -= self.measurement_filt[:,ii].mean(0)
+        #    self.measurement_filt[:,ii]  -= self.measurement_filt[:,ii].mean(0)
         #plt.plot(self.measurement_filt[:,1], label='Filtered signal (Hz)')
         return
     
@@ -777,14 +779,91 @@ class PreprocessData(object):
         #plt.legend()
         #plt.show()
         
-    def plot_data(self, channels=[]):
+    def plot_data(self, channels=[], figsize=None):
         if len(channels)==0:
             channels=list(range(self.num_analised_channels))
         import matplotlib.pyplot as plot
         import matplotlib.cm as cm
         colors = cm.rainbow(np.linspace(0, 1, len(channels)))
+        
+#         plot.rc('font', size=10)    
+#         plot.rc('legend', fontsize=10, labelspacing=0.1)
+#         plot.rc('axes',linewidth=0.2)
+#         plot.rc('xtick.major',width=0.2)
+#         plot.rc('ytick.major',width=0.2)
+# 
+#         plot.rc('text', usetex=True)
+#         plot.rc('text.latex',preamble=r"\usepackage{siunitx}")
+#         
+#         figsize[0]/=3
+#         figsize[1]/=3
+#         plot.figure(figsize=figsize, tight_layout=True)
+#         plot.plot(np.linspace(0,512/self.sampling_rate,512),self.measurement[512:1024,4], color=colors[5])
+#         ylims = plot.ylim()
+#         plot.xlim((0,512/self.sampling_rate))
+#         plot.yticks([])
+#         plot.ylabel('accel. [\si{\meter\per\second\squared}]')
+#         plot.xlabel('time [\si{second}]')
+#         ovl_meas = self.measurement[512:1024,4]
+#         ovl_meas[ovl_meas>0.005]=0.005
+#         ovl_meas[ovl_meas<-0.005]=-0.005
+#         plot.figure(figsize=figsize, tight_layout=True)
+#         plot.plot(np.linspace(0,512/self.sampling_rate,512),ovl_meas, color=colors[2])
+#         plot.ylim(ylims)
+#         plot.xlim((0,512/self.sampling_rate))
+#         plot.yticks([])
+#         plot.ylabel('accel. [\si{\meter\per\second\squared}]')
+#         plot.xlabel('time [\si{second}]')
+#         plot.show()
+#         
+#         
+#         #plot.rc('xtick.major',pad=-10)
+#         #plot.rc('ytick.major',pad=-10)
+#         fig=plot.figure(figsize=figsize, tight_layout=True)
+#         from mpl_toolkits.mplot3d import Axes3D
+#         ax=fig.add_subplot(111,projection='3d')
+#         for channel in range(3):
+#             ax.plot3D(xs=np.array(range(self.measurement.shape[0]))/self.sampling_rate,zs=self.measurement[:,channel]/self.measurement[:,channel].max(), ys=np.repeat(-1*channel, self.measurement.shape[0]), label=self.channel_headers[channel],color=colors[channel*2], alpha=0.65)
+#         #plot.plot(self.measurement[:,0],alpha=0.75)
+#         ax.set_xlim((0,self.measurement.shape[0]/self.sampling_rate),)
+#         ax.set_xticks([])
+#         ax.set_zticks([])
+#         ax.set_yticks([])
+#         ymin,ymax=ax.get_zlim()
+#         numblocks=7
+#         xstep = self.measurement.shape[0]/numblocks/self.sampling_rate
+#         #for channel in range(3):
+#          #   for block in range(1,numblocks):
+#                 #print(block*xstep,ymin,ymax,channel)
+#                 #ax.plot3D(xs=(block*xstep,block*xstep), zs=(ymin,ymax), ys = (-channel,-channel), color='red')
+#                 #ax.plot_surface(X=(block*xstep,block*xstep), Z=(ymin,ymax), Y = (-channel,-channel), color='red')
+# 
+#         for block in range(0,numblocks+1):
+#             print(block*xstep,ymin,ymax,channel)
+#             #ax.plot3D(xs=(block*xstep,block*xstep), zs=(ymin,ymax), ys = (-channel,-channel), color='red')
+#             ax.plot_surface(X=([block*xstep,block*xstep],[block*xstep,block*xstep]), Z=([ymin,ymax],[ymin,ymax]), Y = ([0,0],[-channel,-channel]), color='red',alpha=0.25)
+# 
+#         ax.set_zlim((ymin,ymax))
+#         ax.set_ylim((-2,0))
+#         ax.set_xlabel('time')
+#         ax.set_ylabel('channel')
+#         ax.set_zlabel('acceleration')
+#         
+#         #ax.yaxis._axinfo['label']['space_factor']=2.8
+#         #ax.yaxis.set_label_coords(-0.5, -4)
+#         #ax.zaxis.set_label_coords(-0.5, -4)
+#         plot.show()
+        
+        
+        fig=plot.figure()
+        from mpl_toolkits.mplot3d import Axes3D
+        ax=fig.add_subplot(111,projection='3d')
         for channel in channels:
-            plot.plot(self.measurement[:,channel], label=self.channel_headers[channel], color=colors[channel])
+            ax.plot3D(xs=np.array(range(self.measurement.shape[0]))/self.sampling_rate,zs=self.measurement[:,channel]/self.measurement[:,channel].max(), ys=np.repeat(-1*channel, self.measurement.shape[0]), label=self.channel_headers[channel], color=colors[channel], alpha=0.5)
+        ax.set_xlim((0,self.measurement.shape[0]/self.sampling_rate))
+        ax.set_xlabel('time $t$ [s]')
+        ax.set_zlabel('acceleration [$m/s^2$]')
+        ax.set_ylabel('Channel Nr.')
         plot.show()
     
     def correct_offset(self, x=None):
@@ -876,7 +955,27 @@ class PreprocessData(object):
         decimated_col=signal.decimate(shifted_col, factor)
         self.measurement=self.measurement[:decimated_col.shape[1],:]
         self.measurement[:,channel]=decimated_col
+        
+    def get_rms(self):
+        self.correct_offset()
+        return np.sqrt(np.mean(np.square(self.measurement),axis=0))
     
+    def add_noise(self,amplitude=0,snr=0):
+        print('Adding Noise with Amplitude {} and {} percent RMS'.format(amplitude,snr*100))
+        assert amplitude !=0 or snr !=0
+        
+        if snr != 0 and amplitude == 0:
+            rms = self.get_rms()
+            #print(rms)
+            amplitude = rms*snr
+        else:
+            amplitude = [amplitude for channel in range(self.num_analised_channels)]
+            
+        for channel in self.ref_channels+self.roving_channels:
+            
+            self.measurement[:,channel] += np.random.normal(0,amplitude[channel],self.total_time_steps)
+        
+        
     def get_fft(self):
         
         if self.ft_freq is None or self.sum_ft is None:
