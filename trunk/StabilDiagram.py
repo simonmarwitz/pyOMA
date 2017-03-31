@@ -1129,8 +1129,10 @@ class StabilCalc(object):
         self.masked_damping = np.ma.array(self.modal_data.modal_damping)
 
         max_model_order = self.modal_data.max_model_order
+        self.num_solutions = self.modal_data.modal_frequencies.shape[1]
+        
         self.order_dummy = np.ma.array(
-            [[order] * max_model_order for order in range(max_model_order)])
+            [[order] * self.num_solutions for order in range(max_model_order)])
 
         # stable-in-... masks
         self.masks = {'mask_pre':   None,  # some constraints (f>0.0, order_range, etc)
@@ -1190,19 +1192,20 @@ class StabilCalc(object):
 
         # Direction 1: model order, Direction 2: current pole, Direction 3:
         # previous pole:
+        
         self.freq_diffs = np.ma.zeros(
-            (self.modal_data.max_model_order, self.modal_data.max_model_order, self.modal_data.max_model_order))
+            (self.modal_data.max_model_order, self.num_solutions, self.num_solutions))
         self.damp_diffs = np.ma.zeros(
-            (self.modal_data.max_model_order, self.modal_data.max_model_order, self.modal_data.max_model_order))
+            (self.modal_data.max_model_order, self.num_solutions, self.num_solutions))
         self.MAC_diffs = np.ma.zeros(
-            (self.modal_data.max_model_order, self.modal_data.max_model_order, self.modal_data.max_model_order))
+            (self.modal_data.max_model_order, self.num_solutions, self.num_solutions))
 
         self.MPC_matrix = np.ma.zeros(
-            (self.modal_data.max_model_order, self.modal_data.max_model_order))
+            (self.modal_data.max_model_order, self.num_solutions))
         self.MP_matrix = np.ma.zeros(
-            (self.modal_data.max_model_order, self.modal_data.max_model_order))
+            (self.modal_data.max_model_order, self.num_solutions))
         self.MPD_matrix = np.ma.zeros(
-            (self.modal_data.max_model_order, self.modal_data.max_model_order))
+            (self.modal_data.max_model_order, self.num_solutions))
 
         previous_freq_row = self.masked_frequencies[0, :]
         previous_damp_row = self.modal_data.modal_damping[0, :]
@@ -1779,7 +1782,7 @@ class StabilCalc(object):
         assert isinstance(i, (list, tuple))
         assert len(i) == 2
         assert i[0] <= self.modal_data.max_model_order
-        assert i[1] <= self.modal_data.max_model_order
+        assert i[1] <= self.num_solutions
 
         n = self.order_dummy[i]
         f = self.masked_frequencies[i]
@@ -1820,7 +1823,7 @@ class StabilCalc(object):
         assert isinstance(i, (list, tuple))
         assert len(i) == 2
         assert i[0] <= self.modal_data.max_model_order
-        assert i[1] <= self.modal_data.max_model_order
+        assert i[1] <= self.num_solutions
         return self.modal_data.mode_shapes[:, i[1], i[0]]
 
     def save_state(self, fname):
@@ -1866,7 +1869,7 @@ class StabilCalc(object):
         start_time = in_dict['self.start_time'].item()
 
         assert setup_name == modal_data.setup_name
-        assert start_time == modal_data.start_time
+        #assert start_time == modal_data.start_time
 
         stabil_data = cls(modal_data, prep_data)
 

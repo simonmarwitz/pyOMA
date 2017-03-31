@@ -190,11 +190,11 @@ class PRCE(object):
         
         # Compute the modal solutions for all model orders
         
-        modal_frequencies = np.zeros((max_model_order, 2*max_model_order))
-        modal_damping = np.zeros((max_model_order, 2*max_model_order))
-        mode_shapes = np.ones((num_analised_channels, 2*max_model_order, max_model_order),dtype=complex)
+        modal_frequencies = np.zeros((max_model_order, num_ref_channels*max_model_order/2))
+        modal_damping = np.zeros((max_model_order, num_ref_channels*max_model_order/2))
+        mode_shapes = np.ones((num_analised_channels, num_ref_channels*max_model_order/2, max_model_order),dtype=complex)
         
-        print("size of modal_frequencies = ", np.shape(modal_frequencies))
+        #print("size of modal_frequencies = ", np.shape(modal_frequencies))
                      
         for this_model_order in range(max_model_order+1):
                         
@@ -243,7 +243,7 @@ class PRCE(object):
                 
                 
                 mu_vect, eigenvectors = np.linalg.eig(companion_matrix)
-                print("mu_vect: ", mu_vect)
+                #print("mu_vect: ", mu_vect)
                 
                 # Compute residue
                 
