@@ -1,0 +1,18 @@
+Number of Block-Columns:
+30		
+Maximum Model Order:
+15
+Use Multiprocessing:
+yes
+Number of Blocks:
+10
+Subspace Method (projection/covariance):
+projection
+LSQ Method for A (pinv/qr):
+pinv
+Variance Algorithm (fast/slow):
+fast
+
+#######
+Configuration Options for the modular SSI algorithm with (co) variance estimation.
+Keep the order of options!

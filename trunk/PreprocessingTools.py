@@ -635,7 +635,7 @@ class PreprocessData(object):
 
     def save_state(self, fname):
         
-        print('fname = ', fname)
+        #print('fname = ', fname)
         
         dirname, filename = os.path.split(fname)
         if not os.path.isdir(dirname):
@@ -915,14 +915,13 @@ class PreprocessData(object):
         '''  
         
         num_channels = self.measurement.shape[1]  
-        
         for ii in range(self.measurement.shape [1]):
             if ii == 0:
-                tmp = signal.decimate(self.measurement[:,ii], decimate_factor, ftype='iir', axis = 0)
+                tmp = signal.decimate(self.measurement[:,ii], decimate_factor, ftype='iir', axis = 0, zero_phase=True)
                 meas_decimated = np.zeros((tmp.shape[0],num_channels))       
                 meas_decimated[:,ii] = tmp
             else:
-                meas_decimated[:,ii] = signal.decimate(self.measurement[:,ii], decimate_factor, ftype='iir', axis = 0) 
+                meas_decimated[:,ii] = signal.decimate(self.measurement[:,ii], decimate_factor, ftype='iir', axis = 0, zero_phase=True) 
         
         self.sampling_rate /=decimate_factor
         self.total_time_steps /=decimate_factor

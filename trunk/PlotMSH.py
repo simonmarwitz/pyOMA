@@ -21,9 +21,20 @@ from matplotlib.patches import FancyArrowPatch
 from matplotlib.colors import is_color_like
 import matplotlib.animation 
 from matplotlib.markers import MarkerStyle
+import matplotlib.cm
 
 # system i/o
 import sys
+
+#make qt application not crash on errors
+def my_excepthook(type, value, tback):
+    # log the exception here
+
+    # then call the default handler
+    sys.__excepthook__(type, value, tback)
+
+sys.excepthook = my_excepthook
+
 import csv
 import os
 import shelve
@@ -33,13 +44,14 @@ from math import cos, pi, fmod
 #tools
 import itertools
 from numpy import disp
-from StabilDiagram import StabilCalc
+from StabilDiagram import StabilCalc, DelayedDoubleSpinBox
 from PreprocessingTools import PreprocessData, GeometryProcessor
-from SSICovRef import BRSSICovRef,VarSSICovRef
-from SSIData import SSIData
+from SSICovRef import BRSSICovRef
+from SSIData import SSIData, SSIDataMEC
+from VarSSIRef import VarSSIRef
 from PRCE import PRCE
 from PLSCF import PLSCF
-from pyparsing import line
+#from pyparsing import line
 from copy import deepcopy
 
 
@@ -199,7 +211,7 @@ class ModeShapePlot(object):
         self.start_time = modal_data.start_time
         
         #modal_data = stabil_calc.modal_data
-        assert isinstance(modal_data, (BRSSICovRef, VarSSICovRef, SSIData, PRCE, PLSCF))
+        assert isinstance(modal_data, (BRSSICovRef, SSIData,SSIDataMEC,VarSSIRef, PRCE, PLSCF))
         self.modal_data = modal_data
         
         assert isinstance(geometry_data, GeometryProcessor)
@@ -252,6 +264,8 @@ class ModeShapePlot(object):
 
         assert isinstance(amplitude, (int, float))
         self.amplitude = amplitude
+        
+        self.linewidth = 2
 
         #bool objects
         self.show_nodes = True
@@ -262,7 +276,8 @@ class ModeShapePlot(object):
         self.show_axis = True
         self.animated = False
         self.data_animated = False
-
+        self.draw_trace = True
+        self.save_ani = False
 
         # plot objects
         self.patches_objects = {}
@@ -271,6 +286,7 @@ class ModeShapePlot(object):
         self.cn_lines_objects = {}
         self.arrows_objects = []
         self.channels_objects = []
+        self.trace_objects = []
         self.axis_obj = {}
         self.seq_num = 0
         
@@ -283,6 +299,9 @@ class ModeShapePlot(object):
         except ValueError:  # mpl 1.3
             self.subplot = Axes3D(self.fig)
         Axes3D.draw = draw_axes
+        
+        self.subplot.grid(False)
+        self.subplot.set_axis_off()
 
         #instantiate the x,y,z axis arrows
         self.draw_axis()
@@ -490,7 +509,7 @@ class ModeShapePlot(object):
                         [self.geometry_data.nodes[node][0] + self.disp_nodes[node][0] for node in line],
                         [self.geometry_data.nodes[node][1] + self.disp_nodes[node][1] for node in line],
                         [self.geometry_data.nodes[node][2] + self.disp_nodes[node][2] for node in line],
-                        color=beamcolor, linestyle=beamstyle,  visible = self.show_lines)[0]
+                        color=beamcolor, linestyle=beamstyle,  visible = self.show_lines, linewidth = self.linewidth)[0]
 
         while len(self.lines_objects) < i + 1:
             self.lines_objects.append(None)
@@ -521,7 +540,7 @@ class ModeShapePlot(object):
                         [self.geometry_data.nodes[node][0]  for node in line],
                         [self.geometry_data.nodes[node][1]  for node in line],
                         [self.geometry_data.nodes[node][2]  for node in line],
-                        color=beamcolor, linestyle=beamstyle,  visible = self.show_lines)[0]
+                        color=beamcolor, linestyle=beamstyle,  linewidth = self.linewidth, visible = self.show_lines)[0]
 
         while len(self.nd_lines_objects) < i + 1:
             self.nd_lines_objects.append(None)
@@ -554,7 +573,7 @@ class ModeShapePlot(object):
                         [node[0],node[0]+disp_node[0]],
                         [node[1],node[1]+disp_node[1]],
                         [node[2],node[2]+disp_node[2]],
-                        color=beamcolor, linestyle=beamstyle,  visible = self.show_nd_lines)[0]
+                        color=beamcolor, linestyle=beamstyle,  linewidth = self.linewidth, visible = self.show_nd_lines)[0]
 
         if self.cn_lines_objects.get(i,None) is not None:
             try:
@@ -1200,7 +1219,9 @@ class ModeShapePlot(object):
 
             self.phi_nodes[i_sl][0] += master_phase * x_sl
             self.phi_nodes[i_sl][1] += master_phase * y_sl
-            self.phi_nodes[i_sl][2] += master_phase * z_sl                        
+            self.phi_nodes[i_sl][2] += master_phase * z_sl        
+            
+                            
             
         #for node in self.disp_nodes.keys():
             #disp_node = self.disp_nodes[node]
@@ -1209,11 +1230,40 @@ class ModeShapePlot(object):
             #if angle <0: angle+=180
             #print(disp_node, phi_node)
             #print(node, angle)
+            
+            if self.draw_trace:
+                if self.trace_objects:
+                    for i in range(len(self.trace_objects)-1,-1,-1):
+                        try:
+                            self.trace_objects[i].remove()
+                        except Exception as e:
+                            pass
+                            #print("Error",e)
+                            
+                        del self.trace_objects[i]
+                        
+                moving_nodes = set()
+                for chan_, node, az, elev, chan_name in self.prep_data.chan_dofs:#
+                    moving_nodes.add(node)
+                
+                clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))
+                for node in moving_nodes:
+                    self.trace_objects.append(self.subplot.plot(xs=self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
+                         * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][0]),
+                         ys=self.geometry_data.nodes[node][1] + self.disp_nodes[node][1]
+                         * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][1]),
+                         zs=self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
+                         * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][2]), 
+                         #marker = ',', s=1, edgecolor='none', 
+                         color = next(clist)))
+                
         self.refresh_nodes()
         self.refresh_lines()
         self.refresh_chan_dofs(False)
         self.refresh_master_slaves(False)
-
+        if self.animated:
+            self.stop_ani()
+            self.animate()
         self.canvas.draw()
 
     #@pyqtSlot()
@@ -1242,12 +1292,17 @@ class ModeShapePlot(object):
         create necessary objects to animate the currently displayed
         deformed structure
         '''
+        
+        self.save_ani = False
+        self.draw_trace=True
         def init_lines():
             #print('init')
             #self.clear_plot()
             minx, maxx, miny, maxy, minz, maxz = self.subplot.get_w_lims()
             
             self.subplot.cla()
+            self.subplot.grid(False)
+            self.subplot.set_axis_off()
             #return self.lines_objects
             self.draw_lines()
             for line in self.lines_objects:
@@ -1288,17 +1343,33 @@ class ModeShapePlot(object):
 #                     import matplotlib.cm
 #                     color=list(matplotlib.cm.hsv(np.linspace(0, 1, 7)))[ind]
 #                     plot.plot(x,y, label=['108','126','145','160','188','TMD'][ind], color=color)
-            clist = itertools.cycle(matplotlib.rcParams['axes.color_cycle'])
-            for line, line_node in zip(self.lines_objects, self.geometry_data.lines):
+
+
+            if self.draw_trace:
+                if self.trace_objects:
+                    for i in range(len(self.trace_objects)-1,-1,-1):
+                        try:
+                            self.trace_objects[i].remove()
+                        except:
+                            pass
+                            
+                        del self.trace_objects[i]
+                        
+                moving_nodes = set()
+                for chan_, node, az, elev, chan_name in self.prep_data.chan_dofs:#
+                    moving_nodes.add(node)
                 
-                self.subplot.scatter([self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
-                     * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][0]) 
-                     for node in line_node],[self.geometry_data.nodes[node][1] + self.disp_nodes[node][1]
-                     * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][1]) 
-                     for node in line_node],[self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
-                     * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][2]) 
-                     for node in line_node], marker = ',', s=1, edgecolor='none', color = next(clist))
-            
+                clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))
+                for node in moving_nodes:
+                    self.trace_objects.append(self.subplot.plot(xs=self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
+                         * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][0]),
+                         ys=self.geometry_data.nodes[node][1] + self.disp_nodes[node][1]
+                         * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][1]),
+                         zs=self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
+                         * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][2]), 
+                         #marker = ',', s=1, edgecolor='none', 
+                         color = next(clist), linewidth = self.linewidth))
+                
             return self.lines_objects + \
             self.nd_lines_objects + \
             list(self.cn_lines_objects.values())
@@ -1322,16 +1393,7 @@ class ModeShapePlot(object):
                 z = [self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
                      * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][2]) 
                      for node in line_node]
-#                 if not self.traced:
-#                     self.subplot.scatter([self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
-#                          * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][0]) 
-#                          for node in line_node],[self.geometry_data.nodes[node][1] + self.disp_nodes[node][1]
-#                          * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][1]) 
-#                          for node in line_node],[self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
-#                          * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][2]) 
-#                          for node in line_node], marker = ',', s=1, edgecolor='none', color = next(clist))
-#                     if num == 24:
-#                         self.traced = True
+
                 # NOTE: there is no .set_data() for 3 dim data...
                 line.set_visible(self.show_lines)
                 line.set_data([x, y])
@@ -1357,7 +1419,8 @@ class ModeShapePlot(object):
 #                     line.set_visible(self.show_nd_lines)
 #                     line.set_3d_properties(z)
 #                 
-#             self.fig.savefig('ani_{}.pdf'.format(num))
+            if self.save_ani:
+                self.fig.savefig('ani_{}.pdf'.format(num))
             return self.lines_objects + \
             self.nd_lines_objects + \
             list(self.cn_lines_objects.values())
@@ -1384,14 +1447,16 @@ class ModeShapePlot(object):
         c3 = self.canvas.mpl_connect('button_release_event', self._button_release)
         self.connect_handles=[c1,c2,c3]
         self.button_pressed = None
-        #self.traced=False
+        
+        
+        
         self.line_ani = matplotlib.animation.FuncAnimation(fig=self.fig,
                                       func=update_lines,
                                       init_func=init_lines,
                                       interval=50,
                                       save_count=50,
-                                      blit=False)
-        for i in range(self.seq_num+1): next(self.line_ani.frame_seq)
+                                      blit=True)
+        #for i in range(self.seq_num+1): next(self.line_ani.frame_seq)
         
         #print(self.fig.get_size_inches())
         # Set up formatting for the movie files
@@ -1504,13 +1569,13 @@ class ModeShapePlot(object):
         #self.prep_data.filter_data(lowpass, highpass)
         if callback is not None:
             self.callback = callback
-        self.line_ani = matplotlib.animaation.FuncAnimation(fig=self.fig,
+        self.line_ani = matplotlib.animation.FuncAnimation(fig=self.fig,
                                       func=update_lines,
                                       frames=range(self.prep_data.measurement_filt.shape[0]),
                                       init_func=init_lines,
                                       interval=1/self.prep_data.sampling_rate,
                                       save_count=0,
-                                      blit=False)
+                                      blit=True)
         
         self.canvas.draw()
         
@@ -2270,51 +2335,6 @@ class ModeShapeGUI(QMainWindow):
         FigureCanvasQTAgg.resizeEvent = old_resize_event
         self.deleteLater()
         return QMainWindow.closeEvent(self, *args, **kwargs)   
-
-class DelayedDoubleSpinBox(QDoubleSpinBox):
-    '''
-    reimplementation of QDoubleSpinBox to delay the emit of the 
-    valueChanged signal by 1.5 seconds after the last change of the value
-    this allows for a function to be directly connected to the signal
-    without the need to check for further changes of the value
-    else when the user clicks through the values it would emit a
-    lot of signals and the connected funtion would run this many times
-    note that you have to connect to valueChangedDelayed signal if 
-    you want to make use of this functionality
-    valueChanged signal works as in QDoubleSpinBox
-    '''
-    # define custom signals
-    valueChangedDelayed = pyqtSignal(float)
-    
-    def __init__(self, *args, **kwargs):
-        '''
-        inherit from QDoubleSpinBox
-        instantiate a timer and set its default timeout value (1500 ms)
-        connect the valueChanged signal of QDoubleSpinBox to the 
-        start () slot of QTimer
-        connect the timeout () signal of QTimer to delayed emit
-        '''
-        super(DelayedDoubleSpinBox, self).__init__(*args, **kwargs)
-        self.timer = QTimer()
-        self.timer.setInterval(1500)
-        self.timer.timeout.connect(self.delayed_emit)
-        self.valueChanged[float].connect(self.timer.start)
-
-
-    #@pyqtSlot()
-    def delayed_emit(self):
-        '''
-        stop the timer and send the current value of the QDoubleSpinBox
-        '''
-        self.timer.stop()
-        self.valueChangedDelayed.emit(self.value())
-    
-    def set_timeout(self, timeout):
-        '''
-        set the timeout of the timer to a custom value
-        '''
-        assert isinstance(timeout, (int, float))
-        self.timer.setInterval(timeout)
 
 
 class Arrow3D(FancyArrowPatch):
