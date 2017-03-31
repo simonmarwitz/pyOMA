@@ -140,20 +140,26 @@ class SSIData(object):
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels =self.prep_data.num_ref_channels 
         
+        # Reduce maximal size of Hankel matrix to a fixed value 
+        flexlimit = total_time_steps - (num_block_rows) + 1
+        fixlimit = 10000   #14000
+        extract_length = int(min(flexlimit, (fixlimit - (num_block_rows) + 1)))
+        print('extract_length = ', extract_length)
+        
+        if fixlimit < total_time_steps:
+            measurement = measurement[0:(fixlimit+1),:]
+            total_time_steps = fixlimit
+                       
         # Extract reference time series 
-        extract_length = int(total_time_steps - (num_block_rows) + 1)
-               
         all_channels = ref_channels + roving_channels
         all_channels.sort()
-        #print(all_channels)
-        
-                     
+                              
         if (num_ref_channels < num_analised_channels):
             
             refs = (measurement[0:extract_length,ref_channels])
                      
         else:
-            refs = measurement
+            refs = measurement[0:extract_length,:]
 
        
            
