@@ -122,6 +122,40 @@ class PRCE(object):
          
         self.x_corr_Tensor = x_corr_Tensor              
         self.state[0]=True
+                    
+    @staticmethod
+    def remove_conjugates_new (vectors, values):
+        '''
+        removes conjugates and marks the vectors which appear in pairs
+        
+        vectors.shape = [order+1, order+1]
+        values.shape = [order+1,1]
+        '''
+        num_val=vectors.shape[1]
+        conj_indices=deque()
+         
+        for i in range(num_val):
+            this_vec=vectors[:,i]
+            this_conj_vec = np.conj(this_vec)
+            this_val=values[i]
+            this_conj_val = np.conj(this_val)
+
+            if this_val == this_conj_val: #remove real eigenvalues
+                continue
+            for j in range(i+1, num_val): #catches unordered conjugates but takes slightly longer
+                if np.allclose(vectors[0,j], this_conj_vec[0]) and \
+                   np.allclose(vectors[-1,j] ,this_conj_vec[-1]) and \
+                   np.allclose(values[j] ,this_conj_val):
+                    # saves computation time this function gets called many times and 
+                    #numpy's np.all() function causes a lot of computation time
+                    conj_indices.append(i)
+
+                    break
+        conj_indices=list(conj_indices)
+        vector = vectors[:,conj_indices]
+        value = values[conj_indices]
+
+        return vector,value
                
 
     def compute_modal_params(self, max_model_order, multiprocessing=True): 
@@ -156,9 +190,11 @@ class PRCE(object):
         
         # Compute the modal solutions for all model orders
         
-        modal_frequencies = np.zeros((max_model_order, max_model_order))
-        modal_damping = np.zeros((max_model_order, max_model_order))
-        mode_shapes = np.ones((num_analised_channels, max_model_order, max_model_order),dtype=complex)
+        modal_frequencies = np.zeros((max_model_order, 2*max_model_order))
+        modal_damping = np.zeros((max_model_order, 2*max_model_order))
+        mode_shapes = np.ones((num_analised_channels, 2*max_model_order, max_model_order),dtype=complex)
+        
+        print("size of modal_frequencies = ", np.shape(modal_frequencies))
                      
         for this_model_order in range(max_model_order+1):
                         
@@ -207,18 +243,25 @@ class PRCE(object):
                 
                 
                 mu_vect, eigenvectors = np.linalg.eig(companion_matrix)
+                print("mu_vect: ", mu_vect)
                 
                 # Compute residue
                 
                 W_matrix = eigenvectors[(this_model_order-1)*num_ref_channels:this_model_order*num_ref_channels,:]
                 Lambda_matrix = np.diag(mu_vect)
                 
-                W_Lambda_matrix = np.zeros(((this_model_order+1)*num_ref_channels, 2* this_model_order), dtype=complex)
+                W_Lambda_matrix = np.zeros(((this_model_order+1)*num_ref_channels, this_model_order*num_ref_channels), dtype=complex)
+                #W_Lambda_matrix = np.zeros(((this_model_order)*num_ref_channels, 2* this_model_order), dtype=complex)
+                
+                #print("W_Lambda_matrix = ", W_Lambda_matrix)
+                #print("W_matrix = ", W_matrix)
                 
                 for ii in range(this_model_order+1):
                     
                     Lambda_pow_matrix = Lambda_matrix**ii
                     
+                    #print("Lambda_pow_matrix = ", Lambda_pow_matrix)
+                   
                     W_Lambda_matrix[ii*num_ref_channels:(ii+1)*num_ref_channels,:] = \
                         np.dot(W_matrix, Lambda_pow_matrix)
                 
@@ -240,7 +283,7 @@ class PRCE(object):
                 # step 1: set scaling factors Q_r=1 for all modes r 
                 #         all modal components of dof 1 are obtained as sqrt of the first column of A_j1_matrix
                 
-                psi_matrix = np.zeros((num_analised_channels, 2*this_model_order), dtype=complex)
+                psi_matrix = np.zeros((num_analised_channels, this_model_order*num_ref_channels), dtype=complex)
                 
                 psi_matrix[0,:] = np.sqrt(A_j1_matrix[:,0])
                 
@@ -257,7 +300,36 @@ class PRCE(object):
                 psi_matrix[1:num_analised_channels,:] = other_psi.T
                                    
                 # Remove complex conjugate solutions and compute nat. frequencies + modal damping
-                                
+                
+                
+                eigenvectors_single,eigenvalues_single = \
+                    self.remove_conjugates_new(psi_matrix, mu_vect)
+                
+                
+                for index,k in enumerate(eigenvalues_single): 
+                    lambda_k = np.log(complex(k)) * sampling_rate
+                    freq_j = np.abs(lambda_k) / (2*np.pi)        
+                    damping_j = np.real(lambda_k)/np.abs(lambda_k) * (-100)  
+                    #mode_shapes_j = np.dot(output_matrix[:, 0:order + 1], eigenvectors_single[:,index])
+                
+                    ## integrate acceleration and velocity channels to level out all channels in phase and amplitude
+                    #mode_shapes_j = self.integrate_quantities(mode_shapes_j, accel_channels, velo_channels, np.abs(lambda_k))                
+                    
+                    #mode_shapes_j*=self.prep_data.channel_factors
+                    
+                    modal_frequencies[(this_model_order-1),index]=freq_j
+                    modal_damping[(this_model_order-1),index]=damping_j
+                    #mode_shapes[:,index,this_model_order]=mode_shapes_j
+                    mode_shapes[:,index,(this_model_order-1)]=eigenvectors_single[:,index]
+                    
+        self.modal_frequencies = modal_frequencies
+        self.modal_damping = modal_damping
+        self.mode_shapes = mode_shapes
+                
+        self.state[1]=True
+
+                
+        '''                
                 lambda_vect = np.log(mu_vect) * sampling_rate
         
                 lambda_vect_filt = np.zeros((1,max_model_order), dtype = complex)
@@ -285,39 +357,7 @@ class PRCE(object):
         self.mode_shapes = mode_shapes
             
         self.state[1]=True
-
-                    
-    @staticmethod
-    def remove_conjugates_new (vectors, values):
-        '''
-        removes conjugates and marks the vectors which appear in pairs
-        
-        vectors.shape = [order+1, order+1]
-        values.shape = [order+1,1]
-        '''
-        num_val=vectors.shape[1]
-        conj_indices=deque()
-        
-        for i in range(num_val):
-            this_vec=vectors[:,i]
-            this_conj_vec = np.conj(this_vec)
-            this_val=values[i]
-            this_conj_val = np.conj(this_val)
-            if this_val == this_conj_val: #remove real eigenvalues
-                continue
-            for j in range(i+1, num_val): #catches unordered conjugates but takes slightly longer
-                if vectors[0,j] == this_conj_vec[0] and \
-                   vectors[-1,j] == this_conj_vec[-1] and \
-                   values[j] == this_conj_val:
-                    # saves computation time this function gets called many times and 
-                    #numpy's np.all() function causes a lot of computation time
-                    conj_indices.append(i)
-                    break
-        conj_indices=list(conj_indices)
-        vector = vectors[:,conj_indices]
-        value = values[conj_indices]
-
-        return vector,value
+    '''
 
 
 
