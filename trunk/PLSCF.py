@@ -16,6 +16,7 @@ from scipy.signal import signaltools
 from scipy.signal.windows import get_window
 import warnings
 #from scipy.lib.six import string_types
+import matplotlib.pyplot as plt
 
 from copy import deepcopy
 
@@ -172,17 +173,32 @@ class PLSCF(object):
                
                 #num_sections = 200  # number of independent sections for averaging
                 #blocklength = int(len(this_ref) * 1/num_sections) 
-                blocklength = int(len(this_ref) * 0.025) 
+                #blocklength = int(len(this_ref) * 0.025) 
                 #print('blocklength = ', blocklength)
                             
                 tmp_freq, tmp_cross_spec = self.CrossSpectrum(this_ref, this_response, \
-                        fs=sampling_rate, window='boxcar', nperseg=blocklength, \
+                        fs=sampling_rate, window='boxcar', nperseg=self.nperseg, \
                         noverlap=None, detrend='constant', zeropad = True, return_onesided=True, \
                         scaling='spectrum')
+                
+                print('tmp_freq = ', tmp_freq)
                         
                 R_xy = np.fft.irfft(tmp_cross_spec)
                 R_xy = R_xy[0:int(len(R_xy)/2)]
         
+                #Diagramm mit Korrelationsfunktion
+            
+                '''
+                #envelope = amplitude * np.exp(exponent * corr_time)
+            
+                fig2 = plt.figure(figsize = [15,5])
+                ax = fig2.add_subplot(1,1,1)
+                ax.plot(corr_time, R_yy, lw=1, visible=True)
+                ax.plot(corr_time, envelope, 'g-', lw=2, visible=True)
+                ax.grid()
+                #ax.scatter(peak_times, peaks, s = 100, c='r')
+                '''
+       
                 (R_xy, factor_a) = self.Exp_Win(R_xy, 0.001)
                 #print('factor_a = ', factor_a)
                 
@@ -1036,7 +1052,7 @@ class PLSCF(object):
             pLSCF_object.selected_omega_vector= in_dict['self.selected_omega_vector']
             pLSCF_object.num_omega = in_dict['self.num_omega']
             pLSCF_object.spectrum_tensor = in_dict['self.spectrum_tensor']
-        if state[2]:# modal params
+        if state[1]:# modal params
             pLSCF_object.max_model_order = int(in_dict['self.max_model_order'])
             pLSCF_object.modal_frequencies = in_dict['self.modal_frequencies']
             pLSCF_object.modal_damping = in_dict['self.modal_damping']
