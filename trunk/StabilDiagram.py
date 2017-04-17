@@ -227,14 +227,15 @@ class StabilGUI(QMainWindow):
         if msh_plot is not None:
             fig = msh_plot.fig
             #FigureCanvasQTAgg.resizeEvent = resizeEvent_
-            canvas2 = fig.canvas.switch_backends(FigureCanvasQTAgg)
-            canvas2.resizeEvent = types.MethodType(resizeEvent_, canvas2)
+            #canvas2 = fig.canvas.switch_backends(FigureCanvasQTAgg)
+            #canvas2.resizeEvent = types.MethodType(resizeEvent_, canvas2)
+            canvas2 = fig.canvas
             #self.canvas.resize_event = resizeEvent_
             #self.canvas.resize_event  = funcType(resizeEvent_, self.canvas, FigureCanvasQTAgg)
-            msh_plot.canvas = canvas2
+            #msh_plot.canvas = canvas2
             #self.canvas.mpl_connect('button_release_event', self.update_lims)
-            if fig.get_axes():
-                fig.get_axes()[0].mouse_init()
+            #if fig.get_axes():
+            #    fig.get_axes()[0].mouse_init()
             canvas2.setParent(self.mode_plot_widget)
         else:
             canvas2 = QWidget()
@@ -1861,7 +1862,7 @@ class StabilCalc(object):
     def load_state(cls, fname, modal_data, prep_data=None):
         print('Now loading previous results from  {}'.format(fname))
 
-        assert isinstance(modal_data, (BRSSICovRef, VarSSIRef, PRCE, PLSCF))
+        #assert isinstance(modal_data, (BRSSICovRef, VarSSIRef, PRCE, PLSCF))
 
         in_dict = np.load(fname)
 
@@ -2819,7 +2820,7 @@ class StabilPlot(object):
         # print(name)
         color = self.colors[name]
         marker = self.markers[name]
-        print(marker, name)
+        #print(marker, name)
         zorder = self.zorders[name]
         size = self.sizes[name]
         label = self.labels[name]
@@ -2912,7 +2913,7 @@ class StabilPlot(object):
             ax.plot(mecs, list(range(self.stabil_calc.modal_data.max_model_order)), marker='o',fillstyle='full', 
                     markerfacecolor='white',markeredgecolor='grey', color='darkgrey',
                     markersize=4)
-            
+            ax.grid(True)
             ax.set_ylim(ylim)
             ax.set_yticks([])
             ax.set_xlim([0,1])
@@ -3281,7 +3282,7 @@ class ModeShapePlot(object):
         super().__init__()
         import PlotMSH
         self.mode_shape_plot = PlotMSH.ModeShapePlot(
-            stabil_calc, modal_data, geometry_data, prep_data, amplitude=100)
+            stabil_calc, modal_data, geometry_data, prep_data, amplitude=20, linewidth=0.5)
         self.mode_shape_plot.show_axis = False
         # self.mode_shape_plot.draw_nodes()
         self.mode_shape_plot.draw_lines()
@@ -3290,16 +3291,20 @@ class ModeShapePlot(object):
 
         self.fig = self.mode_shape_plot.fig
         self.fig.set_size_inches((2, 2))
-        self.canvas = self.mode_shape_plot.canvas
+        self.canvas = self.fig.canvas.switch_backends(FigureCanvasQTAgg)
+        self.mode_shape_plot.canvas = self.canvas
+        self.fig.get_axes()[0].mouse_init()
+        #self.canvas = self.mode_shape_plot.canvas
 
         for axis in [self.mode_shape_plot.subplot.xaxis, self.mode_shape_plot.subplot.yaxis, self.mode_shape_plot.subplot.zaxis]:
             axis.set_minor_locator(ticker.NullLocator())
             axis.set_major_formatter(ticker.NullFormatter())
-
-    def plot_this(self, index):
-        self.mode_shape_plot.stop_ani()
-        self.mode_shape_plot.change_mode(mode_index=index)
         self.mode_shape_plot.animate()
+        
+    def plot_this(self, index):
+        #self.mode_shape_plot.stop_ani()
+        self.mode_shape_plot.change_mode(mode_index=index)
+        #self.mode_shape_plot.animate()
 
 
 class MyMplCanvas(FigureCanvasQTAgg):
@@ -3755,3 +3760,11 @@ class DelayedDoubleSpinBox(QDoubleSpinBox):
 
 if __name__ == '__main__':
     pass
+#     min=QSliderL.value()
+#     max=QSliderU.value()
+#     QScrollBar.setRange(min,max)
+#     
+#     min = QScrollBar.minimum
+#     max = QScrollBar.maximum
+#     QSliderL.setValue(min)
+#     QSliderU.setValue(max)

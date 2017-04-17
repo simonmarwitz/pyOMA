@@ -201,7 +201,9 @@ class ModeShapePlot(object):
                  nodemarker='o',
                  nodesize=20,
                  beamcolor='blue',
-                 beamstyle='-'
+                 beamstyle='-',
+                 linewidth = 1,
+                 callback_fun=None
                  ):
 
         assert isinstance(stabil_calc, StabilCalc)
@@ -265,7 +267,12 @@ class ModeShapePlot(object):
         assert isinstance(amplitude, (int, float))
         self.amplitude = amplitude
         
-        self.linewidth = 2
+        assert isinstance(linewidth, (int,float))
+        self.linewidth = linewidth
+        
+        if callback_fun is not None:
+            assert callable(callback_fun)
+        self.callback_fun = callback_fun
 
         #bool objects
         self.show_nodes = True
@@ -386,7 +393,7 @@ class ModeShapePlot(object):
             self.line_ani._setup_blit()
 
     #@pyqtSlot(str)
-    def change_mode(self, frequency=None, index=None, mode_index=None):
+    def change_mode(self, frequency=None, index=None, mode_index=None,):
         '''
         if user selects a new mode,
         extract the mode number from the passed string (contains frequency...)
@@ -414,6 +421,11 @@ class ModeShapePlot(object):
         self.mode_index = mode_index
         
         self.draw_msh()
+
+        #print('self.callback_fun', self.callback_fun)
+        if self.callback_fun is not None:
+            #print('call')
+            self.callback_fun(self,mode_index)
         
         return mode_index[1], mode_index[0], frequency, damping, MPC, MP, MPD #order, mode_num,....
 
@@ -1599,6 +1611,7 @@ class ModeShapePlot(object):
             line.set_visible(False)
         for line in self.cn_lines_objects.values():
             line.set_visible(False)
+        #self.canvas.draw()
         self.line_ani._setup_blit()
         #self.line_ani._start()   
         
@@ -1776,6 +1789,7 @@ class ModeShapeGUI(QMainWindow):
         
         self.mode_combo = QComboBox()
         frequencies = ['{}: {}'.format(i+1,f) for i,f in enumerate(self.mode_shape_plot.get_frequencies())]
+        #print(frequencies)
         self.mode_combo.addItems(frequencies)
         self.mode_combo.currentIndexChanged[str].connect(self.change_mode)
         

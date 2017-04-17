@@ -20,7 +20,14 @@ from collections import deque
 from PreprocessingTools import PreprocessData
 #import pyximport 
 #pyximport.install()
-#from cython_code import cython_helpers #@UnresolvedImport
+global use_cython
+try:
+    from cython_code import cython_helpers #@UnresolvedImport
+    use_cython=True
+except:
+    #global use_cython
+    use_cython = False
+
 #import cython_code.cython_helpers
 
 '''
@@ -614,7 +621,7 @@ class SSIDataMEC(object):
         ssi_object = cls(prep_data)
         ssi_object.build_block_hankel(num_block_rows)
         ssi_object.compute_state_matrices(max_model_order)
-        ssi_object.compute_modal_params(use_cython=True, plot_=False)
+        ssi_object.compute_modal_params(plot_=False)
         #print('max_model_order = ', max_model_order)
         #print('ssi_object.max_model_order = ', ssi_object.max_model_order)
         
@@ -744,7 +751,7 @@ class SSIDataMEC(object):
         self.state[1] = True
         self.state[2] = False # previous modal params are invalid now
         
-    def compute_modal_params(self, use_cython=True, plot_=False  ): 
+    def compute_modal_params(self, plot_=False  ): 
          
         assert self.state[1]
         
@@ -835,7 +842,7 @@ class SSIDataMEC(object):
 
             K_0m = K_0.dot(self.prep_data.measurement[:j,:].T)
             K_0m = np.array(K_0m, dtype = np.complex64)
-            
+            global use_cython
             if use_cython:
                 states = cython_helpers.estimate_states(AKC, K_0m)#@UndefinedVariable
             else:

@@ -719,7 +719,7 @@ class PreprocessData(object):
         #preprocessor.add_geometry_data(in_dict['self.geometry_data'].item())  
         return preprocessor
     
-    def filter_data(self, lowpass=None, highpass=None, filt_order=4, num_int=0,overwrite=False):
+    def filter_data(self, lowpass=None, highpass=None, filt_order=4, num_int=0,overwrite=False,plot_filter=False):
         '''
         Applies various filters to the data
         '''
@@ -740,31 +740,34 @@ class PreprocessData(object):
         elif highpass is not None:
             b, a = scipy.signal.butter(filt_order, highpass/nyq, btype = 'high')
             
-
-        #import matplotlib.pyplot as plt
-        #
-        #w, h = scipy.signal.freqz(b, a, worN=2000)
-        #plt.close()
-        #plt.figure()
-        #plt.plot((nyq / np.pi) * w, abs(h))
-        #plt.plot([0, nyq], [np.sqrt(0.5), np.sqrt(0.5)],
-        #     '--', label='sqrt(0.5)')
-        #plt.xlabel('Frequency (Hz)')
-        #plt.ylabel('Gain')
-        #plt.grid(True)
-        #plt.legend(loc='best')
-        #plt.grid(which='both', axis='both')
-        #plt.axvline(100, color='green') # cutoff frequency
-        #plt.show()
-        #plt.figure()
-        #plt.plot(self.measurement[:,1], label='Original signal (Hz)')
+        if plot_filter:
+            import matplotlib.pyplot as plt
+            
+            w, h = scipy.signal.freqz(b, a, worN=2000)
+            plt.close()
+            plt.figure()
+            plt.plot((nyq / np.pi) * w, abs(h))
+            plt.plot([0, nyq], [np.sqrt(0.5), np.sqrt(0.5)],
+                 '--', label='sqrt(0.5)')
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('Gain')
+            plt.grid(True)
+            plt.legend(loc='best')
+            plt.grid(which='both', axis='both')
+            plt.axvline(100, color='green') # cutoff frequency
+            plt.show()
+            plt.figure()
+            plt.plot(self.measurement[:,1], label='Original signal (Hz)')
         self.measurement_filt = scipy.signal.filtfilt(b,a,self.measurement,axis=0, padlen=0)
         if overwrite:
             self.measurement = self.measurement_filt
         #for ii in range(self.measurement_filt.shape[1]):
             #pass
         #    self.measurement_filt[:,ii]  -= self.measurement_filt[:,ii].mean(0)
-        #plt.plot(self.measurement_filt[:,1], label='Filtered signal (Hz)')
+        if plot_filter:
+            plt.plot(self.measurement_filt[:,1], label='Filtered signal (Hz)')
+            plt.legend()
+            plt.show()
         return
     
         for i in range(num_int):
