@@ -21,6 +21,7 @@ import csv
 import sys
 from numpy import floor
 import datetime
+from numpy.testing.utils import measure
 
 def nearly_equal(a,b,sig_fig=5):
     return ( a==b or 
@@ -617,7 +618,11 @@ class PreprocessData(object):
         '''
         chan_dofs = [ (chan_num, node_name, az, elev, chan_name) ,  ... ]
         '''
-        self.chan_dofs=chan_dofs
+        for chan_dof in chan_dofs:
+            if len(chan_dof)==4:
+                chan_dof.append('')
+            self.chan_dofs.append(chan_dof)
+        #self.chan_dofs=chan_dofs
         
     def take_chan_dof(self, chan, node, dof):
         
@@ -710,7 +715,8 @@ class PreprocessData(object):
                  disp_channels=disp_channels, setup_name=setup_name,
                  channel_headers=channel_headers, start_time=start_time, 
                  ft_freq=ft_freq, sum_ft = sum_ft)
-        chan_dofs = [[int(float(chan_num)), str(node), float(az), float(elev), str(chan_name)] for chan_num, node, az, elev, chan_name in in_dict['self.chan_dofs']]
+        
+        chan_dofs = [[int(float(chan_dof[0])), str(chan_dof[1]), float(chan_dof[2]), float(chan_dof[3]), str(chan_dof[-1])] for chan_dof in in_dict['self.chan_dofs']]
         preprocessor.add_chan_dofs(chan_dofs)
         assert preprocessor.num_ref_channels == int(in_dict['self.num_ref_channels'])
         assert preprocessor.num_roving_channels == int(in_dict['self.num_roving_channels'])
@@ -1021,6 +1027,22 @@ class PreprocessData(object):
 
         return ft_freq, sum_ft
     
+def load_measurement_file(fname, **kwargs):
+    # assign this function to the class before instantiating the object
+    # PreprocessData.load_measurement_file = load_measurement_file
+    
+    # define a function to return the following variables
+    headers=['channel_name','channel_name']
+    units=['unit','unit',]
+    start_time=datetime.datetime()
+    sample_rate = float()
+    measurement=np.array()
+    
+    #channels im columns
+    assert measurement.shape[0]>measurement.shape[1]
+        
+    return headers, units, start_time, sample_rate, measurement  
+
 def main():
     pass
 
