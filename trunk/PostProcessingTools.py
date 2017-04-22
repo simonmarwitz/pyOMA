@@ -32,6 +32,7 @@ poser multi-setup (merged_data)
 '''
 
 import numpy as np
+import datetime
 from PreprocessingTools import PreprocessData
 from SSICovRef import BRSSICovRef
 from PLSCF import PLSCF
@@ -46,24 +47,27 @@ class MergePoSER(object):
     classdocs
     '''
 
-    def __init__(self, params):
+    def __init__(self,):
         '''
         Constructor
         '''
         self.setups = []
         
         self.merged_chan_dofs = []
-        self.num_channels = None
+        self.merged_num_channels = None
         
-        self.ref_channels = None
-        self.roving_channels = None
+        self.merged_ref_channels = None
+        self.merged_roving_channels = None
         
         self.mean_frequencies = None
         self.mean_damping = None
-        self.mode_shapes = None
+        self.merged_mode_shapes = None
         
         self.std_frequencies = None
         self.std_damping = None
+        
+        self.setup_name = ''
+        self.start_time = datetime.datetime.now()
         
     
     def add_setup(self, prep_data, modal_data, stabil_data, override_ref_channels = None):
@@ -82,9 +86,10 @@ class MergePoSER(object):
         assert stabil_data.select_modes
         
         # assure all setups were analyzed with the same method
-        if self.setups:
-            if type(self.setups[0]) != type(modal_data):
-                raise RuntimeWarning('All setups should be analyzed with the same method to assure consistent results!')
+        #if self.setups:
+        #    if type(self.setups[0]) != type(modal_data):
+        #        print(type(self.setups[0]), type(modal_data))
+        #        raise RuntimeWarning('All setups should be analyzed with the same method to assure consistent results!')
         
         # extract needed information and store them in a dictionary
         self.setups.append({'setup_name': prep_data.setup_name,
@@ -92,11 +97,11 @@ class MergePoSER(object):
                             'num_channels': prep_data.num_analised_channels,
                             'ref_channels': prep_data.ref_channels,
                             'roving_channels': prep_data.roving_channels,
-                            'modal_frequencies': [modal_data.modal_frequencies[index] for index in stabil_data.select_modes]
-                            'modal_damping': [modal_data.modal_damping[index] for index in stabil_data.select_modes]
+                            'modal_frequencies': [modal_data.modal_frequencies[index] for index in stabil_data.select_modes],
+                            'modal_damping': [modal_data.modal_damping[index] for index in stabil_data.select_modes],
                             'mode_shapes': [modal_data.mode_shapes[:,index[1],index[0]] for index in stabil_data.select_modes]
                             })
-        print('Added setup {} with {} channels and {} selected modes.'.format(prep_data.setup_name, prep_datat.num_analised_channels, len(stabil_data.select_modes)))
+        print('Added setup "{}" with {} channels and {} selected modes.'.format(prep_data.setup_name, prep_data.num_analised_channels, len(stabil_data.select_modes)))
         
         
         
@@ -108,12 +113,10 @@ class MergePoSER(object):
         #         rescale
         #         merge
         
-        '''
-        usage: self.merge_poser([instances of SSICovRef])
-        the systemidentification and eigenstructure analysis has to be 
-        completed in every instance, as well as the selection of modes 
-        in a stability diagram will have to be present in select_modes variable   
-        '''
+        # TODO: rescale w.r.t to the average solution from all setups rather than specifying a base setup
+        # compute scaling factors for each setup with each setup and average them for each setup before rescaling
+        # corresponding standard deviations can be used to asses the quality of fit
+        
         def pair_modes(frequencies_1, frequencies_2):
             delta_matrix=np.ma.array(np.zeros((len(frequencies_1),len(frequencies_2))))
             for index,frequency in enumerate(frequencies_1):
@@ -152,13 +155,14 @@ class MergePoSER(object):
         frequencies_base=setups[base_setup_num]['modal_frequencies']
         damping_base=setups[base_setup_num]['modal_damping']
         
+        del setups[base_setup_num]
         # pair channels and modes of each instance with base instance
         
         channel_pairing = []
         mode_pairing = []
         total_dofs = 0
         total_dofs += num_channels_base    
-        for setup in setups[1:]:
+        for setup in setups:
             # calculate the common reference dofs, which may be different channels
             # furthermore reference channels for covariances need not be the reference channels for mode merging
             # channel dof assignments have to be present in each of the instances
@@ -168,9 +172,9 @@ class MergePoSER(object):
             
             these_pairs=[]
             for chan_dof_base in chan_dofs_base:
-                chan_base, node_base, az_base, elev_base = chan_dof_base[0:3]
+                chan_base, node_base, az_base, elev_base = chan_dof_base[0:4]
                 for chan_dof_this in chan_dofs_this:
-                    chan_this, node_this, az_this, elev_this = chan_dof_this[0:3]
+                    chan_this, node_this, az_this, elev_this = chan_dof_this[0:4]
                     if node_this == node_base and az_this == az_base and elev_this == elev_base:
                         these_pairs.append((chan_base, chan_this))
                         
@@ -215,10 +219,11 @@ class MergePoSER(object):
         new_mode_nums = [mode_num[0] for mode_num in mode_pairing[0]]
         
         # allocate output objects
-        mode_shapes = np.zeros((total_dofs, common_modes,),dtype=complex)
+        mode_shapes = np.zeros((total_dofs, 1,common_modes),dtype=complex)
         f_list=np.zeros((len(setups)+1,common_modes))
         d_list=np.zeros((len(setups)+1,common_modes))
         scale_factors = np.zeros((len(setups),common_modes), dtype=complex)
+        
         start_dof=0
         
         # copy modal values from base instance first
@@ -227,22 +232,21 @@ class MergePoSER(object):
             
             mode_base = mode_shapes_base[mode_num_base]
                                    
-            mode_shapes[start_dof:start_dof+num_channels_base, mode_num_base, ] = mode_base
+            mode_shapes[start_dof:start_dof+num_channels_base,0, mode_num_base, ] = mode_base
             f_list[0, mode_num_base] = frequencies_base[mode_num_base]
             d_list[0, mode_num_base] = damping_base[mode_num_base]
             
         start_dof += num_channels_base
         
         # iterate over instances and assemble output objects (mode_shapes, chan_dofs)
-        for inst_num,instance in enumerate(instances):
+        for setup_num,setup in enumerate(setups):
             
 
-            chan_dofs_this = instance.chan_dofs
-            modes_indices_this = instance.selected_modes_indices
-            num_channels_this = instance.num_analised_channels
-            mode_shapes_this = instance.mode_shapes
+            chan_dofs_this = setup['chan_dofs']
+            num_channels_this = setup['num_channels']
+            mode_shapes_this = setup['mode_shapes']
                 
-            these_pairs = channel_pairing[inst_num]            
+            these_pairs = channel_pairing[setup_num]            
             num_ref_channels = len(these_pairs)
             num_remain_channels = num_channels_this-num_ref_channels
             ref_channels_base=[pair[0] for pair in these_pairs]
@@ -270,25 +274,26 @@ class MergePoSER(object):
                     row_ref+=1
                 else:
                     split_mat_rovs_this[row_rov,channel]=1    
-                    for chan, node, az, elev in chan_dofs_this:
+                    for chan_dof_this in chan_dofs_this:
+                        chan, node, az, elev = chan_dof_this[0:4]
                         if chan==channel:             
                             chan = int(start_dof + row_rov)
                             chan_dofs_base.append([chan,node,az,elev])                    
                             row_rov+=1
            
             # loop over modes and rescale them and merge with the other instances
-            for mode_num_base, mode_num_this in mode_pairing[inst_num]:
+            for mode_num_base, mode_num_this in mode_pairing[setup_num]:
                 mode_index = new_mode_nums.index(mode_num_base)
                 
-                order_base, index_base = modes_indices_base[mode_num_base]
+                #order_base, index_base = modes_indices_base[mode_num_base]
                 
-                mode_base = mode_shapes_base[:, index_base, order_base]
+                mode_base = mode_shapes_base[mode_num_base]
                      
                 mode_refs_base = np.dot(split_mat_refs_base, mode_base)
                 
-                order_this, index_this = modes_indices_this[mode_num_this]
+                #order_this, index_this = modes_indices_this[mode_num_this]
                 
-                mode_this = mode_shapes_this[:, index_this, order_this]
+                mode_this = mode_shapes_this[mode_num_this]
                  
                 mode_refs_this = np.dot(split_mat_refs_this, mode_this)
                 mode_rovs_this = np.dot(split_mat_rovs_this, mode_this)
@@ -297,48 +302,53 @@ class MergePoSER(object):
                 denom = np.dot(np.transpose(np.conjugate(mode_refs_this)), mode_refs_this)
                 
                 scale_fact=numer/denom
-                scale_factors[inst_num,mode_index]=(scale_fact)
-                self.merged_mode_shapes[start_dof:start_dof+num_remain_channels, index_base, order_base] = scale_fact*mode_rovs_this
+                scale_factors[setup_num,mode_index]=(scale_fact)
+                mode_shapes[start_dof:start_dof+num_remain_channels,0, mode_index] = scale_fact*mode_rovs_this
                     
-                f_list[inst_num+1, mode_index]=instance.modal_frequencies[(order_this, index_this)]
-                d_list[inst_num+1, mode_index]=instance.modal_damping[(order_this, index_this)]
+                f_list[setup_num+1, mode_index]=setup['modal_frequencies'][mode_num_this]
+                d_list[setup_num+1, mode_index]=setup['modal_damping'][mode_num_this]
                 
             start_dof += num_remain_channels
             
-        self.merged_chan_dofs = chan_dofs_base
-        self.merged_num_channels = total_dofs
-        self.merged_modes_indices = [modes_indices_base[mode_num_base] for mode_num_base, _ in mode_pairing[0]]
+
+
         
-        mpcs = np.zeros((1,common_modes))
-        mps = np.zeros((1,common_modes))
-        mpds = np.zeros((1,common_modes))
-        
-        self.mean_frequencies = np.zeros((self.max_model_order, self.max_model_order))   
-        self.std_frequencies = np.zeros((self.max_model_order, self.max_model_order))        
-        self.mean_damping = np.zeros((self.max_model_order, self.max_model_order))
-        self.std_damping = np.zeros((self.max_model_order, self.max_model_order))
+        mean_frequencies = np.zeros((common_modes,))   
+        std_frequencies = np.zeros((common_modes,))        
+        mean_damping = np.zeros((common_modes,))
+        std_damping = np.zeros((common_modes,))
         
         for mode_num_base, mode_num_this in mode_pairing[0]:
             mode_index = new_mode_nums.index(mode_num_base)
-            order_base, index_base = modes_indices_base[mode_num_base]
+            #order_base, index_base = modes_indices_base[mode_num_base]
             
         #for mode_num,(order_base, index_base) in enumerate(modes_indices_base):
             
             # rescaling of mode shape 
-            mode_tmp = self.merged_mode_shapes[:, index_base, order_base]  
+            mode_tmp = mode_shapes[:, 0,mode_index]  
             abs_mode_tmp = np.abs(mode_tmp)
             index_max = np.argmax(abs_mode_tmp)
             this_max = mode_tmp[index_max]
             mode_tmp = mode_tmp / this_max      
-            mpcs[0,index] = StabilCalc.calculateMPC(mode_tmp)
-            mpds[0,index], mps[0,index] = StabilCalc.calculateMPD(mode_tmp)
-            self.merged_mode_shapes[:, index_base, order_base] = mode_tmp  
-            self.mean_frequencies[(order_base, index_base)] = np.mean(f_list[:,mode_index],axis=0)
-            self.std_frequencies[(order_base, index_base)] = np.std(f_list[:,mode_index],axis=0)
+            #mpcs[0,index] = StabilCalc.calculateMPC(mode_tmp)
+            #mpds[0,index], mps[0,index] = StabilCalc.calculateMPD(mode_tmp)
+            mode_shapes[:, 0,mode_index] = mode_tmp  
+            mean_frequencies[mode_index,] = np.mean(f_list[:,mode_index],axis=0)
+            std_frequencies[mode_index,] = np.std(f_list[:,mode_index],axis=0)
 
-            self.mean_damping[(order_base, index_base)] = np.mean(d_list[:,mode_index], axis=0)
-            self.std_damping[(order_base, index_base)] = np.std(d_list[:,mode_index], axis=0)
-
+            mean_damping[mode_index,] = np.mean(d_list[:,mode_index], axis=0)
+            std_damping[mode_index,] = np.std(d_list[:,mode_index], axis=0)
+            
+        self.merged_chan_dofs = chan_dofs_base
+        self.merged_num_channels = total_dofs
+        
+        self.merged_mode_shapes = mode_shapes
+        self.mean_frequencies = np.expand_dims(mean_frequencies, axis=1)
+        self.std_frequencies = np.expand_dims(std_frequencies, axis=1)
+        self.mean_damping = np.expand_dims(mean_damping, axis=1)
+        self.std_damping = np.expand_dims(std_damping, axis=1)
+        
+        #self.select_modes = list(range(common_modes))
     
     def save_state(self):
         pass

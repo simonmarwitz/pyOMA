@@ -11,6 +11,8 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMessageHandler, QEventLoop, QSize
 # Matplotlib
 import matplotlib
+from PostProcessingTools import MergePoSER
+from _ftdi1 import NONE
 matplotlib.use("Qt5Agg",force=True) 
 from matplotlib import rcParams
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -188,10 +190,11 @@ class ModeShapePlot(object):
     chan_dofs_requested = pyqtSignal(str, bool)
 
     def __init__(self,
-                 stabil_calc,
-                 modal_data,
                  geometry_data,
-                 prep_data,       
+                 stabil_calc=None,
+                 modal_data=None,
+                 prep_data=None,
+                 merged_data=None,     
                  selected_mode=[0,0],
                  amplitude=1,
                  real=False,
@@ -205,24 +208,72 @@ class ModeShapePlot(object):
                  linewidth = 1,
                  callback_fun=None
                  ):
-
-        assert isinstance(stabil_calc, StabilCalc)
+        
+        assert merged_data is not None or (prep_data is not None and modal_data is not None and stabil_calc is not None)
+        
+        if stabil_calc is not None:
+            assert isinstance(stabil_calc, StabilCalc)
         self.stabil_calc = stabil_calc
         
-        self.setup_name = modal_data.setup_name
-        self.start_time = modal_data.start_time
+
         
-        #modal_data = stabil_calc.modal_data
-        assert isinstance(modal_data, (BRSSICovRef, SSIData,SSIDataMEC,VarSSIRef, PRCE, PLSCF))
+        #modal_data = modal_data
+        if modal_data is not None:
+            assert isinstance(modal_data, (BRSSICovRef, SSIData,SSIDataMEC,VarSSIRef, PRCE, PLSCF))
         self.modal_data = modal_data
         
         assert isinstance(geometry_data, GeometryProcessor)
         self.geometry_data = geometry_data
         
-        #prep_data = modal_data.prep_data
-        
-        assert isinstance(prep_data, PreprocessData)
+        #prep_data = prep_data
+        if prep_data is not None:
+            assert isinstance(prep_data, PreprocessData)
         self.prep_data = prep_data
+        
+        if merged_data is not None:
+            assert isinstance(merged_data, MergePoSER)
+        self.merged_data = merged_data
+        
+        if merged_data is not None:
+            self.chan_dofs = merged_data.merged_chan_dofs
+            self.num_channels = merged_data.merged_num_channels
+        
+            self.ref_channels = merged_data.merged_ref_channels
+            self.roving_channels = merged_data.merged_roving_channels
+        
+            self.modal_frequencies = merged_data.mean_frequencies
+            self.modal_damping = merged_data.mean_damping
+            self.mode_shapes = merged_data.merged_mode_shapes
+        
+            self.std_frequencies = merged_data.std_frequencies
+            self.std_damping = merged_data.std_damping
+            
+            self.select_modes = list(zip(range(len(self.modal_frequencies)),[0]*len(self.modal_frequencies)))
+            
+            self.setup_name = merged_data.setup_name
+            self.start_time = merged_data.start_time
+        else:
+            self.chan_dofs = prep_data.chan_dofs
+            self.num_channels = prep_data.num_analised_channels
+        
+            self.ref_channels = prep_data.ref_channels
+            self.roving_channels = prep_data.roving_channels
+        
+            self.modal_frequencies = modal_data.modal_frequencies
+            self.modal_damping = modal_data.modal_damping
+            self.mode_shapes = modal_data.mode_shapes
+            
+            if isinstance(modal_data, VarSSIRef):
+                self.std_frequencies = modal_data.std_frequencies
+                self.std_damping = modal_data.std_damping
+            else:
+                self.std_frequencies = None
+                self.std_damping = None
+            
+            self.select_modes = stabil_calc.select_modes
+            
+            self.setup_name = modal_data.setup_name
+            self.start_time = modal_data.start_time
         
         #if not geometry_data:
         #geometry_data = prep_data.geometry_data          
@@ -401,9 +452,9 @@ class ModeShapePlot(object):
         and plot the mode shape
         '''
         # mode numbering starts at 1 python lists start at 0
-        selected_indices = self.stabil_calc.select_modes
+        selected_indices = self.select_modes
         if frequency is not None:       
-            frequencies =np.array([self.modal_data.modal_frequencies[index[0],index[1]] for index in selected_indices])     
+            frequencies =np.array([self.modal_frequencies[index[0],index[1]] for index in selected_indices])     
             f_delta= abs(frequencies-frequency)
             index = np.argmin(f_delta)
         #print(selected_indices)
@@ -412,12 +463,16 @@ class ModeShapePlot(object):
         if mode_index is None:
             raise RuntimeError('No arguments provided!')
         #print(mode_index)
-        frequency = self.modal_data.modal_frequencies[mode_index[0],mode_index[1]]
-        damping = self.modal_data.modal_damping[mode_index[0],mode_index[1]]
-        MPC = self.stabil_calc.MPC_matrix[mode_index[0],mode_index[1]]
-        MP = self.stabil_calc.MP_matrix[mode_index[0],mode_index[1]]
-        MPD = self.stabil_calc.MPD_matrix[mode_index[0],mode_index[1]]
-        
+        frequency = self.modal_frequencies[mode_index[0],mode_index[1]]
+        damping = self.modal_damping[mode_index[0],mode_index[1]]
+        if self.stabil_calc:
+            MPC = self.stabil_calc.MPC_matrix[mode_index[0],mode_index[1]]
+            MP = self.stabil_calc.MP_matrix[mode_index[0],mode_index[1]]
+            MPD = self.stabil_calc.MPD_matrix[mode_index[0],mode_index[1]]
+        else:
+            MPC=None
+            MP=None
+            MPD=None
         self.mode_index = mode_index
         
         self.draw_msh()
@@ -430,9 +485,9 @@ class ModeShapePlot(object):
         return mode_index[1], mode_index[0], frequency, damping, MPC, MP, MPD #order, mode_num,....
 
     def get_frequencies(self):
-        selected_indices = self.stabil_calc.select_modes
+        selected_indices = self.select_modes
         
-        frequencies =[self.modal_data.modal_frequencies[index[0],index[1]] for index in selected_indices]
+        frequencies =[self.modal_frequencies[index[0],index[1]] for index in selected_indices]
         frequencies.sort()
         return frequencies
     
@@ -1142,7 +1197,8 @@ class ModeShapePlot(object):
         draw arrows and numbers for all channel-DOF assignments stored 
         in the internal channel - DOF assignment table
         '''
-        for i, (chan, node, az, elev, chan_name) in enumerate(self.prep_data.chan_dofs):
+        for i, chan_dof in enumerate(self.chan_dofs):
+            chan, node, az, elev, chan_name = chan_dof[0:4]+chan_dof[-1:] 
             self.add_chan_dof(chan, node, az, elev, chan_name, i)
             
     def refresh_chan_dofs(self, visible = None):
@@ -1166,7 +1222,7 @@ class ModeShapePlot(object):
         draws the displaced nodes and beams
         '''
 
-        mode_shape = self.modal_data.mode_shapes[:,self.mode_index[1], self.mode_index[0]]
+        mode_shape = self.mode_shapes[:,self.mode_index[1], self.mode_index[0]]
         mode_shape = BRSSICovRef.rescale_mode_shape(mode_shape)
         ampli = self.amplitude
 
@@ -1190,7 +1246,8 @@ class ModeShapePlot(object):
                     disp = np.abs(disp)
             else:
                 phase = 0    
-            for chan_, node, az, elev, chan_name in self.prep_data.chan_dofs:
+            for chan_dof in self.chan_dofs:
+                chan_, node, az, elev, chan_name = chan_dof[0:4]+chan_dof[-1:]
                 if chan_ == chan:
                     break
             else:
@@ -1255,7 +1312,8 @@ class ModeShapePlot(object):
                         del self.trace_objects[i]
                         
                 moving_nodes = set()
-                for chan_, node, az, elev, chan_name in self.prep_data.chan_dofs:#
+                for chan_dof in self.chan_dofs:#
+                    chan_, node, az, elev, chan_name  = chan_dof[0:4]+cha_dof[-1]
                     moving_nodes.add(node)
                 
                 clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))
@@ -1332,7 +1390,7 @@ class ModeShapePlot(object):
 #             
 #             for node in ['1','2','3','4','5','6','7']:
 #                 this_chans, this_az = [],[]
-#                 for chan, node_, az,elev,header in self.modal_data.prep_data.chan_dofs:
+#                 for chan, node_, az,elev,header in self.chan_dofs:
 #                     if node == node_:
 #                         this_chans.append(chan)
 #                         this_az.append(az)
@@ -1368,7 +1426,8 @@ class ModeShapePlot(object):
                         del self.trace_objects[i]
                         
                 moving_nodes = set()
-                for chan_, node, az, elev, chan_name in self.prep_data.chan_dofs:#
+                for chan_dof in self.chan_dofs:#
+                    chan_, node, az, elev, = chan_dof[0:4]
                     moving_nodes.add(node)
                 
                 clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))
@@ -1516,7 +1575,8 @@ class ModeShapePlot(object):
             '''
             self.callback(str(num/self.prep_data.sampling_rate))
             disp_nodes={ i : [0,0,0] for i in self.geometry_data.nodes.keys() } 
-            for chan_, node, az, elev, chan_name in self.prep_data.chan_dofs:
+            for chan_dof in self.chan_dofs:
+                chan_, node, az, elev, = chan_dof[0:4]
                 x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
                 disp_nodes[node][0]+=self.prep_data.measurement_filt[num,chan_]*x*self.amplitude
                 disp_nodes[node][1]+=self.prep_data.measurement_filt[num,chan_]*y*self.amplitude
@@ -1833,22 +1893,23 @@ class ModeShapeGUI(QMainWindow):
         self.ani_button.setToolTip("Play")
         self.ani_button.released.connect(self.animate)
         
-        self.ani_lowpass_box = DelayedDoubleSpinBox()
-        self.ani_lowpass_box.setRange(0, 1000000000)
-        self.ani_lowpass_box.valueChangedDelayed.connect(self.prepare_filter)
-        
-        self.ani_highpass_box = DelayedDoubleSpinBox()
-        self.ani_highpass_box.setRange(0, 1000000000)
-        self.ani_highpass_box.valueChangedDelayed.connect(self.prepare_filter)
-        
-        self.ani_speed_box = QDoubleSpinBox()        
-        self.ani_speed_box.setRange(0, 1000000000)
-        self.ani_speed_box.valueChanged[float].connect(self.change_animation_speed)
-        
-        self.ani_position_slider = QSlider(Qt.Horizontal)
-        self.ani_position_slider.setRange(0,mode_shape_plot.prep_data.measurement.shape[0])
-        self.ani_position_slider.valueChanged.connect(self.set_ani_time) 
-        self.ani_position_data = QLineEdit()
+        if mode_shape_plot.prep_data is not None:
+            self.ani_lowpass_box = DelayedDoubleSpinBox()
+            self.ani_lowpass_box.setRange(0, 1000000000)
+            self.ani_lowpass_box.valueChangedDelayed.connect(self.prepare_filter)
+            
+            self.ani_highpass_box = DelayedDoubleSpinBox()
+            self.ani_highpass_box.setRange(0, 1000000000)
+            self.ani_highpass_box.valueChangedDelayed.connect(self.prepare_filter)
+            
+            self.ani_speed_box = QDoubleSpinBox()        
+            self.ani_speed_box.setRange(0, 1000000000)
+            self.ani_speed_box.valueChanged[float].connect(self.change_animation_speed)
+            
+            self.ani_position_slider = QSlider(Qt.Horizontal)
+            self.ani_position_slider.setRange(0,mode_shape_plot.prep_data.measurement.shape[0])
+            self.ani_position_slider.valueChanged.connect(self.set_ani_time) 
+            self.ani_position_data = QLineEdit()
         
         self.ani_data_button = QToolButton()
         self.ani_data_button.setIcon(
@@ -1964,19 +2025,19 @@ class ModeShapeGUI(QMainWindow):
         
         lay_1.addWidget(self.ani_button,3,0,)
         tab_1.setLayout(lay_1)
-
-        lay_2.addWidget(QLabel('Lowpass [Hz]:'),0,0)
-        lay_2.addWidget(self.ani_lowpass_box,0,1)
-        lay_2.addWidget(QLabel('Highpass [Hz]:'),1,0)
-        lay_2.addWidget(self.ani_highpass_box)
-        lay_2.addWidget(QLabel('Animation Speed [ms]:'),2,0)
-        lay_2.addWidget(self.ani_speed_box,2,1)
-        #lay_2.addWidget(self.ani_data_button,3,0,)
-        layout = QHBoxLayout()
-        layout.addWidget(self.ani_data_button)
-        layout.addWidget(self.ani_position_slider)
-        layout.addWidget(self.ani_position_data)
-        lay_2.addLayout(layout, 3,0,1,2)
+        if mode_shape_plot.prep_data is not None:
+            lay_2.addWidget(QLabel('Lowpass [Hz]:'),0,0)
+            lay_2.addWidget(self.ani_lowpass_box,0,1)
+            lay_2.addWidget(QLabel('Highpass [Hz]:'),1,0)
+            lay_2.addWidget(self.ani_highpass_box)
+            lay_2.addWidget(QLabel('Animation Speed [ms]:'),2,0)
+            lay_2.addWidget(self.ani_speed_box,2,1)
+            #lay_2.addWidget(self.ani_data_button,3,0,)
+            layout = QHBoxLayout()
+            layout.addWidget(self.ani_data_button)
+            layout.addWidget(self.ani_position_slider)
+            layout.addWidget(self.ani_position_data)
+            lay_2.addLayout(layout, 3,0,1,2)
         tab_2.setLayout(lay_2)
         
         policy = QSizePolicy.Minimum
