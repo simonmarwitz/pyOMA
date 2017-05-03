@@ -40,6 +40,7 @@ from PRCE import PRCE
 from SSIData import SSIData, SSIDataMEC
 from VarSSIRef import VarSSIRef
 from StabilDiagram import StabilCalc
+import os
 
 
 class MergePoSER(object):
@@ -56,9 +57,6 @@ class MergePoSER(object):
         self.merged_chan_dofs = []
         self.merged_num_channels = None
         
-        self.merged_ref_channels = None
-        self.merged_roving_channels = None
-        
         self.mean_frequencies = None
         self.mean_damping = None
         self.merged_mode_shapes = None
@@ -66,9 +64,9 @@ class MergePoSER(object):
         self.std_frequencies = None
         self.std_damping = None
         
-        self.setup_name = ''
+        self.setup_name = 'merged_poser'
         self.start_time = datetime.datetime.now()
-        
+        self.state = [False, False]
     
     def add_setup(self, prep_data, modal_data, stabil_data, override_ref_channels = None):
         assert isinstance(prep_data, PreprocessData)
@@ -101,9 +99,11 @@ class MergePoSER(object):
                             'modal_damping': [modal_data.modal_damping[index] for index in stabil_data.select_modes],
                             'mode_shapes': [modal_data.mode_shapes[:,index[1],index[0]] for index in stabil_data.select_modes]
                             })
+        self.start_time = min(self.start_time,prep_data.start_time)
+         
         print('Added setup "{}" with {} channels and {} selected modes.'.format(prep_data.setup_name, prep_data.num_analised_channels, len(stabil_data.select_modes)))
         
-        
+        self.state[0] = True
         
     def merge(self, base_setup_num = 0, ):
         # generate new_chan_dofs
@@ -227,14 +227,15 @@ class MergePoSER(object):
         start_dof=0
         
         # copy modal values from base instance first
-        #for mode_num_base,mode_num_this in mode_pairing[0]:  
-        for mode_num_base in range(common_modes):
+        for mode_num_base,mode_num_this in mode_pairing[0]:  
+        #for mode_num_base in range(common_modes):
             
+            mode_index = new_mode_nums.index(mode_num_base)
             mode_base = mode_shapes_base[mode_num_base]
                                    
-            mode_shapes[start_dof:start_dof+num_channels_base,0, mode_num_base, ] = mode_base
-            f_list[0, mode_num_base] = frequencies_base[mode_num_base]
-            d_list[0, mode_num_base] = damping_base[mode_num_base]
+            mode_shapes[start_dof:start_dof+num_channels_base,0, mode_index, ] = mode_base
+            f_list[0, mode_index] = frequencies_base[mode_num_base]
+            d_list[0, mode_index] = damping_base[mode_num_base]
             
         start_dof += num_channels_base
         
@@ -285,13 +286,10 @@ class MergePoSER(object):
             for mode_num_base, mode_num_this in mode_pairing[setup_num]:
                 mode_index = new_mode_nums.index(mode_num_base)
                 
-                #order_base, index_base = modes_indices_base[mode_num_base]
                 
                 mode_base = mode_shapes_base[mode_num_base]
                      
                 mode_refs_base = np.dot(split_mat_refs_base, mode_base)
-                
-                #order_this, index_this = modes_indices_this[mode_num_this]
                 
                 mode_this = mode_shapes_this[mode_num_this]
                  
@@ -309,10 +307,7 @@ class MergePoSER(object):
                 d_list[setup_num+1, mode_index]=setup['modal_damping'][mode_num_this]
                 
             start_dof += num_remain_channels
-            
 
-
-        
         mean_frequencies = np.zeros((common_modes,))   
         std_frequencies = np.zeros((common_modes,))        
         mean_damping = np.zeros((common_modes,))
@@ -320,9 +315,6 @@ class MergePoSER(object):
         
         for mode_num_base, mode_num_this in mode_pairing[0]:
             mode_index = new_mode_nums.index(mode_num_base)
-            #order_base, index_base = modes_indices_base[mode_num_base]
-            
-        #for mode_num,(order_base, index_base) in enumerate(modes_indices_base):
             
             # rescaling of mode shape 
             mode_tmp = mode_shapes[:, 0,mode_index]  
@@ -330,8 +322,6 @@ class MergePoSER(object):
             index_max = np.argmax(abs_mode_tmp)
             this_max = mode_tmp[index_max]
             mode_tmp = mode_tmp / this_max      
-            #mpcs[0,index] = StabilCalc.calculateMPC(mode_tmp)
-            #mpds[0,index], mps[0,index] = StabilCalc.calculateMPD(mode_tmp)
             mode_shapes[:, 0,mode_index] = mode_tmp  
             mean_frequencies[mode_index,] = np.mean(f_list[:,mode_index],axis=0)
             std_frequencies[mode_index,] = np.std(f_list[:,mode_index],axis=0)
@@ -348,17 +338,165 @@ class MergePoSER(object):
         self.mean_damping = np.expand_dims(mean_damping, axis=1)
         self.std_damping = np.expand_dims(std_damping, axis=1)
         
-        #self.select_modes = list(range(common_modes))
     
-    def save_state(self):
-        pass
+        self.state[1] = True
     
-    @staticmethod
-    def load_state():
-        pass
+    def save_state(self, fname):
+        
+        dirname, filename = os.path.split(fname)
+        if not os.path.isdir(dirname):
+            os.makedirs(dirname)
+        
+        out_dict={}
+        
+        out_dict['self.state'] = self.state
+        
+        out_dict['self.setup_name'] = self.setup_name
+        out_dict['self.start_time'] = self.start_time
+        
+        if self.state[0]:
+            out_dict['self.setups'] = self.setups
+        
+        if self.state[1]:
+            out_dict['self.merged_chan_dofs'] = self.merged_chan_dofs
+            out_dict['self.merged_num_channels'] = self.merged_num_channels
+            out_dict['self.merged_mode_shapes'] = self.merged_mode_shapes
+            out_dict['self.mean_frequencies'] = self.mean_frequencies
+            out_dict['self.std_frequencies'] = self.std_frequencies
+            out_dict['self.mean_damping'] = self.mean_damping
+            out_dict['self.std_damping'] = self.std_damping
+        
+        np.savez_compressed(fname, **out_dict)
+         
+    @classmethod
+    def load_state(cls, fname):
+        
+        print('Now loading previous results from  {}'.format(fname))
+        
+        in_dict=np.load(fname)    
+        
+        if 'self.state' in in_dict:
+            state= list(in_dict['self.state'])
+        else:
+            return
+        
+        for this_state, state_string in zip(state, ['Setups added',
+                                                    'Setups merged',
+                                                    ]):
+            if this_state: print(state_string)
+        postprocessor = cls()
+                
+        setup_name= str(in_dict['self.setup_name'].item())
+        start_time=in_dict['self.start_time'].item()
+        
+        postprocessor.setup_name = setup_name
+        postprocessor.start_time = start_time
+        
+        if state[0]:
+            postprocessor.setups = list(in_dict['self.setups'])
+        
+        if state[1]:
+            postprocessor.merged_chan_dofs = [[int(float(chan_dof[0])),
+                                      str(chan_dof[1]),
+                                      float(chan_dof[2]),
+                                      float(chan_dof[3]),
+                                      str(chan_dof[-1])] for chan_dof in in_dict['self.merged_chan_dofs']]
+            
+            postprocessor.merged_num_channels = in_dict['self.merged_num_channels']
+            postprocessor.merged_mode_shapes = in_dict['self.merged_mode_shapes']
+            postprocessor.mean_frequencies = in_dict['self.mean_frequencies']
+            postprocessor.std_frequencies = in_dict['self.std_frequencies']
+            postprocessor.mean_damping = in_dict['self.mean_damping']
+            postprocessor.std_damping = in_dict['self.std_damping']
+          
+        return postprocessor
+        
+    def export_results(self, fname, binary=False):
+
+        selected_freq = self.mean_frequencies
+        selected_damp = self.mean_damping
+        selected_order = None
     
-    def export_results(self, fname):
-        pass
+        selected_MPC = StabilCalc.calculateMPC(self.merged_mode_shapes[:,0,:])
+        selected_MP, selected_MPD = StabilCalc.calculateMPD(self.merged_mode_shapes[:,0,:])
+                
+        selected_stdf = self.std_frequencies
+        selected_stdd = self.std_damping
+
+        selected_modes = self.merged_mode_shapes
+
+        freq_str = ''
+        damp_str = ''
+        ord_str = ''
+
+        msh_str = ''
+        mpc_str = ''
+        mp_str = ''
+        mpd_str = ''
+        std_freq_str = ''
+        std_damp_str = ''
+
+        for col in range(selected_freq.shape[0]):
+            freq_str += '{:3.3f} \t\t'.format(selected_freq[col])
+            damp_str += '{:3.3f} \t\t'.format(selected_damp[col])
+            ord_str += '{:3d} \t\t'.format(selected_order[col])
+
+            if self.capabilities['msh']:
+                mpc_str += '{:3.3f}\t \t'.format(selected_MPC[col])
+                mp_str += '{:3.2f} \t\t'.format(selected_MP[col])
+                mpd_str += '{:3.2f} \t\t'.format(selected_MPD[col])
+
+            if self.capabilities['std']:
+                std_damp_str += '{:3.3e} \t\t'.format(selected_stdd[col])
+                std_freq_str += '{:3.3e} \t\t'.format(selected_stdf[col])
+
+        if self.capabilities['msh']:
+            for row in range(selected_modes.shape[0]):
+                msh_str += '\n           \t\t'
+                for col in range(selected_modes.shape[1]):
+                    msh_str += '{:+3.4f} \t'.format(selected_modes[row, col])
+
+        export_modes = 'MANUAL MODAL ANALYSIS\n'
+        export_modes += '=======================\n'
+        export_modes += 'Frequencies [Hz]:\t' + freq_str + '\n'
+        if self.capabilities['std']:
+            export_modes += 'Standard deviations of the Frequencies [Hz]:\t' + \
+                std_freq_str + '\n'
+        export_modes += 'Damping [%]:\t\t' + damp_str + '\n'
+        if self.capabilities['std']:
+            export_modes += 'Standard deviations of the Damping [%]:\t' + \
+                std_damp_str + '\n'
+        if self.capabilities['msh']:
+            export_modes += 'Mode shapes:\t\t' + msh_str + '\n'
+        export_modes += 'Model order:\t\t' + ord_str + '\n'
+        if self.capabilities['msh']:
+            export_modes += 'MPC [-]:\t\t' + mpc_str + '\n'
+            export_modes += 'MP  [\u00b0]:\t\t' + mp_str + '\n'
+            export_modes += 'MPD [-]:\t\t' + mpd_str + '\n\n'
+
+        dirname, filename = os.path.split(fname)
+        if not os.path.isdir(dirname):
+            os.makedirs(dirname)
+
+        if binary:
+            out_dict = {'selected_freq': selected_freq,
+                        'selected_damp': selected_damp,
+                        'selected_order': selected_order}
+
+            out_dict['selected_MPC'] = selected_MPC
+            out_dict['selected_MP'] = selected_MP
+            out_dict['selected_MPD'] = selected_MPD
+            out_dict['selected_modes'] = selected_modes
+
+            out_dict['selected_stdf'] = selected_stdf
+            out_dict['selected_stdd'] = selected_stdd
+
+            np.savez_compressed(fname, **out_dict)
+
+        else:
+            f = open(fname, 'w')
+            f.write(export_modes)
+            f.close()
 
 def main():
     from PreprocessingTools import PreprocessData, GeometryProcessor
