@@ -12,7 +12,6 @@ from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMessageHandle
 # Matplotlib
 import matplotlib
 from PostProcessingTools import MergePoSER
-from _ftdi1 import NONE
 matplotlib.use("Qt5Agg",force=True) 
 from matplotlib import rcParams
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -238,9 +237,6 @@ class ModeShapePlot(object):
             self.chan_dofs = merged_data.merged_chan_dofs
             self.num_channels = merged_data.merged_num_channels
         
-            self.ref_channels = merged_data.merged_ref_channels
-            self.roving_channels = merged_data.merged_roving_channels
-        
             self.modal_frequencies = merged_data.mean_frequencies
             self.modal_damping = merged_data.mean_damping
             self.mode_shapes = merged_data.merged_mode_shapes
@@ -255,9 +251,6 @@ class ModeShapePlot(object):
         else:
             self.chan_dofs = prep_data.chan_dofs
             self.num_channels = prep_data.num_analised_channels
-        
-            self.ref_channels = prep_data.ref_channels
-            self.roving_channels = prep_data.roving_channels
         
             self.modal_frequencies = modal_data.modal_frequencies
             self.modal_damping = modal_data.modal_damping

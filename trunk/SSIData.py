@@ -900,21 +900,39 @@ class SSIDataMEC(object):
                 
             #print(np.sum(modal_contributions[order,:]))
             
-            if plot_:
+            if plot_ and order == 20:
                 print(modal_contributions[order,:][modal_contributions[order,:]!=0],np.sum(modal_contributions[order,:]))
                 import matplotlib.pyplot as plot
-                  
+                axes=[]
+                for i in range(len(conj_indices)):
+                    plot.figure()
+                    plot.plot(meas_synth_single[i][0,500:1000])
+                    ax=plot.gca()
+                    ax.set_xlim((0,500))
+                    ax.set_ylim((-0.0015,0.0015))
+                    ax.set_xticklabels([])
+                    ax.set_yticklabels([])
+                plot.figure()
+                plot.plot(self.prep_data.measurement[500:1000,0])
+                ax=plot.gca()
+                ax.set_xlim((0,500))
+                ax.set_ylim((-0.0015,0.0015))
+                ax.set_xticklabels([])
+                ax.set_yticklabels([])
+                plot.show()
+                
                 fig,axes=plot.subplots(len(conj_indices)+1,2, sharex='col', sharey='col', squeeze=False)
                 #print(axes)
-                ft_freq = np.fft.rfftfreq(int(j/4), d = (1/self.prep_data.sampling_rate))    
+                j4=int(np.floor(j/4))
+                ft_freq = np.fft.rfftfreq(j4, d = (1/self.prep_data.sampling_rate))    
                 meas_synth_all = np.zeros((num_analised_channels,j))
                 for (ax1,ax2),meas_synth in zip(axes, meas_synth_single):
                     #print(ax1,ax2, axes)
                     ax1.plot(meas_synth[0,:j])
-                      
-                    ft = np.fft.rfft(meas_synth[0,:j/4] * np.hanning(j/4))
+                    
+                    ft = np.fft.rfft(meas_synth[0,:j4] * np.hanning(j4))
                     for i in range(1,4):
-                        ft += np.fft.rfft(meas_synth[0,i*j/4:(i+1)*j/4] * np.hanning(j/4))
+                        ft += np.fft.rfft(meas_synth[0,i*j4:(i+1)*j4] * np.hanning(j4))
                     ft /= 4   
                       
                     ax2.plot(ft_freq,np.abs(ft))
@@ -926,15 +944,15 @@ class SSIDataMEC(object):
                 axes[-1,0].set_xlim(0,j)
                 #ft_freq = np.fft.rfftfreq(j/4, d = (1/self.prep_data.sampling_rate))
                   
-                ft_meas = np.fft.rfft(self.prep_data.measurement[0:j/4,0] * np.hanning(j/4))
+                ft_meas = np.fft.rfft(self.prep_data.measurement[0:j4,0] * np.hanning(j4))
                 for i in range(1,4):
-                    ft_meas += np.fft.rfft(self.prep_data.measurement[i*j/4:(i+1)*j/4,0]* np.hanning(j/4))
+                    ft_meas += np.fft.rfft(self.prep_data.measurement[i*j4:(i+1)*j4,0]* np.hanning(j4))
                 ft_meas /= 4               
                 axes[-1,1].plot(ft_freq,np.abs(ft_meas),alpha=.5)
                   
-                ft_synth = np.fft.rfft(meas_synth_all[0,:j/4] * np.hanning(j/4))
+                ft_synth = np.fft.rfft(meas_synth_all[0,:j4] * np.hanning(j4))
                 for i in range(1,4):
-                    ft_synth += np.fft.rfft(meas_synth_all[0,i*j/4:(i+1)*j/4] * np.hanning(j/4))
+                    ft_synth += np.fft.rfft(meas_synth_all[0,i*j4:(i+1)*j4] * np.hanning(j4))
                 ft_synth /= 4   
                 axes[-1,1].plot(ft_freq,np.abs(ft_synth))
                 

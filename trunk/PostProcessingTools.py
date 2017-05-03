@@ -38,7 +38,6 @@ from SSICovRef import BRSSICovRef
 from PLSCF import PLSCF
 from PRCE import PRCE
 from SSIData import SSIData, SSIDataMEC
-from VarSSIRef import VarSSIRef
 from StabilDiagram import StabilCalc
 import os
 
@@ -69,6 +68,10 @@ class MergePoSER(object):
         self.state = [False, False]
     
     def add_setup(self, prep_data, modal_data, stabil_data, override_ref_channels = None):
+        # does not check, if same method was used for each setup, also anaylsis parameters should be similar
+        if override_ref_channels:
+            raise RuntimeWarning('This function is not implemented yet!')
+        
         assert isinstance(prep_data, PreprocessData)
         assert isinstance(modal_data, (BRSSICovRef, PLSCF, PRCE, SSIData, SSIDataMEC))
         assert isinstance(stabil_data, StabilCalc)
@@ -82,12 +85,6 @@ class MergePoSER(object):
         
         # assure modes were selected
         assert stabil_data.select_modes
-        
-        # assure all setups were analyzed with the same method
-        #if self.setups:
-        #    if type(self.setups[0]) != type(modal_data):
-        #        print(type(self.setups[0]), type(modal_data))
-        #        raise RuntimeWarning('All setups should be analyzed with the same method to assure consistent results!')
         
         # extract needed information and store them in a dictionary
         self.setups.append({'setup_name': prep_data.setup_name,
@@ -415,7 +412,8 @@ class MergePoSER(object):
 
         selected_freq = self.mean_frequencies
         selected_damp = self.mean_damping
-        selected_order = None
+        
+        num_modes = len(selected_freq)
     
         selected_MPC = StabilCalc.calculateMPC(self.merged_mode_shapes[:,0,:])
         selected_MP, selected_MPD = StabilCalc.calculateMPD(self.merged_mode_shapes[:,0,:])
@@ -436,43 +434,42 @@ class MergePoSER(object):
         std_freq_str = ''
         std_damp_str = ''
 
-        for col in range(selected_freq.shape[0]):
-            freq_str += '{:3.3f} \t\t'.format(selected_freq[col])
-            damp_str += '{:3.3f} \t\t'.format(selected_damp[col])
-            ord_str += '{:3d} \t\t'.format(selected_order[col])
+        for col in range(num_modes):
+            freq_str += '{:3.3f} \t\t'.format(selected_freq[col,0])
+            damp_str += '{:3.3f} \t\t'.format(selected_damp[col,0])
 
-            if self.capabilities['msh']:
-                mpc_str += '{:3.3f}\t \t'.format(selected_MPC[col])
-                mp_str += '{:3.2f} \t\t'.format(selected_MP[col])
-                mpd_str += '{:3.2f} \t\t'.format(selected_MPD[col])
+            
+            mpc_str += '{:3.3f}\t \t'.format(selected_MPC[col])
+            mp_str += '{:3.2f} \t\t'.format(selected_MP[col])
+            mpd_str += '{:3.2f} \t\t'.format(selected_MPD[col])
 
-            if self.capabilities['std']:
-                std_damp_str += '{:3.3e} \t\t'.format(selected_stdd[col])
-                std_freq_str += '{:3.3e} \t\t'.format(selected_stdf[col])
+        
+            std_damp_str += '{:3.3e} \t\t'.format(selected_stdd[col,0])
+            std_freq_str += '{:3.3e} \t\t'.format(selected_stdf[col,0])
 
-        if self.capabilities['msh']:
-            for row in range(selected_modes.shape[0]):
-                msh_str += '\n           \t\t'
-                for col in range(selected_modes.shape[1]):
-                    msh_str += '{:+3.4f} \t'.format(selected_modes[row, col])
+    
+        for row in range(num_modes):
+            msh_str += '\n           \t\t'
+            for col in range(self.merged_num_channels):
+                msh_str += '{:+3.4f} \t'.format(selected_modes[col, 0, row])
 
         export_modes = 'MANUAL MODAL ANALYSIS\n'
         export_modes += '=======================\n'
         export_modes += 'Frequencies [Hz]:\t' + freq_str + '\n'
-        if self.capabilities['std']:
-            export_modes += 'Standard deviations of the Frequencies [Hz]:\t' + \
-                std_freq_str + '\n'
+        
+        export_modes += 'Standard deviations of the Frequencies [Hz]:\t' + \
+            std_freq_str + '\n'
         export_modes += 'Damping [%]:\t\t' + damp_str + '\n'
-        if self.capabilities['std']:
-            export_modes += 'Standard deviations of the Damping [%]:\t' + \
-                std_damp_str + '\n'
-        if self.capabilities['msh']:
-            export_modes += 'Mode shapes:\t\t' + msh_str + '\n'
+        
+        export_modes += 'Standard deviations of the Damping [%]:\t' + \
+            std_damp_str + '\n'
+
+        export_modes += 'Mode shapes:\t\t' + msh_str + '\n'
         export_modes += 'Model order:\t\t' + ord_str + '\n'
-        if self.capabilities['msh']:
-            export_modes += 'MPC [-]:\t\t' + mpc_str + '\n'
-            export_modes += 'MP  [\u00b0]:\t\t' + mp_str + '\n'
-            export_modes += 'MPD [-]:\t\t' + mpd_str + '\n\n'
+
+        export_modes += 'MPC [-]:\t\t' + mpc_str + '\n'
+        export_modes += 'MP  [\u00b0]:\t\t' + mp_str + '\n'
+        export_modes += 'MPD [-]:\t\t' + mpd_str + '\n\n'
 
         dirname, filename = os.path.split(fname)
         if not os.path.isdir(dirname):
@@ -480,8 +477,7 @@ class MergePoSER(object):
 
         if binary:
             out_dict = {'selected_freq': selected_freq,
-                        'selected_damp': selected_damp,
-                        'selected_order': selected_order}
+                        'selected_damp': selected_damp}
 
             out_dict['selected_MPC'] = selected_MPC
             out_dict['selected_MP'] = selected_MP
@@ -516,8 +512,8 @@ def main():
         result_folder = working_dir + setup
         
         prep_data =PreprocessData.load_state(result_folder+'prep_data.npz')
-        modal_data = BRSSICovRef.load_state(result_folder+'modal_data.npz')
-        stabil_data = StabilCalc.load_state(result_folder+'stabi_data.npz')
+        modal_data = BRSSICovRef.load_state(result_folder+'modal_data.npz', prep_data)
+        stabil_data = StabilCalc.load_state(result_folder+'stabi_data.npz', modal_data, prep_data)
     
         merger.add_setup(prep_data, modal_data, stabil_data)
     
@@ -526,6 +522,9 @@ def main():
     if interactive:
         mode_shape_plot= ModeShapePlot(merger, geometry_data)
         start_msh_gui(mode_shape_plot)
+        
+    merger.save_state(result_folder+'merged_setups.npz')
+    merger.export_results(result_folder+'merged_results.txt', binary=False)
         
     
 
