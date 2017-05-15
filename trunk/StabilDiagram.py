@@ -3282,7 +3282,12 @@ class ModeShapePlot(object):
         super().__init__()
         import PlotMSH
         self.mode_shape_plot = PlotMSH.ModeShapePlot(
-            stabil_calc, modal_data, geometry_data, prep_data, amplitude=20, linewidth=0.5)
+            stabil_calc=stabil_calc, 
+            modal_data=modal_data,
+            geometry_data=geometry_data, 
+            prep_data=prep_data, 
+            amplitude=20, 
+            linewidth=0.5)
         self.mode_shape_plot.show_axis = False
         # self.mode_shape_plot.draw_nodes()
         self.mode_shape_plot.draw_lines()
