@@ -211,6 +211,8 @@ class ModeShapePlot(object):
         assert merged_data is not None or (prep_data is not None and modal_data is not None and stabil_calc is not None)
         
         if stabil_calc is not None:
+            print('stabil_calc = ', stabil_calc)
+            print('StabilCalc = ', StabilCalc)
             assert isinstance(stabil_calc, StabilCalc)
         self.stabil_calc = stabil_calc
         
@@ -1306,10 +1308,10 @@ class ModeShapePlot(object):
                         
                 moving_nodes = set()
                 for chan_dof in self.chan_dofs:#
-                    chan_, node, az, elev, chan_name  = chan_dof[0:4]+cha_dof[-1]
+                    chan_, node, az, elev, chan_name  = chan_dof[0:4]+chan_dof[-1]
                     moving_nodes.add(node)
                 
-                clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))
+                clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))#@UndefinedVariable
                 for node in moving_nodes:
                     self.trace_objects.append(self.subplot.plot(xs=self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
                          * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][0]),
@@ -1423,7 +1425,7 @@ class ModeShapePlot(object):
                     chan_, node, az, elev, = chan_dof[0:4]
                     moving_nodes.add(node)
                 
-                clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))
+                clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))#@UndefinedVariable
                 for node in moving_nodes:
                     self.trace_objects.append(self.subplot.plot(xs=self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
                          * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][0]),

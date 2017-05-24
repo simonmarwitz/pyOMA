@@ -1330,8 +1330,8 @@ class StabilCalc(object):
                 MPD = np.sqrt(np.average(
                     np.power(phase - np.mean(phase, axis=0), 2), weights=np.absolute(v_r), axis=0))
 
-            print(np.mean(phase, axis=0), np.sqrt(
-                np.mean(np.power(phase, 2), axis=0)), np.std(phase, axis=0), MPD)
+            #print(np.mean(phase, axis=0), np.sqrt( 
+            #    np.mean(np.power(phase, 2), axis=0)), np.std(phase, axis=0), MPD)
 
             MP *= 180 / np.pi
 
