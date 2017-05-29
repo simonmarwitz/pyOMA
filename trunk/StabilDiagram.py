@@ -705,7 +705,7 @@ class StabilGUI(QMainWindow):
         if self.stabil_calc.capabilities['f']:
             layout.addWidget(QLabel('Frequency [%]'), i, 1)
             self.df_edit = QLineEdit(str(df_max))
-            self.df_edit.setMaxLength(5)
+            self.df_edit.setMaxLength(8)
             self.df_edit.setFixedWidth(60)
             layout.addWidget(self.df_edit, i, 3)
             button = QPushButton('Show Histo')
@@ -716,7 +716,7 @@ class StabilGUI(QMainWindow):
         if self.stabil_calc.capabilities['std']:
             layout.addWidget(QLabel('CoV F. [% of F]'), i, 1)
             self.stdf_edit = QLineEdit('100')
-            self.stdf_edit.setMaxLength(5)
+            self.stdf_edit.setMaxLength(8)
             self.stdf_edit.setFixedWidth(60)
             layout.addWidget(self.stdf_edit, i, 3)
             button = QPushButton('Show Histo')
@@ -727,7 +727,7 @@ class StabilGUI(QMainWindow):
         if self.stabil_calc.capabilities['d']:
             layout.addWidget(QLabel('Damping[%]'), i, 1)
             self.dd_edit = QLineEdit(str(dd_max))
-            self.dd_edit.setMaxLength(5)
+            self.dd_edit.setMaxLength(8)
             self.dd_edit.setFixedWidth(60)
             layout.addWidget(self.dd_edit, i, 3)
             button = QPushButton('Show Histo')
@@ -738,7 +738,7 @@ class StabilGUI(QMainWindow):
         if self.stabil_calc.capabilities['std']:
             layout.addWidget(QLabel('CoV D. [% of D]'), i, 1)
             self.stdd_edit = QLineEdit('100')
-            self.stdd_edit.setMaxLength(5)
+            self.stdd_edit.setMaxLength(8)
             self.stdd_edit.setFixedWidth(60)
             layout.addWidget(self.stdd_edit, i, 3)
             button = QPushButton('Show Histo')
@@ -749,7 +749,7 @@ class StabilGUI(QMainWindow):
         if self.stabil_calc.capabilities['msh']:
             layout.addWidget(QLabel('MAC [%]'), i, 1)
             self.mac_edit = QLineEdit(str(d_mac))
-            self.mac_edit.setMaxLength(5)
+            self.mac_edit.setMaxLength(8)
             self.mac_edit.setFixedWidth(60)
             layout.addWidget(self.mac_edit, i, 3)
             button = QPushButton('Show Histo')
@@ -760,10 +760,10 @@ class StabilGUI(QMainWindow):
         if self.stabil_calc.capabilities['d']:
             layout.addWidget(QLabel('Damping range [%]'), i, 1)
             self.d_min_edit = QLineEdit(str(d_range[0]))
-            self.d_min_edit.setMaxLength(5)
+            self.d_min_edit.setMaxLength(8)
             self.d_min_edit.setFixedWidth(60)
             self.d_max_edit = QLineEdit(str(d_range[1]))
-            self.d_max_edit.setMaxLength(5)
+            self.d_max_edit.setMaxLength(8)
             self.d_max_edit.setFixedWidth(60)
             lay = QHBoxLayout()
             lay.addStretch()
@@ -782,7 +782,7 @@ class StabilGUI(QMainWindow):
         if self.stabil_calc.capabilities['msh']:
             layout.addWidget(QLabel('MPC_min '), i, 1)
             self.mpc_edit = QLineEdit(str(mpc_min))
-            self.mpc_edit.setMaxLength(6)
+            self.mpc_edit.setMaxLength(8)
             self.mpc_edit.setFixedWidth(60)
             layout.addWidget(self.mpc_edit, i, 3)
             button = QPushButton('Show Histo')
@@ -792,7 +792,7 @@ class StabilGUI(QMainWindow):
 
             layout.addWidget(QLabel('MPD_max [°]'), i, 1)
             self.mpd_edit = QLineEdit(str(mpd_max))
-            self.mpd_edit.setMaxLength(5)
+            self.mpd_edit.setMaxLength(8)
             self.mpd_edit.setFixedWidth(60)
             layout.addWidget(self.mpd_edit, i, 3)
             button = QPushButton('Show Histo')
@@ -803,7 +803,7 @@ class StabilGUI(QMainWindow):
         if self.stabil_calc.capabilities['mtn']:
             layout.addWidget(QLabel('MTN_max []'), i, 1)
             self.mtn_edit = QLineEdit('0')
-            self.mtn_edit.setMaxLength(5)
+            self.mtn_edit.setMaxLength(8)
             self.mtn_edit.setFixedWidth(60)
             layout.addWidget(self.mtn_edit, i, 3)
             button = QPushButton('Show Histo')
@@ -814,7 +814,7 @@ class StabilGUI(QMainWindow):
         if self.stabil_calc.capabilities['mec']:
             layout.addWidget(QLabel('MEC_min []'), i, 1)
             self.mec_edit = QLineEdit('0')
-            self.mec_edit.setMaxLength(5)
+            self.mec_edit.setMaxLength(8)
             self.mec_edit.setFixedWidth(60)
             layout.addWidget(self.mec_edit, i, 3)
             button = QPushButton('Show MEC')
