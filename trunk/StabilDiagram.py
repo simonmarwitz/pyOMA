@@ -421,16 +421,25 @@ class StabilGUI(QMainWindow):
                                                      select_callback=[lambda x: [self.mpd_edit.setText(str(x)), self.update_stabil_view()]])
  
     def show_mec_plot(self):
-        '''
-        create
-        show/hide
-        update stable
-        '''
+
         b=self.sender().isChecked()
         self.stabil_plot.show_mec(b)
 
     def create_histo_plot(self, array, plot_obj, title='', ranges=None, select_ranges=[None], select_callback=[None]):
-
+        '''
+        should work like following:
+        
+        button press    if None        -> visible = True, create
+                        if visible     -> visible = False, hide
+                        if not visible -> visible = True, show
+        update stabil   if None        -> skip
+                        if visible     -> visible = visible, update
+                        if not visible -> visible = visible, update
+        close button                   -> visible = False, hide
+        
+        but doesn't, since the function can not distinguish between 
+            "button press" and "update stabil"
+        '''
         old_mask = np.copy(array.mask)
         array.mask = np.ma.nomask
 
@@ -468,7 +477,8 @@ class StabilGUI(QMainWindow):
 
         # show (hide is accomplished by just closing the window closeEvent was overridden to self.hide() )
         # print('show')
-        plot_obj.show()
+        if plot_obj.visible:
+            plot_obj.show()
         return plot_obj
 
     def update_mode_val_view(self, index):
@@ -1105,7 +1115,13 @@ class StabilGUI(QMainWindow):
         self.deleteLater()
 
         return QMainWindow.closeEvent(self, *args, **kwargs)
-
+    
+    def keyPressEvent(self, e):
+        #print(e.key())
+        if e.key() == Qt.Key_Return or e.key()== Qt.Key_Enter:
+            self.update_stabil_view()
+            #print('2')
+        super().keyPressEvent(e)
 
 class StabilCalc(object):
 
@@ -1403,36 +1419,46 @@ class StabilCalc(object):
     def export_results(self, fname, binary=False):
 
         if self.select_modes:
+            
             self.masked_frequencies.mask = np.ma.nomask
             self.order_dummy.mask = np.ma.nomask
-
+            
+            select_modes = self.select_modes
             selected_freq = [self.masked_frequencies[index]
                              for index in self.select_modes]
+            select_modes = [x for (y,x) in sorted(zip(selected_freq,select_modes), key=lambda pair: pair[0])]
+            
+            selected_freq = [self.masked_frequencies[index]
+                             for index in select_modes]
             selected_damp = [self.modal_data.modal_damping[index]
-                             for index in self.select_modes]
+                             for index in select_modes]
             selected_order = [self.order_dummy[index]
-                              for index in self.select_modes]
+                              for index in select_modes]
             if self.capabilities['msh']:
                 selected_MPC = [self.MPC_matrix[index]
-                                for index in self.select_modes]
+                                for index in select_modes]
                 selected_MP = [self.MP_matrix[index]
-                               for index in self.select_modes]
+                               for index in select_modes]
                 selected_MPD = [self.MPD_matrix[index]
-                                for index in self.select_modes]
+                                for index in select_modes]
 
             if self.capabilities['std']:
                 selected_stdf = [self.modal_data.std_frequencies[index]
-                                 for index in self.select_modes]
+                                 for index in select_modes]
                 selected_stdd = [self.modal_data.std_damping[index]
-                                 for index in self.select_modes]
+                                 for index in select_modes]
                 selected_stdmsh = np.zeros(
-                    (self.modal_data.mode_shapes.shape[0], len(self.select_modes)), dtype=complex)
-
+                    (self.modal_data.mode_shapes.shape[0], len(select_modes)), dtype=complex)
+                
+            if self.capabilities['mec']:
+                selected_mec = [self.modal_data.modal_contributions[index]
+                                 for index in select_modes]
+                
             if self.capabilities['msh']:
                 selected_modes = np.zeros(
-                    (self.modal_data.mode_shapes.shape[0], len(self.select_modes)), dtype=complex)
+                    (self.modal_data.mode_shapes.shape[0], len(select_modes)), dtype=complex)
 
-                for num, ind in enumerate(self.select_modes):
+                for num, ind in enumerate(select_modes):
                     row_index = ind[0]
                     col_index = ind[1]
                     mode_tmp = self.modal_data.mode_shapes[
@@ -1445,7 +1471,9 @@ class StabilCalc(object):
                     abs_mode_tmp = np.abs(mode_tmp)
                     index_max = np.argmax(abs_mode_tmp)
                     this_max = mode_tmp[index_max]
-                    #mode_tmp = mode_tmp / this_max
+                    
+                    if not self.capabilities['std']:
+                        mode_tmp = mode_tmp / this_max
 
                     selected_modes[:, num] = mode_tmp
 
@@ -1467,8 +1495,10 @@ class StabilCalc(object):
             std_freq_str = ''
             std_damp_str = ''
             std_msh_str = ''
-
-        for col in range(len(self.select_modes)):
+        if self.capabilities['mec']:
+            mec_str = ''
+            
+        for col in range(len(select_modes)):
             freq_str += '{:3.3f} \t\t'.format(selected_freq[col])
             damp_str += '{:3.3f} \t\t'.format(selected_damp[col])
             ord_str += '{:3d} \t\t'.format(selected_order[col])
@@ -1481,7 +1511,10 @@ class StabilCalc(object):
             if self.capabilities['std']:
                 std_damp_str += '{:3.3e} \t\t'.format(selected_stdd[col])
                 std_freq_str += '{:3.3e} \t\t'.format(selected_stdf[col])
-
+            
+            if self.capabilities['mec']:
+                mec_str += '{:3.3f} \t\t'.format(selected_mec[col])
+                
         if self.capabilities['msh']:
             for row in range(selected_modes.shape[0]):
                 msh_str += '\n           \t\t'
@@ -1503,6 +1536,9 @@ class StabilCalc(object):
         if self.capabilities['std']:
             export_modes += 'Standard deviations of the Damping [%]:\t' + \
                 std_damp_str + '\n'
+        if self.capabilities['mec']:
+            export_modes += 'Modal Contributions of the mode [-]:\t' + \
+                mec_str + '\n'
         if self.capabilities['msh']:
             export_modes += 'Mode shapes:\t\t' + msh_str + '\n'
         if self.capabilities['std']:
@@ -3281,13 +3317,17 @@ class ModeShapePlot(object):
 
         super().__init__()
         import PlotMSH
+        sys.path.append("/vegas/users/staff/womo1998/Projects/2016_Burscheid") 
+        from main_Burscheid import print_mode_info
+        
         self.mode_shape_plot = PlotMSH.ModeShapePlot(
             stabil_calc=stabil_calc, 
             modal_data=modal_data,
             geometry_data=geometry_data, 
             prep_data=prep_data, 
             amplitude=20, 
-            linewidth=0.5)
+            linewidth=0.5,
+            callback_fun=print_mode_info)
         self.mode_shape_plot.show_axis = False
         # self.mode_shape_plot.draw_nodes()
         self.mode_shape_plot.draw_lines()
@@ -3376,6 +3416,7 @@ class HistoPlot(QMainWindow):
         self.all_patches = None
         self.stabil_patches = None
         self.ranges = None
+        self.visible=True
         self.select_ranges = select_ranges
         self.select_callback = select_callback
         self.selector_lines = []
@@ -3432,6 +3473,7 @@ class HistoPlot(QMainWindow):
         self.axes.figure.canvas.draw_idle()
 
     def closeEvent(self, e):
+        self.visible = False
         e.ignore()
         self.hide()
 
@@ -3675,7 +3717,7 @@ def nearly_equal(a, b, sig_fig=5):
 
 
 def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None, select_modes=[]):
-
+    
     def handler(msg_type, msg_string):
         pass
 

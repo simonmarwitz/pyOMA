@@ -291,7 +291,7 @@ class ModeShapePlot(object):
         assert isinstance(scale, (int,float))
         self.scale = scale
 
-        assert is_color_like(beamcolor)
+        assert is_color_like(beamcolor) or isinstance(beamcolor, (list, tuple, np.ndarray))
         self.beamcolor = beamcolor
 
         assert beamstyle in styles
@@ -389,6 +389,7 @@ class ModeShapePlot(object):
         self.subplot.set_zlim3d(zmin,zmax)    
         
         self.draw_nodes()
+        self.draw_lines()
         self.draw_chan_dofs()
         self.draw_master_slaves()
         self.draw_msh()
@@ -564,8 +565,14 @@ class ModeShapePlot(object):
         remove any objects that might be in the table at the desired place
         i.e. avoid duplicate lines
         '''
-        beamcolor = self.beamcolor
-        beamstyle = self.beamstyle
+        if isinstance(self.beamcolor, (list, tuple, np.ndarray)):
+            beamcolor = self.beamcolor[i]
+        else:
+            beamcolor = self.beamcolor
+        if isinstance(self.beamstyle, (list, tuple, np.ndarray)):
+            beamstyle = self.beamstyle[i]
+        else:
+            beamstyle = self.beamstyle
 
         line_object = self.subplot.plot(
                         [self.geometry_data.nodes[node][0] + self.disp_nodes[node][0] for node in line],
@@ -588,14 +595,13 @@ class ModeShapePlot(object):
     #@pyqtSlot(tuple, int)
     def add_nd_line(self, line, i):
         '''
-        receive a line coordinates from a signal
-        add the start node and end node to the internal line table
-        draw a line between the tow nodes
-        store the line object in a table
-        remove any objects that might be in the table at the desired place
-        i.e. avoid duplicate lines
+
         '''
-        beamcolor = self.beamcolor
+        if isinstance(self.beamcolor, (list, tuple, np.ndarray)):
+            beamcolor = self.beamcolor[i]
+        else:
+            beamcolor = self.beamcolor
+
         beamstyle = 'dotted'
         
         line_object = self.subplot.plot(
@@ -619,14 +625,11 @@ class ModeShapePlot(object):
     #@pyqtSlot(tuple, int)
     def add_cn_line(self, i):
         '''
-        receive a line coordinates from a signal
-        add the start node and end node to the internal line table
-        draw a line between the tow nodes
-        store the line object in a table
-        remove any objects that might be in the table at the desired place
-        i.e. avoid duplicate lines
+
         '''
-        beamcolor = self.beamcolor
+
+        beamcolor = 'lightgray'
+
         beamstyle = 'dotted'
         node = self.geometry_data.nodes[i]
         disp_node = self.disp_nodes.get(node, [0,0,0])
@@ -1005,25 +1008,25 @@ class ModeShapePlot(object):
         
         axis = self.subplot.add_artist(
                 Arrow3D([0, self.scale], [0, 0], [0, 0], 
-                        mutation_scale=20, lw=3, arrowstyle="-|>", color="r", visible= self.show_axis))
+                        mutation_scale=20, lw=1, arrowstyle="-|>", color="r", visible= self.show_axis))
         text = self.subplot.text(
-                 self.scale, 0, 0, 'X', zdir='x', color='r', visible= self.show_axis)
+                 self.scale*1.1, 0, 0, 'X', zdir=None, color='r', visible= self.show_axis)
         self.axis_obj['X'] = (axis, text)
         
 
         axis = self.subplot.add_artist(
                 Arrow3D([0, 0], [0, self.scale], [0, 0], 
-                        mutation_scale=20, lw=3, arrowstyle="-|>", color="g", visible= self.show_axis))
+                        mutation_scale=20, lw=1, arrowstyle="-|>", color="g", visible= self.show_axis))
         text = self.subplot.text(
-                0, self.scale, 0, 'Y', zdir='y', color='g', visible= self.show_axis)
+                0, self.scale*1.1, 0, 'Y', zdir=None, color='g', visible= self.show_axis)
         self.axis_obj['Y'] = (axis, text)
 
 
         axis = self.subplot.add_artist(
                 Arrow3D([0, 0], [0, 0], [0, self.scale], 
-                        mutation_scale=20, lw=3, arrowstyle="-|>", color="b", visible= self.show_axis))
+                        mutation_scale=20, lw=1, arrowstyle="-|>", color="b", visible= self.show_axis))
         text = self.subplot.text(
-                0, 0, self.scale, 'Z', zdir='z', color='b', visible= self.show_axis)
+                0, 0, self.scale*1.1, 'Z', zdir=None, color='b', visible= self.show_axis)
         self.axis_obj['Z'] = (axis, text)
         
         self.canvas.draw_idle()
@@ -1370,6 +1373,7 @@ class ModeShapePlot(object):
             self.subplot.set_axis_off()
             #return self.lines_objects
             self.draw_lines()
+            self.draw_axis()
             for line in self.lines_objects:
                 line.set_visible(False)
             for line in self.nd_lines_objects:
@@ -1425,7 +1429,8 @@ class ModeShapePlot(object):
                     chan_, node, az, elev, = chan_dof[0:4]
                     moving_nodes.add(node)
                 
-                clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))#@UndefinedVariable
+                #clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))#@UndefinedVariable
+                clist = itertools.cycle(['darkgray' for i in range(len(moving_nodes))])
                 for node in moving_nodes:
                     self.trace_objects.append(self.subplot.plot(xs=self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
                          * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][0]),
@@ -1434,7 +1439,7 @@ class ModeShapePlot(object):
                          zs=self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
                          * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][2]), 
                          #marker = ',', s=1, edgecolor='none', 
-                         color = next(clist), linewidth = self.linewidth))
+                         color = next(clist), linewidth = self.linewidth, linestyle=(0,(1,1))))
                 
             return self.lines_objects + \
             self.nd_lines_objects + \
@@ -1449,7 +1454,7 @@ class ModeShapePlot(object):
             
 #             if not self.traced: clist = itertools.cycle(matplotlib.rcParams['axes.color_cycle'])
             
-            for line, line_node in zip(self.lines_objects, self.geometry_data.lines):
+            for i,(line, line_node) in enumerate(zip(self.lines_objects, self.geometry_data.lines)):
                 x = [self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
                      * np.cos(num / 25 * 2 * np.pi  + self.phi_nodes[node][0]) 
                      for node in line_node]
@@ -1463,28 +1468,25 @@ class ModeShapePlot(object):
                 # NOTE: there is no .set_data() for 3 dim data...
                 line.set_visible(self.show_lines)
                 line.set_data([x, y])
-                line.set_color('b')
+                if isinstance(self.beamcolor, (list, tuple, np.ndarray)):
+                    beamcolor = self.beamcolor[i]
+                else:
+                    beamcolor = self.beamcolor
+                if isinstance(self.beamstyle, (list, tuple, np.ndarray)):
+                    beamstyle = self.beamstyle[i]
+                else:
+                    beamstyle = self.beamstyle
+                line.set_color(beamcolor)
+                line.set_linestyle(beamstyle)
                 line.set_3d_properties(z)
                 
             for line in self.nd_lines_objects:
                 line.set_visible(self.show_nd_lines)
                 
-#             for key in self.geometry_data.nodes.keys():
-#                 node = self.geometry_data.nodes[key]
-#                 disp_node = self.disp_nodes.get(key,[0,0,0])
-#                 phi_node = self.phi_nodes.get(key, [0,0,0])
-#                 x = [node[0],node[0] + disp_node[0]
-#                      * np.cos(num / 25 * 2 * np.pi  + phi_node[0])]
-#                 y = [node[1],node[1] + disp_node[1]
-#                      * np.cos(num / 25 * 2 * np.pi  + phi_node[1])]
-#                 z = [node[2],node[2] + disp_node[2]
-#                      * np.cos(num / 25 * 2 * np.pi  + phi_node[2])]
-#                 line = self.cn_lines_objects.get(key,None)
-#                 if line is not None:
-#                     line.set_data([x, y])
-#                     line.set_visible(self.show_nd_lines)
-#                     line.set_3d_properties(z)
-#                 
+            for objs in self.axis_obj.values():
+                for obj in objs:
+                    obj.set_visible(self.show_axis)
+                    
             if self.save_ani:
                 self.fig.savefig('ani_{}.pdf'.format(num))
             return self.lines_objects + \
@@ -2336,7 +2338,7 @@ class ModeShapeGUI(QMainWindow):
                     self.style().standardIcon(QStyle.SP_MediaPlay))
                 self.mode_shape_plot.stop_ani()
             self.nodes_checkbox.setCheckState(False)
-            self.axis_checkbox.setCheckState(False)
+            #self.axis_checkbox.setCheckState(False)
             self.ani_button.setIcon(
                 self.style().standardIcon(QStyle.SP_MediaPause))
             self.mode_shape_plot.animate()

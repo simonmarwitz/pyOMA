@@ -209,7 +209,7 @@ class VarSSIRef(object):
             measurement_memory = mp.Array(c.c_double, measurement.reshape(measurement.size, 1))# @UndefinedVariable
                     
             #each process should have at least 10 blocks to compute, to reduce overhead associated with spawning new processes 
-            n_proc = min(tau_max*num_blocks/10, os.cpu_count())
+            n_proc = min(int(tau_max*num_blocks/10), os.cpu_count())
             pool=mp.Pool(processes=n_proc, initializer=self.init_child_process, initargs=(measurement_memory, corr_matrices_mem)) # @UndefinedVariable
             
             iterators = []            
@@ -248,7 +248,7 @@ class VarSSIRef(object):
             corr_matrices = []
             for corr_mats_mem in corr_matrices_mem:
                 corr_mats = np.frombuffer(corr_mats_mem.get_obj()).reshape(corr_mats_shape) 
-                corr_matrices.append(corr_mats)
+                corr_matrices.append(corr_mats*num_blocks)
                 
             self.corr_matrices = corr_matrices      
             
@@ -301,7 +301,7 @@ class VarSSIRef(object):
             #print(Hankel_matrix.shape, block_length*num_blocks, total_time_steps)
             for n_block in range(num_blocks):
                 #print(n_block, subspace_matrices[n_block].shape)
-                hankel_matrices[n_block] /= np.sqrt(block_length)
+                hankel_matrices[n_block] /= np.sqrt(block_length)*num_blocks
                 #hankel_matrices[n_block] /= np.sqrt(num_blocks)
 ##################################
                 
@@ -389,7 +389,7 @@ class VarSSIRef(object):
                
             self.subspace_matrices = H_dat_matrices
             self.subspace_matrix = np.mean(H_dat_matrices, axis = 0)
-            self.M = M             
+            #self.M = M             
         self.state[0]=True
     
         print('.',end='\n', flush=True)   
@@ -412,7 +412,9 @@ class VarSSIRef(object):
         subspace_matrices = self.subspace_matrices
         
         import matplotlib.pyplot as plot
-        for subspace_matrix in subspace_matrices+[self.subspace_matrix]:
+        #matrices = subspace_matrices+[self.subspace_matrix]
+        matrices = [self.subspace_matrix]
+        for subspace_matrix in matrices:
             for num_channel,ref_channel in enumerate(self.prep_data.ref_channels):
                 inds=([],[])
                 for i in range(num_block_columns):
@@ -448,7 +450,8 @@ class VarSSIRef(object):
     
    
     def compute_covariance(self, curr_it, tau_max, block_length, ref_channels, all_channels, measurement_shape, corr_mats_shape, detrend=False):
-                 
+        
+        overlap = True
         
         #sys.stdout.flush()
         #normalize=False
@@ -460,16 +463,18 @@ class VarSSIRef(object):
             num_analised_channels = len(all_channels)
             
             measurement = np.frombuffer(measurement_memory.get_obj()).reshape(measurement_shape)
-            
-            this_measurement = measurement[(n_block)*block_length:(n_block+1)*block_length,:]#/np.sqrt(block_length)
-            
+            if overlap:
+                this_measurement = measurement[(n_block)*block_length:(n_block+1)*block_length+tau,:]#/np.sqrt(block_length)
+            else:
+                this_measurement = measurement[(n_block)*block_length:(n_block+1)*block_length,:]
+                
             if detrend:this_measurement = this_measurement - np.mean(this_measurement,axis=0)
             
-            refs = (this_measurement[:block_length-tau,ref_channels]).T
+            refs = (this_measurement[:-tau,ref_channels]).T
             
-            current_signals = (this_measurement[tau:block_length, all_channels]).T
+            current_signals = (this_measurement[tau:, all_channels]).T
             
-            this_block = (np.dot(current_signals, refs.T))/(block_length-tau)
+            this_block = (np.dot(current_signals, refs.T))/current_signals.shape[0]
 
             corr_memory = corr_matrices_mem[n_block]
             
@@ -513,8 +518,12 @@ class VarSSIRef(object):
         U = U[:,:max_model_order]
         #print(U.shape)
         V_T = V_T[:max_model_order,:]
+        #import matplotlib.pyplot as plot
+        #plot.plot(S_2)
         
         O = np.dot(U, S_2)
+        #plot.matshow(O)
+        #plot.show()
         
         self.O = O
         
@@ -550,7 +559,7 @@ class VarSSIRef(object):
         
         assert variance_algo in ['fast','slow']
         
-        print('Preparing sensitivities for use with {} covariance algorithm...'.format(variance_algo))
+        print('Preparing sensitivities for use with {} (co)variance algorithm...'.format(variance_algo))
         
         num_channels = self.prep_data.num_analised_channels # r
         num_ref_channels = self.prep_data.num_ref_channels #r_o
@@ -574,7 +583,8 @@ class VarSSIRef(object):
                 for n_block in range(num_blocks):
                     this_hankel = subspace_matrices[n_block]
                     T[:,n_block:n_block+1]=vectorize(this_hankel-subspace_matrix)
-                T /= np.sqrt(num_blocks*(num_blocks-1))
+                if num_blocks > 1:
+                    T /= np.sqrt(num_blocks**2*(num_blocks-1))# sqrt because, SIGMA = np.dot(T,T) squares up the denominator
 #             elif subspace_method == 'projection':
 #                 M = self.M            
 #                 for n_block in range(num_blocks):
@@ -879,7 +889,7 @@ class VarSSIRef(object):
         
         assert self.state[1]
         
-        print('Computing modal parameters with {} covariance computation...'.format(self.variance_algo))
+        print('Computing modal parameters with {} (co)variance computation...'.format(self.variance_algo))
 
         state_matrix = self.state_matrix
         output_matrix = self.output_matrix
@@ -1474,6 +1484,7 @@ class VarSSIRef(object):
     
     def save_state(self, fname):
         
+        
         dirname, filename = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
@@ -1544,6 +1555,8 @@ class VarSSIRef(object):
             
         np.savez_compressed(fname, **out_dict)
         
+        print('Data saved to {}'.format(fname))
+        
     @classmethod 
     def load_state(cls, fname, prep_data):
         print('Now loading previous results from  {}'.format(fname))
@@ -1554,12 +1567,12 @@ class VarSSIRef(object):
             state= list(in_dict['self.state'])
         else:
             return
-        
-        for this_state, state_string in zip(state, ['Subspace Matrices Built',
-                                                    'State Matrices and Sensitivities Computed',
-                                                    'Modal Parameters Computed',
-                                                    ]):
-            if this_state: print(state_string)
+    
+#         for this_state, state_string in zip(state, ['Subspace Matrices Built',
+#                                                     'State Matrices and Sensitivities Computed',
+#                                                     'Modal Parameters Computed',
+#                                                     ]):
+#             if this_state: print(state_string)
         
         assert isinstance(prep_data, PreprocessData)
         setup_name= str(in_dict['self.setup_name'].item())
@@ -1583,6 +1596,8 @@ class VarSSIRef(object):
                 ssi_object.corr_matrices = in_dict['self.corr_matrices']                
             ssi_object.subspace_matrix = in_dict['self.subspace_matrix']
             ssi_object.subspace_matrices = in_dict['self.subspace_matrices']
+            
+            print('Subspace Matrices Built: {}, {} block_rows'.format(ssi_object.subspace_method, ssi_object.num_block_rows))
         if state[1]:# state models
             
             ssi_object.max_model_order = int(in_dict['self.max_model_order'])
@@ -1621,7 +1636,7 @@ class VarSSIRef(object):
             if ssi_object.variance_algo == 'fast':            
                 ssi_object.Q4 = in_dict['self.Q4']
 
-            
+            print('State Matrices and Sensitivities Computed: {} up to order {}'.format(ssi_object.lsq_method, ssi_object.max_model_order))
         if state[2]:# modal params
             ssi_object.modal_frequencies = in_dict['self.modal_frequencies']
             ssi_object.modal_damping = in_dict['self.modal_damping']
@@ -1629,7 +1644,8 @@ class VarSSIRef(object):
             ssi_object.std_frequencies= in_dict['self.std_frequencies']
             ssi_object.std_damping= in_dict['self.std_damping']
             ssi_object.std_mode_shapes= in_dict['self.std_mode_shapes']
-        
+            
+            print('Modal Parameters Computed')
         return ssi_object
     
     @staticmethod

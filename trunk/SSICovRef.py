@@ -89,7 +89,7 @@ class BRSSICovRef(object):
         #print(multiprocess)
         assert isinstance(num_block_columns, int)
         if num_block_rows is None:
-            num_block_rows=num_block_columns
+            num_block_rows=num_block_columns+1
         assert isinstance(num_block_rows, int)
         
         self.num_block_columns=num_block_columns
@@ -331,7 +331,7 @@ class BRSSICovRef(object):
             Oi0p = np.linalg.pinv(Oi0, rcond=1e-12)
             
         A = np.dot(Oi0p,Oi1)
-       
+        self.Oi = Oi
         self.state_matrix = A
         self.output_matrix = C
         self.max_model_order=max_model_order
@@ -351,7 +351,9 @@ class BRSSICovRef(object):
         print('Computing modal parameters...')
         max_model_order = self.max_model_order
         num_analised_channels = self.prep_data.num_analised_channels
-        state_matrix = self.state_matrix
+        num_block_rows = self.num_block_rows
+        #state_matrix = self.state_matrix
+        Oi = self.Oi
         output_matrix = self.output_matrix
         sampling_rate = self.prep_data.sampling_rate
         
@@ -377,7 +379,7 @@ class BRSSICovRef(object):
                 current_orders.append(order)
                 current_size += order**3
                 if current_size >= work_slice_size:
-                    pool.apply_async(self.multiprocess_evd , args=(state_matrix, current_orders, return_dict))
+                    pool.apply_async(self.multiprocess_evd , args=(Oi[:,:order], current_orders, return_dict, num_analised_channels, num_block_rows))
                     current_orders = []
                     current_size = 0
             pool.close()
@@ -394,7 +396,11 @@ class BRSSICovRef(object):
                 eigenvalues_single, eigenvectors_single = return_dict[order]
             else:
                 #eigenvalues_paired, eigenvectors_paired = np.linalg.eig(state_matrix[0:order, 0:order])
-                eigenvalues_paired, eigvec_l, eigenvectors_paired = scipy.linalg.eig(a=state_matrix[0:order, 0:order],b=None,left=True,right=True)
+                Oi0=Oi[:(num_analised_channels * (num_block_rows - 1)),:order]
+                Oi1=Oi[num_analised_channels:(num_analised_channels * num_block_rows),:order]
+                    
+                a = np.dot(np.linalg.pinv(Oi0), Oi1)  
+                eigenvalues_paired, eigvec_l, eigenvectors_paired = scipy.linalg.eig(a=a[0:order, 0:order],b=None,left=True,right=True)
                 
                 eigenvalues_single,eigenvectors_single = \
                     self.remove_conjugates_new(eigenvalues_paired,eigenvectors_paired)
@@ -436,10 +442,14 @@ class BRSSICovRef(object):
         self.state[2]=True
         
     
-    def multiprocess_evd(self, a, truncation_orders, return_dict):
+    def multiprocess_evd(self, Oi, truncation_orders, return_dict, num_channels, num_block_rows):
         
+        Oi0=Oi[:(num_channels * (num_block_rows - 1)),:]
+        Oi1=Oi[num_channels:(num_channels * num_block_rows),:]
+            
+        a = np.dot(np.linalg.pinv(Oi0), Oi1)  
         for truncation_order in truncation_orders:
-            eigenvalues_paired, eigenvectors_paired = np.linalg.eig(a[0:truncation_order+1, 0:truncation_order+1])
+            eigenvalues_paired, eigvec_l, eigenvectors_paired = scipy.linalg.eig(a=a[0:truncation_order, 0:truncation_order],b=None,left=True,right=True)
     
             eigenvalues_single,eigenvectors_single = \
                     BRSSICovRef.remove_conjugates_new(eigenvectors_paired,eigenvalues_paired)

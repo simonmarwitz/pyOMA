@@ -336,7 +336,7 @@ class PreprocessData(object):
             ref_channels = list(range(measurement.shape[1]))
         self.ref_channels = ref_channels
         if roving_channels is None:
-            roving_channels = []
+            roving_channels = [i for i in range(measurement.shape[1]) if i not in ref_channels]
         self.roving_channels = roving_channels
         
         self.num_ref_channels = len(self.ref_channels)
@@ -350,7 +350,7 @@ class PreprocessData(object):
         
         if ((self.num_ref_channels + self.num_roving_channels) > num_channels):
                 sys.exit('The sum of reference and roving channels is greater than the number of all channels!')
-                
+        
         for ref_channel in self.ref_channels:
             if (ref_channel < 0):
                 sys.exit('A reference channel number cannot be negative!')
@@ -363,6 +363,13 @@ class PreprocessData(object):
                     sys.exit('A roving channel number cannot be greater than the number of all channels!')
                 if (ref_channel == rov_channel):
                     sys.exit('Any channel can be either a reference OR a roving channel. Check your definitions!')
+        
+        if disp_channels is None:
+            disp_channels = []
+        if velo_channels is None:
+            velo_channels = []
+        if accel_channels is None:
+            accel_channels = [c for c in self.ref_channels+self.roving_channels if c not in disp_channels or c not in velo_channels]
         
         for channel in self.ref_channels+self.roving_channels:
             if (channel in accel_channels) + (channel in velo_channels) + (channel in disp_channels) != 1:
