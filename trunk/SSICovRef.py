@@ -305,7 +305,7 @@ class BRSSICovRef(object):
         num_block_columns = self.num_block_columns
         num_block_rows = self.num_block_rows
         print('Computing state matrices...')
-        
+        print(toeplitz_matrix.shape, np.linalg.matrix_rank(toeplitz_matrix))
         [U,S,V_T] = np.linalg.svd(toeplitz_matrix,0)
         #print(U.shape, S.shape, V_T.shape)
     

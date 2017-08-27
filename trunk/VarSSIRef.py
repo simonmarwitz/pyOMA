@@ -44,6 +44,7 @@ def vectorize(matrix):
     return np.reshape(matrix,(np.product(matrix.shape),1),'F')
 
 import scipy.sparse as sparse
+import scipy.sparse.linalg
 
 def permutation(a,b):
     P = sparse.lil_matrix((a*b, a*b))#zeros((a*b,a*b))     
@@ -503,7 +504,9 @@ class VarSSIRef(object):
         num_block_rows = self.num_block_rows # p
         print('Computing state matrices with {}-based method...'.format(lsq_method))
         
-        [U,S,V_T] = np.linalg.svd(subspace_matrix,1)
+        #[U,S,V_T] = np.linalg.svd(subspace_matrix,1)
+        [U,S,V_T] = scipy.linalg.svd(subspace_matrix,1)
+        #[U,S,V_T] = scipy.sparse.linalg.svds(subspace_matrix,k=max_model_order)
 
         #print(S.shape)
         # choose highest possible model order
@@ -1658,8 +1661,61 @@ class VarSSIRef(object):
         else:
             modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
             return modeshape
+# def update_svd():
+#     '''
+#     A is the full matrix
+#     r_l is the lower bound where to start the svd
+#     that means all columns and rows above r are set to zero and the svd 
+#     is incrementally updated
+#     in each step, first a column and then a row is added/updated
+#     
+#     the above procedure only works for low rank matrices where 
+#     r is approximately the sqrt of the first dimension
+#         
+#     '''
+#     
+#     
+#     A= np.random.random((5,4))
+#     B=np.copy(A)
+#     
+#     r=A.shape[1]-1
+#     B[:,r:]=0
+#     
+#     U,S,V_T = np.linalg.svd(B,0)    
+#     U_,S_,V_T_ = update_column(U[:,:r],S[:r],V_T[:r,:],A[:,r])
+#     
+#     oU,oS,oV_T = np.linalg.svd(A,0)
+#     print(np.allclose(np.abs(oU),np.abs(U_)))
+#     print(np.allclose(np.abs(oS),np.abs(S_)))
+#     print(np.allclose(np.abs(oV_T),np.abs(V_T_)))    
+#     print(np.allclose(A,oU.dot(np.diag(S_)).dot(oV_T)))
+#     print('',A,'\n',U_.dot(np.diag(S_)).dot(V_T_))
+#     
+# 
+# def update_column(U,S,V_T,y,r):
+#     '''
+#     updates column r in the matrix formed by U.dot(np.diag(s)).dot(V_T) 
+#     to the provided column y
+#     '''
+#     col_num = V_T.shape[1]
+#     b=np.zeros((col_num,1))
+#     b[-1]=1
+#     a = np.expand_dims(y,1)
+#     m = U.T.dot(a)
+#     p_ = a - U.dot(m)
+#     p = np.sqrt(a.T.dot(p_))
+#     P = p/p_
+#     mat = np.vstack([np.hstack([np.diag(S),m]),np.expand_dims(np.append(np.zeros_like(S),p),0)])
+#     
+#     U_,S_,V_T_ = np.linalg.svd(mat,0)
+#     U__ = np.hstack((U,P)).dot(U_)
+#     V_T__ = np.hstack((V_T.T,b)).dot(V_T_.T).T
+#     return U__,S_,V_T__
+#     
     
 def main():
+    #update_svd()
+    #exit()
     permutation(2,2)
     #test decompositions derived from the qr decomposition
     a=np.random.random((1024,3072))
@@ -1674,5 +1730,5 @@ def main():
     pass
 
 if __name__ =='__main__':
-    pass
-    #main()
+    #pass
+    main()

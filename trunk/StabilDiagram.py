@@ -61,7 +61,7 @@ from PyQt5.QtGui import QIcon, QPalette
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHandler, QTimer, QEventLoop
 
 from SSICovRef import BRSSICovRef
-from SSIData import SSIData, SSIDataMEC
+from SSIData import SSIData, SSIDataMC
 from VarSSIRef import VarSSIRef
 from PRCE import PRCE
 from PLSCF import PLSCF
@@ -1130,7 +1130,7 @@ class StabilCalc(object):
         super().__init__()
 
         assert isinstance(
-            modal_data, (BRSSICovRef, SSIData, VarSSIRef, PRCE, PLSCF, SSIDataMEC))
+            modal_data, (BRSSICovRef, SSIData, VarSSIRef, PRCE, PLSCF, SSIDataMC))
 
         self.modal_data = modal_data
 
@@ -2967,7 +2967,8 @@ class StabilPlot(object):
         
     def plot_fft(self, b):
         '''
-        Todo: add singular value plots of psd matrix
+        Todo:   -add singular value plots of psd matrix
+                - add GUI for choosing PSD parameters
         '''
         if self.psd_plot is not None:
             for line in self.psd_plot:
@@ -3318,7 +3319,7 @@ class ModeShapePlot(object):
         super().__init__()
         import PlotMSH
         sys.path.append("/vegas/users/staff/womo1998/Projects/2016_Burscheid") 
-        from main_Burscheid import print_mode_info
+        #from main_Burscheid import print_mode_info
         
         self.mode_shape_plot = PlotMSH.ModeShapePlot(
             stabil_calc=stabil_calc, 
@@ -3327,7 +3328,8 @@ class ModeShapePlot(object):
             prep_data=prep_data, 
             amplitude=20, 
             linewidth=0.5,
-            callback_fun=print_mode_info)
+            #callback_fun=print_mode_info
+            )
         self.mode_shape_plot.show_axis = False
         # self.mode_shape_plot.draw_nodes()
         self.mode_shape_plot.draw_lines()

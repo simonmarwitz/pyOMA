@@ -48,7 +48,7 @@ from numpy import disp
 from StabilDiagram import StabilCalc, DelayedDoubleSpinBox
 from PreprocessingTools import PreprocessData, GeometryProcessor
 from SSICovRef import BRSSICovRef
-from SSIData import SSIData, SSIDataMEC
+from SSIData import SSIData, SSIDataMC
 from VarSSIRef import VarSSIRef
 from PRCE import PRCE
 from PLSCF import PLSCF
@@ -220,7 +220,7 @@ class ModeShapePlot(object):
         
         #modal_data = modal_data
         if modal_data is not None:
-            assert isinstance(modal_data, (BRSSICovRef, SSIData,SSIDataMEC,VarSSIRef, PRCE, PLSCF))
+            assert isinstance(modal_data, (BRSSICovRef, SSIData,SSIDataMC,VarSSIRef, PRCE, PLSCF))
         self.modal_data = modal_data
         
         assert isinstance(geometry_data, GeometryProcessor)
@@ -1243,53 +1243,84 @@ class ModeShapePlot(object):
                     phase = np.angle(disp)
                     disp = np.abs(disp)
             else:
-                phase = 0    
+                phase = 0   
+            found = False 
             for chan_dof in self.chan_dofs:
                 chan_, node, az, elev, chan_name = chan_dof[0:4]+chan_dof[-1:]
                 if chan_ == chan:
-                    break
-            else:
+                    
+                    x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
+                    #print(chan_, chan, node, x,y,disp,np.degrees(phase))
+                    #print(x,y,z)
+                    # TODO: Account for skewed measurement angles
+                    # assumes vectors have components in one direction (x,y,z) only
+                    
+                    
+                    
+                    
+                    
+                    if not np.allclose(x,0):
+                        #print(x, phase)
+                        if self.disp_nodes[node][0] > 0:
+                            raise RuntimeWarning('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
+                        self.phi_nodes[node][0] = phase
+                        self.disp_nodes[node][0] = x * disp * ampli #/ norm
+                    if not np.allclose(y,0):
+                        #print(y,phase)
+                        if self.disp_nodes[node][1] > 0:
+                            raise RuntimeWarning('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
+                        self.phi_nodes[node][1] = phase
+                        self.disp_nodes[node][1] = y * disp * ampli #/ norm
+                    if not np.allclose(z,0):
+                        #print(z,phase)
+                        if self.disp_nodes[node][2] > 0:
+                            raise RuntimeWarning('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
+                        self.phi_nodes[node][2] = phase
+                        self.disp_nodes[node][2] = z * disp * ampli #/ norm
+                    
+                    found=True
+            
+            if not found:
                 print('Could not find channel - DOF assignment for '
                       'channel {}!'.format(chan))
                 continue
-            x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
-            #print(x,y,z)
-            # TODO: Account for skewed measurement angles
-            # assumes vectors have components in one direction (x,y,z) only
-            # to convert, run: SSI_cov_ref_.compute_common_components
-            self.disp_nodes[node][0] += x * disp * ampli #/ norm
-            self.disp_nodes[node][1] += y * disp * ampli #/ norm
-            self.disp_nodes[node][2] += z * disp * ampli #/ norm
-            
-            
-            
-            self.phi_nodes[node][0] += x*phase
-            self.phi_nodes[node][1] += y*phase
-            self.phi_nodes[node][2] += z*phase
+
             
             #print(chan_, node, az, elev, chan_name)
             #print(self.disp_nodes[node])
             #print(self.phi_nodes[node])
         for i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl in self.geometry_data.master_slaves:
-
+                        
+            if (x_m>0+y_m>0+z_m>0)>1:
+                print('Master DOF includes more than one cartesian direction. Phase angles will be distorted.')
+            
             master_disp =   self.disp_nodes[i_m][0] * x_m + \
                             self.disp_nodes[i_m][1] * y_m + \
                             self.disp_nodes[i_m][2] * z_m
-
-            self.disp_nodes[i_sl][0] += master_disp * x_sl
-            self.disp_nodes[i_sl][1] += master_disp * y_sl
-            self.disp_nodes[i_sl][2] += master_disp * z_sl
-            
+                            
             master_phase =   self.phi_nodes[i_m][0] * x_m + \
                             self.phi_nodes[i_m][1] * y_m + \
                             self.phi_nodes[i_m][2] * z_m
-
-            self.phi_nodes[i_sl][0] += master_phase * x_sl
-            self.phi_nodes[i_sl][1] += master_phase * y_sl
-            self.phi_nodes[i_sl][2] += master_phase * z_sl        
-            
                             
-            
+            if not np.allclose(x,0):
+                #print(x, phase)
+                if self.disp_nodes[i_sl][0] > 0:
+                    raise RuntimeWarning('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
+                self.phi_nodes[i_sl][0] = phase
+                self.disp_nodes[i_sl][0] += master_disp * x_sl
+            if not np.allclose(y,0):
+                #print(y,phase)
+                if self.disp_nodes[i_sl][1] > 0:
+                    raise RuntimeWarning('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
+                self.phi_nodes[i_sl][1] = phase
+                self.disp_nodes[i_sl][1] += master_disp * y_sl
+            if not np.allclose(z,0):
+                #print(z,phase)
+                if self.disp_nodes[i_sl][2] > 0:
+                    raise RuntimeWarning('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
+                self.phi_nodes[i_sl][2] = phase
+                self.disp_nodes[i_sl][2] += master_disp * z_sl
+
         #for node in self.disp_nodes.keys():
             #disp_node = self.disp_nodes[node]
             #phi_node = self.phi_nodes[node]
@@ -1324,7 +1355,7 @@ class ModeShapePlot(object):
                          * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][2]), 
                          #marker = ',', s=1, edgecolor='none', 
                          color = next(clist)))
-                
+        #print(self.disp_nodes, self.phi_nodes)       
         self.refresh_nodes()
         self.refresh_lines()
         self.refresh_chan_dofs(False)

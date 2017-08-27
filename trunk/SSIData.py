@@ -574,7 +574,7 @@ class SSIData(object):
         modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
         return modeshape
     
-class SSIDataMEC(object):
+class SSIDataMC(object):
     
     def __init__(self,prep_data):    
         '''
@@ -1071,12 +1071,7 @@ class SSIDataMEC(object):
         else:
             return
         
-        for this_state, state_string in zip(state, ['Block Hankel Matrix Built',
-                                                    'QR Decomposition Finished',
-                                                    'State Matrices Computed',
-                                                    'Modal Parameters Computed',
-                                                    ]):
-            if this_state: print(state_string)
+
         
         assert isinstance(prep_data, PreprocessData)
         setup_name= str(in_dict['self.setup_name'].item())
@@ -1089,6 +1084,7 @@ class SSIDataMEC(object):
         ssi_object = cls(prep_data)
 
         if state[0]:# subspace matrix
+            print('Subspace Matrix Built')
             ssi_object.num_block_rows = int(in_dict['self.num_block_rows'])
             ssi_object.Hankel_matrix= in_dict['self.Hankel_matrix']
             ssi_object.R_21= in_dict['self.R_21']
@@ -1099,11 +1095,13 @@ class SSIDataMEC(object):
             ssi_object.R_42= in_dict['self.R_42']
             ssi_object.R_33= in_dict['self.R_33']
         if state[1]:# singular value decomposition / state matrices
+            print('State Matrices Computed')
             ssi_object.max_model_order= int(in_dict['self.max_model_order'])
             ssi_object.S= in_dict['self.S']
             ssi_object.U= in_dict['self.U']
             ssi_object.V_T= in_dict['self.V_T']            
         if state[2]:# modal params
+            print('Modal Parameters Computed')
             ssi_object.modal_frequencies= in_dict['self.modal_frequencies']
             ssi_object.modal_damping= in_dict['self.modal_damping']
             ssi_object.mode_shapes= in_dict['self.mode_shapes']

@@ -37,7 +37,7 @@ from PreprocessingTools import PreprocessData
 from SSICovRef import BRSSICovRef
 from PLSCF import PLSCF
 from PRCE import PRCE
-from SSIData import SSIData, SSIDataMEC
+from SSIData import SSIData, SSIDataMC
 from StabilDiagram import StabilCalc
 import os
 
@@ -73,7 +73,7 @@ class MergePoSER(object):
             raise RuntimeWarning('This function is not implemented yet!')
         
         assert isinstance(prep_data, PreprocessData)
-        assert isinstance(modal_data, (BRSSICovRef, PLSCF, PRCE, SSIData, SSIDataMEC))
+        assert isinstance(modal_data, (BRSSICovRef, PLSCF, PRCE, SSIData, SSIDataMC))
         assert isinstance(stabil_data, StabilCalc)
         
         # assure objects belong to the same setup
