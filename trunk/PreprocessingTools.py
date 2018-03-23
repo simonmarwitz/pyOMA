@@ -16,12 +16,15 @@ TODO:
 '''
 import numpy as np
 from scipy import signal
+import scipy.signal.ltisys
 import os
 import csv
 import sys
-from numpy import floor
 import datetime
-from numpy.testing.utils import measure
+
+import multiprocessing as mp
+import ctypes as c
+import warnings
 
 def nearly_equal(a,b,sig_fig=5):
     return ( a==b or 
@@ -393,7 +396,7 @@ class PreprocessData(object):
         else:
             channel_headers=list(range(self.num_analised_channels))
             
-        self.channel_headers=channel_headers   
+        self.channel_headers=channel_headers
         
         if start_time is not None:
             assert isinstance(start_time, datetime.datetime)
@@ -458,7 +461,7 @@ class PreprocessData(object):
             sample_rate = sampling_rate
             headers = ['Channel_{}'.format(i) for i in range(measurement.shape[1])]
         if not sample_rate == sampling_rate:
-            raise RuntimeError('Sampling Rate from file: {} does not correspond with specified Sampling Rate from configuration {}'.format(sample_rate, sampling_rate))
+            warnings.warn('Sampling Rate from file: {} does not correspond with specified Sampling Rate from configuration {}'.format(sample_rate, sampling_rate))
         #print(headers)
         
                     
@@ -626,6 +629,10 @@ class PreprocessData(object):
         chan_dofs = [ (chan_num, node_name, az, elev, chan_name) ,  ... ]
         '''
         for chan_dof in chan_dofs:
+            chan_dof[0]=int(chan_dof[0])
+            chan_dof[1]=str(chan_dof[1])
+            chan_dof[2]=float(chan_dof[2])
+            chan_dof[3]=float(chan_dof[3])
             if len(chan_dof)==4:
                 chan_dof.append('')
             self.chan_dofs.append(chan_dof)
@@ -924,25 +931,186 @@ class PreprocessData(object):
         #plot.show()
         
     
-    def decimate_data(self, decimate_factor):  
+    def decimate_data(self, decimate_factor, highpass=None):  
         '''
         decimates the measurement data by the supplied factor
         makes use of scipy's decimate filter
         '''  
+
         
-        num_channels = self.measurement.shape[1]  
-        for ii in range(self.measurement.shape [1]):
-            if ii == 0:
-                tmp = signal.decimate(self.measurement[:,ii], decimate_factor, ftype='iir', axis = 0, zero_phase=True)
-                meas_decimated = np.zeros((tmp.shape[0],num_channels))       
-                meas_decimated[:,ii] = tmp
-            else:
-                meas_decimated[:,ii] = signal.decimate(self.measurement[:,ii], decimate_factor, ftype='iir', axis = 0, zero_phase=True) 
+        if highpass is not None:
+            nyq = self.sampling_rate/2
+            target_fs = self.sampling_rate/decimate_factor
+            lowpass = target_fs/2
+            b, a = signal.butter(4, [highpass/nyq, lowpass/nyq], btype='band')   
+            ftype=scipy.signal.ltisys.dlti(b,a)
+        else:
+            ftype='iir'
+            
+        meas_decimated = scipy.signal.decimate(self.measurement, decimate_factor, axis=0,ftype=ftype, zero_phase=True)
         
         self.sampling_rate /=decimate_factor
-        self.total_time_steps /=decimate_factor
+        self.total_time_steps = meas_decimated.shape[0]
         self.measurement = meas_decimated
-    
+        
+    def compute_correlation_matrices(self, tau_max, num_blocks=False):
+        print('Computing Correlation Matrices...')
+        total_time_steps = self.total_time_steps
+        num_analised_channels = self.num_analised_channels
+        num_ref_channels = self.num_ref_channels
+        measurement = self.measurement
+        ref_channels = self.ref_channels        
+        roving_channels = self.roving_channels
+        
+        self.tau_max = tau_max
+        
+        all_channels = ref_channels + roving_channels
+        all_channels.sort()
+        
+                
+        if not num_blocks:
+            num_blocks = 1
+            
+        block_length = int(np.floor(total_time_steps/num_blocks))
+        #tau_max = num_block_columns+num_block_rows
+        if block_length <= tau_max:
+            raise RuntimeError('Block length (={}) must be greater or equal to max time lag (={})'.format(block_length, tau_max))
+        #extract_length = block_length - tau_max
+
+        corr_matrices_mem = []
+        
+        corr_mats_shape = (num_analised_channels, tau_max * num_ref_channels)
+        for n_block in range(num_blocks):
+            corr_memory = mp.Array(c.c_double, np.zeros((np.product(corr_mats_shape)))) # shared memory, can be used by multiple processes @UndefinedVariable
+            corr_matrices_mem.append(corr_memory)
+            
+        #measurement*=float(np.sqrt(block_length))
+        measurement_shape=measurement.shape
+        measurement_memory = mp.Array(c.c_double, measurement.reshape(measurement.size, 1))# @UndefinedVariable
+                
+        #each process should have at least 10 blocks to compute, to reduce overhead associated with spawning new processes 
+        n_proc = min(int(tau_max*num_blocks/10), os.cpu_count())
+        pool=mp.Pool(processes=n_proc, initializer=self.init_child_process, initargs=(measurement_memory, corr_matrices_mem)) # @UndefinedVariable
+        
+        iterators = []            
+        it_len = int(np.ceil(tau_max*num_blocks/n_proc))
+        printsteps = np.linspace(0,tau_max*num_blocks,100, dtype=int)
+        
+        curr_it = []
+        i = 0
+        for n_block in range(num_blocks):
+            for tau in range(1,tau_max+1):
+                i += 1
+                if i in printsteps:                        
+                    curr_it.append([n_block, tau, True])
+                else:
+                    curr_it.append((n_block, tau))
+                if len(curr_it)>it_len:
+                    iterators.append(curr_it)
+                    curr_it = []
+        else:
+            iterators.append(curr_it)
+
+        
+        for curr_it in iterators:
+            pool.apply_async(self.compute_covariance , args=(curr_it,
+                                                        tau_max,
+                                                        block_length, 
+                                                        ref_channels, 
+                                                        all_channels, 
+                                                        measurement_shape,
+                                                        corr_mats_shape))
+                                  
+        pool.close()
+        pool.join()               
+
+
+        corr_matrices = []
+        for corr_mats_mem in corr_matrices_mem:
+            corr_mats = np.frombuffer(corr_mats_mem.get_obj()).reshape(corr_mats_shape) 
+            corr_matrices.append(corr_mats*num_blocks)
+            
+        self.corr_matrices = corr_matrices      
+        
+        corr_mats_mean = np.mean(corr_matrices, axis=0)
+        #corr_mats_mean = np.sum(corr_matrices, axis=0)
+        #corr_mats_mean /= num_blocks - 1
+        self.corr_mats_mean = corr_mats_mean
+        #self.corr_mats_std = np.std(corr_matrices, axis=0)
+        
+        print('.',end='\n', flush=True)   
+        
+    def compute_covariance(self, curr_it, tau_max, block_length, ref_channels, all_channels, measurement_shape, corr_mats_shape, detrend=False):
+        
+        overlap = True
+        
+        #sys.stdout.flush()
+        #normalize=False
+        for this_it in curr_it:
+            if len(this_it) > 2:
+                print('.',end='', flush=True)
+                del this_it[2]
+            n_block, tau = this_it
+            num_analised_channels = len(all_channels)
+            num_ref_channels =len(ref_channels)
+            
+            measurement = np.frombuffer(measurement_memory.get_obj()).reshape(measurement_shape)
+            if overlap:
+                this_measurement = measurement[(n_block)*block_length:(n_block+1)*block_length+tau,:]#/np.sqrt(block_length)
+            else:
+                this_measurement = measurement[(n_block)*block_length:(n_block+1)*block_length,:]
+                
+            if detrend:this_measurement = this_measurement - np.mean(this_measurement,axis=0)
+            
+            refs = (this_measurement[:-tau,ref_channels]).T
+            
+            current_signals = (this_measurement[tau:, all_channels]).T
+            
+            this_block = (np.dot(current_signals, refs.T))/current_signals.shape[0]
+
+            corr_memory = corr_matrices_mem[n_block]
+            
+            corr_mats = np.frombuffer(corr_memory.get_obj()).reshape(corr_mats_shape)
+            
+            with corr_memory.get_lock():
+                corr_mats[:,(tau-1)*num_ref_channels:tau*num_ref_channels] = this_block        
+        
+    def init_child_process(self, measurement_memory_, corr_matrices_mem_):
+        #make the  memory arrays available to the child processes
+        
+        global measurement_memory
+        measurement_memory = measurement_memory_   
+        
+        global corr_matrices_mem
+        corr_matrices_mem = corr_matrices_mem_
+        
+    def plot_covariances(self):
+        tau_max = self.tau_max
+        num_ref_channels = self.num_ref_channels     
+        num_analised_channels = self.num_analised_channels   
+        corr_matrices = self.corr_matrices
+        ref_channels = self.ref_channels
+#         subspace_matrices = []
+#         for n_block in range(self.num_blocks):
+#             corr_matrix = self.corr_matrices[n_block]
+#             this_subspace_matrix= np.zeros(((num_block_rows+1)*num_analised_channels, num_block_columns*num_ref_channels))
+#             for block_column in range(num_block_columns):
+#                 this_block_column = corr_matrix[block_column*num_analised_channels:(num_block_rows+1+block_column)*num_analised_channels,:]
+#                 this_subspace_matrix[:,block_column*num_ref_channels:(block_column+1)*num_ref_channels]=this_block_column
+#             subspace_matrices.append(this_subspace_matrix)
+        #self.subspace_matrices = subspace_matrices
+        #subspace_matrices = self.subspace_matrices
+        
+        import matplotlib.pyplot as plot
+        #matrices = subspace_matrices+[self.subspace_matrix]
+        #matrices = [self.subspace_matrix]
+        for corr_matrix in corr_matrices:
+            for num_channel,ref_channel in enumerate(ref_channels):
+                indices = (np.arange(tau_max)*num_analised_channels + ref_channel,np.repeat([num_channel],tau_max))
+                print(indices, corr_matrix.shape)
+                plot.plot(corr_matrix[indices])
+             
+        plot.show()                
     def correct_time_lag(self, channel, lag, sampling_rate):
         '''
         Method does not work very well for small time lags, although
@@ -1034,6 +1202,283 @@ class PreprocessData(object):
 
         return ft_freq, sum_ft
     
+    def plot_svd_spectrum(self,):
+        import matplotlib.pyplot as plot
+        plot.figure( tight_layout=1)
+        NFFT =  2048
+        pxy,freq = plot.csd(self.measurement[:,0],self.measurement[:,0], NFFT, self.sampling_rate)
+        psd_matrix = np.zeros((self.num_analised_channels,self.num_analised_channels,len(freq)), dtype=complex)
+         
+     
+        for i in range(self.num_analised_channels):
+            for j in range(self.num_analised_channels):
+                pxy,freq =plot.csd(self.measurement[:,i],self.measurement[:,j], NFFT, self.sampling_rate)
+                psd_matrix[i,j,:]=pxy
+        svd_matrix = np.zeros((self.num_analised_channels, len(freq)))
+        for i in range(len(freq)):
+            u,s,vt = np.linalg.svd(psd_matrix[:,:,i])
+            svd_matrix[:,i]=10*np.log(s)
+            
+        plot.figure( tight_layout=1)
+        for i in range(self.num_analised_channels):
+            plot.plot(freq,svd_matrix[i,:])
+             
+        #plot.margins(0,0.1,tight=1)
+        plot.xlim((0,self.sampling_rate/2))
+        plot.grid(1)
+        plot.xlabel('Frequenz [\si{\hertz}]')
+        plot.ylabel('Singul\\"arwert Magnitude [\si{\decibel}]')
+        plot.yticks([0,-25,-50,-75,-100,-125,-150,-175,-200,-225,-250])
+        plot.ylim((-225,0))
+        plot.xlim((0.1,5))
+        #plot.xticks([0,1,3])
+        plot.grid(b=0)
+        #plot.gca().xaxis.set_label_coords(0.5, -0.035)
+        
+        plot.show()
+        
+# from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
+#     QCheckBox, QButtonGroup, QLabel, QComboBox, \
+#     QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction,\
+#     QFileDialog,  QMessageBox, QApplication, QRadioButton,\
+#     QLineEdit, QSizePolicy, QDoubleSpinBox
+# from PyQt5.QtGui import QIcon, QPalette
+# from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHandler, QTimer, QEventLoop
+# #make qt application not crash on errors
+# def my_excepthook(type, value, tback):
+#     # log the exception here
+# 
+#     # then call the default handler
+#     sys.__excepthook__(type, value, tback)
+# 
+# sys.excepthook = my_excepthook
+# 
+# class PreProcessGUI(QMainWindow):
+# 
+#     def __init__(self, prep_data):
+# 
+#         QMainWindow.__init__(self)
+#         self.setWindowTitle('Preprocessor: {} - {}'.format(
+#             prep_data.setup_name, prep_data.start_time))
+# 
+#         self.prep_data = prep_data
+#         
+#         self.create_menu()
+#         self.create_main_frame()
+# 
+#         
+# 
+#         self.setGeometry(300, 300, 1000, 600)
+#         # self.setWindowModality(Qt.ApplicationModal)
+#         self.showMaximized()
+# 
+# '''
+#         set up all the widgets and other elements to draw the GUI
+#         '''
+#         main_frame = QWidget()
+# 
+#         df_max = self.stabil_calc.df_max * 100
+#         dd_max = self.stabil_calc.dd_max * 100
+#         dmac_max = self.stabil_calc.dmac_max * 100
+#         d_range = self.stabil_calc.d_range
+#         mpc_min = self.stabil_calc.mpc_min
+#         mpd_max = self.stabil_calc.mpd_max
+# 
+#         self.fig = self.stabil_plot.fig
+#         #self.canvas = self.stabil_plot.fig.canvas
+#         # print(self.canvas)
+#         self.canvas = FigureCanvasQTAgg(self.fig)
+# 
+#         # self.stabil_plot.reconnect_cursor()
+# 
+#         self.canvas.setParent(main_frame)
+#         if self.stabil_plot.cursor is None:
+#             self.stabil_plot.init_cursor()
+#         self.stabil_plot.cursor.show_current_info.connect(
+#             self.update_value_view)
+#         self.stabil_plot.cursor.mode_selected.connect(self.mode_selector_add)
+#         self.stabil_plot.cursor.mode_deselected.connect(
+#             self.mode_selector_take)
+#         main_layout = QHBoxLayout()
+# 
+#         left_pane_layout = QVBoxLayout()
+#         left_pane_layout.addStretch(1)
+#         palette = QPalette()
+#         palette.setColor(QPalette.Base, Qt.transparent)
+# 
+#         self.current_value_view = QTextEdit()
+#         self.current_value_view.setFrameShape(QFrame.Box)
+#         self.current_value_view.setPalette(palette)
+# 
+#         self.diag_val_widget = QWidget()
+# 
+#         fra_1 = QFrame()
+#         fra_1.setFrameShape(QFrame.Panel)
+#         fra_1.setLayout(self.create_stab_val_widget(df_max=df_max,
+#                                                     dd_max=dd_max, d_mac=dmac_max, d_range=d_range, mpc_min=mpc_min,
+#                                                     mpd_max=mpd_max))
+#         left_pane_layout.addWidget(fra_1)
+# 
+#         left_pane_layout.addStretch(2)
+# 
+#         fra_2 = QFrame()
+#         fra_2.setFrameShape(QFrame.Panel)
+#         fra_2.setLayout(self.create_diag_val_widget())
+#         left_pane_layout.addWidget(fra_2)
+# 
+#         left_pane_layout.addStretch(2)
+#         left_pane_layout.addWidget(self.current_value_view)
+#         left_pane_layout.addStretch(1)
+# 
+#         right_pane_layout = QVBoxLayout()
+# 
+#         self.plot_selector_c = QRadioButton('Mode Shape in Complex Plane')
+#         self.plot_selector_c.toggled.connect(self.toggle_cpl_plot)
+#         self.plot_selector_msh = QRadioButton('Mode Shape in Spatial Model')
+#         self.plot_selector_msh.toggled.connect(self.toggle_msh_plot)
+# 
+#         self.group = QButtonGroup()
+#         self.group.addButton(self.plot_selector_c)
+#         self.group.addButton(self.plot_selector_msh)
+# 
+#         self.mode_selector = QComboBox()
+#         self.mode_selector.currentIndexChanged[
+#             int].connect(self.update_mode_val_view)
+# 
+#         self.mode_plot_widget = QWidget()
+#         self.cmplx_plot_widget = QWidget()
+# 
+#         self.cmpl_plot = cmpl_plot
+#         fig = self.cmpl_plot.fig
+#         canvas1 = FigureCanvasQTAgg(fig)
+#         canvas1.setParent(self.cmplx_plot_widget)
+# 
+#         self.msh_plot = msh_plot
+#         if msh_plot is not None:
+#             fig = msh_plot.fig
+#             #FigureCanvasQTAgg.resizeEvent = resizeEvent_
+#             #canvas2 = fig.canvas.switch_backends(FigureCanvasQTAgg)
+#             #canvas2.resizeEvent = types.MethodType(resizeEvent_, canvas2)
+#             canvas2 = fig.canvas
+#             #self.canvas.resize_event = resizeEvent_
+#             #self.canvas.resize_event  = funcType(resizeEvent_, self.canvas, FigureCanvasQTAgg)
+#             #msh_plot.canvas = canvas2
+#             #self.canvas.mpl_connect('button_release_event', self.update_lims)
+#             #if fig.get_axes():
+#             #    fig.get_axes()[0].mouse_init()
+#             canvas2.setParent(self.mode_plot_widget)
+#         else:
+#             canvas2 = QWidget()
+# 
+#         lay = QHBoxLayout()
+#         lay.addWidget(canvas1)
+#         self.cmplx_plot_widget.setLayout(lay)
+#         self.cmpl_plot.plot_diagram()
+# 
+#         lay = QHBoxLayout()
+#         lay.addWidget(canvas2)
+#         self.mode_plot_widget.setLayout(lay)
+# 
+#         self.mode_val_view = QTextEdit()
+#         self.mode_val_view.setFrameShape(QFrame.Box)
+# 
+#         self.mode_val_view.setPalette(palette)
+#         right_pane_layout.addStretch(1)
+#         right_pane_layout.addWidget(self.mode_selector)
+# 
+#         right_pane_layout.addWidget(self.plot_selector_c)
+#         right_pane_layout.addWidget(self.plot_selector_msh)
+#         right_pane_layout.addStretch(2)
+#         self.mode_plot_layout = QVBoxLayout()
+#         self.mode_plot_layout.addWidget(self.cmplx_plot_widget)
+#         right_pane_layout.addLayout(self.mode_plot_layout)
+#         right_pane_layout.addStretch(2)
+#         right_pane_layout.addWidget(self.mode_val_view)
+#         right_pane_layout.addStretch(1)
+# 
+#         main_layout.addLayout(left_pane_layout)
+#         main_layout.addWidget(self.canvas)
+#         main_layout.setStretchFactor(self.canvas, 1)
+#         main_layout.addLayout(right_pane_layout)
+#         vbox = QVBoxLayout()
+#         vbox.addLayout(main_layout)
+#         vbox.addLayout(self.create_buttons())
+#         main_frame.setLayout(vbox)
+#         self.stabil_plot.fig.set_facecolor('none')
+#         self.setCentralWidget(main_frame)
+#         self.current_mode = (0, 0)
+# 
+#         return
+# 
+#     def create_buttons(self):
+#         b0 = QPushButton('Apply')
+#         b0.released.connect(self.update_stabil_view)
+#         b1 = QPushButton('Save Figure')
+#         b1.released.connect(self.save_figure)
+# 
+#         b2 = QPushButton('Export Results')
+#         b2.released.connect(self.save_results)
+#         b3 = QPushButton('Save State')
+#         b3.released.connect(self.save_state)
+#         b4 = QPushButton('OK and Close')
+#         b4.released.connect(self.close)
+# 
+#         lay = QHBoxLayout()
+# 
+#         lay.addWidget(b0)
+#         lay.addWidget(b1)
+#         lay.addWidget(b2)
+#         lay.addWidget(b3)
+#         lay.addWidget(b4)
+#         lay.addStretch()
+# 
+#         return lay
+#     def create_menu(self):
+#         '''
+#         create the menubar and add actions to it
+#         '''
+#         def add_actions(target, actions):
+#             for action in actions:
+#                 if action is None:
+#                     target.addSeparator()
+#                 else:
+#                     target.addAction(action)
+#                     
+# 
+#         def create_action(text, slot=None, shortcut=None,
+#                           icon=None, tip=None, checkable=False,
+#                           signal="triggered()"):
+#             action = QAction(text, self)
+#             if icon is not None:
+#                 action.setIcon(QIcon(":/%s.png" % icon))
+#             if shortcut is not None:
+#                 action.setShortcut(shortcut)
+#             if tip is not None:
+#                 action.setToolTip(tip)
+#                 action.setStatusTip(tip)
+#             if slot is not None:
+#                 getattr(action, signal.strip('()')).connect(slot)
+#             if checkable:
+#                 action.setCheckable(True)
+#             return action
+# 
+#         file_menu = self.menuBar().addMenu("&File")
+# 
+#         load_file_action = create_action("&Save plot",
+#                                          shortcut="Ctrl+S",
+#                                          slot=None,
+#                                          tip="Save the plot")
+#         quit_action = create_action("&Quit",
+#                                     slot=self.close,
+#                                     shortcut="Ctrl+Q",
+#                                     tip="Close the application")
+# 
+#         add_actions(file_menu,
+#                     (load_file_action, None, quit_action))
+# 
+#         help_menu = self.menuBar().addMenu("&Help")
+
+
 def load_measurement_file(fname, **kwargs):
     # assign this function to the class before instantiating the object
     # PreprocessData.load_measurement_file = load_measurement_file
@@ -1051,8 +1496,34 @@ def load_measurement_file(fname, **kwargs):
     return headers, units, start_time, sample_rate, measurement  
 
 def main():
-    pass
+    
+    def handler(msg_type, msg_string):
+        pass
 
+    if not 'app' in globals().keys():
+        global app
+        app = QApplication(sys.argv)
+    if not isinstance(app, QApplication):
+        app = QApplication(sys.argv)
+
+    # qInstallMessageHandler(handler) #suppress unimportant error msg
+    prep_data = PreprocessData.load_state('/vegas/scratch/womo1998/towerdata/towerdata_results_var/Wind_kontinuierlich__9_2016-10-05_04-00-00_000000/prep_data.npz')
+    #prep_data = None
+    preprocess_gui = PreProcessGUI(prep_data)
+    loop = QEventLoop()
+    preprocess_gui.destroyed.connect(loop.quit)
+    loop.exec_()
+    print('Exiting GUI')
+
+    return
+
+def example():
+    path = '/ismhome/staff/womo1998/Projects/2017_Burscheid/Messdaten/2017_10_25_asc_Dateien/Messung_3.asc'
+    #measurement = np.loadtxt(path)
+    measurement = np.load('/ismhome/staff/womo1998/Projects/2017_Burscheid/Messdaten/2017_10_25_asc_Dateien/Messung_3.npz')
+    prep_data = PreprocessData(measurement, sampling_rate=128)
+    print('test')
     
 if __name__ =='__main__':
-    main()
+    example()
+    #main()

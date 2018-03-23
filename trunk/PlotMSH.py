@@ -47,7 +47,7 @@ import itertools
 from numpy import disp
 from StabilDiagram import StabilCalc, DelayedDoubleSpinBox
 from PreprocessingTools import PreprocessData, GeometryProcessor
-from SSICovRef import BRSSICovRef
+from SSICovRef import BRSSICovRef, PogerSSICovRef
 from SSIData import SSIData, SSIDataMC
 from VarSSIRef import VarSSIRef
 from PRCE import PRCE
@@ -208,11 +208,11 @@ class ModeShapePlot(object):
                  callback_fun=None
                  ):
         
-        assert merged_data is not None or (prep_data is not None and modal_data is not None and stabil_calc is not None)
+        assert merged_data is not None or (prep_data is not None and modal_data is not None and stabil_calc is not None) or isinstance(modal_data, PogerSSICovRef)
         
         if stabil_calc is not None:
-            print('stabil_calc = ', stabil_calc)
-            print('StabilCalc = ', StabilCalc)
+            #print('stabil_calc = ', stabil_calc)
+            #print('StabilCalc = ', StabilCalc)
             assert isinstance(stabil_calc, StabilCalc)
         self.stabil_calc = stabil_calc
         
@@ -220,7 +220,7 @@ class ModeShapePlot(object):
         
         #modal_data = modal_data
         if modal_data is not None:
-            assert isinstance(modal_data, (BRSSICovRef, SSIData,SSIDataMC,VarSSIRef, PRCE, PLSCF))
+            assert isinstance(modal_data, (BRSSICovRef, SSIData,SSIDataMC,VarSSIRef, PRCE, PLSCF, PogerSSICovRef))
         self.modal_data = modal_data
         
         assert isinstance(geometry_data, GeometryProcessor)
@@ -233,6 +233,8 @@ class ModeShapePlot(object):
         
         if merged_data is not None:
             assert isinstance(merged_data, MergePoSER)
+        
+
         self.merged_data = merged_data
         
         if merged_data is not None:
@@ -250,6 +252,19 @@ class ModeShapePlot(object):
             
             self.setup_name = merged_data.setup_name
             self.start_time = merged_data.start_time
+        elif isinstance(modal_data, PogerSSICovRef):
+            self.chan_dofs = modal_data.merged_chan_dofs
+            self.num_channels = modal_data.merged_num_channels
+        
+            self.modal_frequencies = modal_data.modal_frequencies
+            self.modal_damping = modal_data.modal_damping
+            self.mode_shapes = modal_data.mode_shapes
+                
+            self.select_modes = stabil_calc.select_modes
+            
+            self.setup_name = modal_data.setup_name
+            self.start_time = modal_data.start_time
+            
         else:
             self.chan_dofs = prep_data.chan_dofs
             self.num_channels = prep_data.num_analised_channels
@@ -470,6 +485,12 @@ class ModeShapePlot(object):
             MP=None
             MPD=None
         self.mode_index = mode_index
+        
+        if self.save_ani:
+            cwd=os.getcwd()
+            cwd += '/{}/'.format(self.select_modes.index(self.mode_index))
+            if not os.path.exists(cwd):
+                os.makedirs(cwd)
         
         self.draw_msh()
 
@@ -1393,6 +1414,9 @@ class ModeShapePlot(object):
         '''
         
         self.save_ani = False
+        if self.save_ani:
+            self.cwd = os.getcwd()
+
         self.draw_trace=True
         def init_lines():
             #print('init')
@@ -1402,6 +1426,7 @@ class ModeShapePlot(object):
             self.subplot.cla()
             self.subplot.grid(False)
             self.subplot.set_axis_off()
+            self.canvas.draw()
             #return self.lines_objects
             self.draw_lines()
             self.draw_axis()
@@ -1518,8 +1543,8 @@ class ModeShapePlot(object):
                 for obj in objs:
                     obj.set_visible(self.show_axis)
                     
-            if self.save_ani:
-                self.fig.savefig('ani_{}.pdf'.format(num))
+            if self.save_ani:        
+                self.fig.savefig(self.cwd + '/{}/ani_{}.pdf'.format(self.select_modes.index(self.mode_index), num))
             return self.lines_objects + \
             self.nd_lines_objects + \
             list(self.cn_lines_objects.values())

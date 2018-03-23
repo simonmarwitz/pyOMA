@@ -20,11 +20,14 @@ from collections import deque
 from PreprocessingTools import PreprocessData
 #import pyximport 
 #pyximport.install()
-global use_cython
+global use_cython 
 try:
-    from cython_code import cython_helpers #@UnresolvedImport
+    import pyximport
+    pyximport.install()
+    from cython_code.cython_helpers import estimate_states#@UnresolvedImport
     use_cython=True
 except:
+    print('Not using Cython extensions. Python based state estimation possibly errorneous/untested')
     #global use_cython
     use_cython = False
 
@@ -637,6 +640,9 @@ class SSIDataMC(object):
             |     ...      ...      ...      ...         |v
             |     y_(2i-1)   y_(2i)  ...     y_(2i+j-2)  |_
         '''
+        if num_block_rows is None:
+            num_block_rows = self.num_block_rows
+            
         assert isinstance(num_block_rows, int)
         
         self.num_block_rows=num_block_rows
@@ -656,15 +662,15 @@ class SSIDataMC(object):
         
         Y_minus = np.zeros((q*num_ref_channels,N))
         Y_plus = np.zeros(((p+1)*num_analised_channels,N))
-        
+         
         for ii in range(q):
             Y_minus[(q-ii-1)*num_ref_channels:(q-ii)*num_ref_channels,:] = measurement[(ii):(ii+N),ref_channels].T
-        
+         
         for ii in range(p+1):
             Y_plus[ii*num_analised_channels:(ii+1)*num_analised_channels,:] = measurement[(q+ii):(q+ii+N)].T
-            
+             
         Hankel_matrix = np.vstack((Y_minus,Y_plus))
-        
+         
         Hankel_matrix /=np.sqrt(N)
         self.Hankel_matrix = Hankel_matrix
         
@@ -672,7 +678,11 @@ class SSIDataMC(object):
         num_ref_channels =self.prep_data.num_ref_channels 
 
         
-        l = lq_decomp(self.Hankel_matrix, mode='r')        
+        l = lq_decomp(self.Hankel_matrix, mode='r')
+        q_=True
+        if q_:
+            l,q = lq_decomp(self.Hankel_matrix, mode='full')
+               
         
         a = num_ref_channels*p
         b = num_ref_channels
@@ -694,20 +704,42 @@ class SSIDataMC(object):
         R_k3 = l[:,a+b:a+b+c]
                
         R_33 = R_k3[a+b:a+b+c,:]    
+        
+        if q_:
+            Q_1_T = q[0:a,:]
+            Q_2_T = q[a:a+b,:]
+            Q_3_T = q[a+b:a+b+c,:]
+            Q_4_T = q[a+b+c:a+b+c+d,:]
 
         
         self.R_21 = R_21
         self.R_31 = R_31
         self.R_41 = R_41
-
+ 
         self.R_22 = R_22
         self.R_32 = R_32
         self.R_42 = R_42
-        
+         
         self.R_33 = R_33    
+        
+#         assert (self.R_21 == R_21).all()
+#         assert (self.R_31 == R_31).all()
+#         assert (self.R_41 == R_41).all()
+# 
+#         assert (self.R_22 == R_22).all()
+#         assert (self.R_32 == R_32).all()
+#         assert (self.R_42 == R_42).all()
+#         
+#         assert (self.R_33 == R_33).all()  
+        
+        if q_:
+            self.Q_1_T = Q_1_T
+            self.Q_2_T = Q_2_T
+            self.Q_3_T = Q_3_T
+            #self.Q_4_T = Q_4_T
          
         self.state[0]=True
-        self.state[1] = False # previous state matrices are invalid now
+#         self.state[1] = False # previous state matrices are invalid now
 
         
         
@@ -724,13 +756,30 @@ class SSIDataMC(object):
         
         assert self.state[0]
         
+        num_analised_channels = self.prep_data.num_analised_channels
+        num_block_rows = self.num_block_rows
+        
         R_21 = self.R_21
         R_31 = self.R_31
-        R_41 = self.R_41        
+        R_41 = self.R_41
+        use_q=False
+        if use_q:  
+            # somewhere it is written, that Q can be ommitted since multiplication with q only transforms the subspace into a similar subspace (or something like that)
+            # it was tried with different data sets and equal results were obtained regarding the stable modes
+            Q_1_T = self.Q_1_T 
+            P_i_ref = np.vstack((R_21,R_31,R_41)).dot(Q_1_T)
+        else:
+            P_i_ref = np.vstack((R_21,R_31,R_41))
         
         print('Computing state matrices A and C...')
+
+        [U,S,V_T] = np.linalg.svd(P_i_ref)
         
-        [U,S,V_T] = np.linalg.svd(np.vstack((R_21,R_31,R_41)));
+        #print(P_i_ref.shape)
+        #print(U.shape)
+        #print(S.shape)
+        #print(V_T.shape)
+        
      
         # choose highest possible model order
         if max_model_order is None:
@@ -739,8 +788,12 @@ class SSIDataMC(object):
             max_model_order = min(max_model_order,len(S))       
         
         S = S[:max_model_order]
-        U = U[:,:max_model_order]
+        U = U[:num_analised_channels*(num_block_rows+1),:max_model_order]
         V_T = V_T[:max_model_order,:]
+        
+        #print(U.shape)
+        #print(S.shape)
+        #print(V_T.shape)
         
         self.S = S
         self.U = U
@@ -752,7 +805,12 @@ class SSIDataMC(object):
         self.state[2] = False # previous modal params are invalid now
         
     def compute_modal_params(self, plot_=False  ): 
-         
+        '''
+        c.p.    DeCock 2007 Subspace Identification Methods (estimation algo 1) -> with noisy data unstable, fast
+                Peeters 1999 Reference Based Stochastic Subspace Identificaiton for Ouput-Only Modal Analysis (estimation algo 2) -> stable, slow
+                estimation_algo 0 for reference
+        '''
+        estimation_algo=2
         assert self.state[1]
         
         max_model_order = self.max_model_order
@@ -781,7 +839,7 @@ class SSIDataMC(object):
         O = np.dot(U, np.diag(np.power(S,0.5)))
         
         print('Computing modal parameters...')
-    
+        eigenvalues = np.zeros((max_model_order, max_model_order),dtype=np.complex128)
         modal_frequencies = np.zeros((max_model_order, max_model_order))
         modal_damping = np.zeros((max_model_order, max_model_order))
         mode_shapes = np.zeros((num_analised_channels, max_model_order, max_model_order),dtype=complex)
@@ -793,89 +851,85 @@ class SSIDataMC(object):
             
             V = V_T[:order,:].T
             
-            On_up = O[:num_analised_channels * num_block_rows,:order]
-            On_upi = np.linalg.pinv(On_up)
-
-            A = On_upi.dot(R_41).dot(V.dot(S_2[:order,:order]))
+            # usually used equation computation of A, C
             
-            QSR1 = np.vstack([np.hstack([On_upi.dot(R_41), On_upi.dot(R_42), np.zeros((order,num_analised_channels-num_ref_channels))]),
-                              np.hstack([R_21,           R_22,          np.zeros((num_ref_channels, num_analised_channels-num_ref_channels))]),
-                              np.hstack([R_31,           R_32,            R_33])])
-            
-            VVT=np.identity(num_ref_channels*num_block_rows)-V.dot(V.T)
-    
-            QSR2 = np.vstack([np.hstack([VVT, np.zeros((num_ref_channels*num_block_rows, num_analised_channels))]),
-                              np.hstack([np.zeros((num_analised_channels, num_ref_channels*num_block_rows)), np.identity(num_analised_channels)]),])
-
-            
-            QSR = 1/N*QSR1.dot(QSR2).dot(QSR1.T)
+            if estimation_algo == 0:
                 
-            Q = QSR[:order,:order]
-            S = QSR[:order,order:order+num_analised_channels]
-            R = QSR[order:order+num_analised_channels,order:order+num_analised_channels]
-    
-            C=O[:num_analised_channels,:order]      
-            try:
-                P = scipy.linalg.solve_discrete_are(a=A.T, b=C.T, q=Q, r=R, s=S)
-            except ValueError:
-                Q = (Q + Q.T)*0.5
-                R = (R + R.T)*0.5
-                P = scipy.linalg.solve_discrete_are(a=A.T, b=C.T, q=Q, r=R, s=S)
+                On_up = O[:num_analised_channels * num_block_rows,:order]
+                On_upi = np.linalg.pinv(On_up)
                 
-            APCS = A.dot(P).dot(C.T)+S
-            CPCR = C.dot(P).dot(C.T)+R
-            K = np.linalg.solve( CPCR.T,APCS.T,).T
+                On_down = O[num_analised_channels:num_analised_channels * (num_block_rows+1) ,:order]
+                A = np.dot(On_upi, On_down)
+                C=O[:num_analised_channels,:order]  
+                
+            elif estimation_algo == 1:
+                #direct computation of A, C, Q, R and S (DeCock 2007)
+                
+                On_up = O[:num_analised_channels * num_block_rows,:order]
+                On_upi = np.linalg.pinv(On_up)
+                QSR1 = np.vstack([np.hstack([On_upi.dot(R_41), On_upi.dot(R_42), np.zeros((order,num_analised_channels-num_ref_channels))]),
+                                  np.hstack([R_21,           R_22,          np.zeros((num_ref_channels, num_analised_channels-num_ref_channels))]),
+                                  np.hstack([R_31,           R_32,            R_33])])
+                
+                VVT=np.identity(num_ref_channels*num_block_rows)-V.dot(V.T)
+        
+                QSR2 = np.vstack([np.hstack([VVT, np.zeros((num_ref_channels*num_block_rows, num_analised_channels))]),
+                                  np.hstack([np.zeros((num_analised_channels, num_ref_channels*num_block_rows)), np.identity(num_analised_channels)]),])
+    
+                
+                QSR = 1/N*QSR1.dot(QSR2).dot(QSR1.T)
+                    
+                Q = QSR[:order,:order]
+                S = QSR[:order,order:order+num_analised_channels]
+                R = QSR[order:order+num_analised_channels,order:order+num_analised_channels]
+                AC = np.vstack([On_upi.dot(R_41),R_21,R_31]).dot(V.dot(S_2[:order,:order]))
+                
+                A=AC[:order,:]
+                C=AC[order:,:]
+                
+            elif estimation_algo == 2:
+                # residual-based computation of Q, R  and S (Peeters 1999)
+                Q_1_T = self.Q_1_T
+                Q_2_T = self.Q_2_T
+                Q_3_T = self.Q_3_T
+                #Q_4_T = self.Q_4_T    
+                 
+                P_i_1 = np.hstack((R_41, R_42)).dot(np.vstack((Q_1_T,Q_2_T)))
+                O_i_1 = O[:num_analised_channels * num_block_rows,:order]
+                O_i = O[:,:order]
+                 
+                Y_i_i = np.vstack([np.hstack([R_21, R_22, np.zeros((num_ref_channels, num_analised_channels-num_ref_channels))]),
+                                  np.hstack([R_31,R_32, R_33])]).dot(np.vstack((Q_1_T, Q_2_T, Q_3_T)))
+                 
+                P_i_ref = np.vstack((R_21,R_31,R_41)).dot(Q_1_T)
+                 
+                X_i = np.linalg.pinv(O_i).dot(P_i_ref)
+                X_i_1 = np.linalg.pinv(O_i_1).dot(P_i_1)
+                 
+                X_i_1_Y_i = np.vstack((X_i_1, Y_i_i))
+                 
+                AC = X_i_1_Y_i.dot(np.linalg.pinv(X_i))
+                A= AC[:order,:]
+                C= AC[order:,:]
+                 
+                roh_w_v = X_i_1_Y_i-AC.dot(X_i)
+                 
+                QSR = roh_w_v.dot(roh_w_v.T)
+                     
+                Q = QSR[:order,:order]
+                S = QSR[:order,order:order+num_analised_channels]
+                R = QSR[order:order+num_analised_channels,order:order+num_analised_channels]
+            
             
             eigval, eigvec_r = np.linalg.eig(A)
             
-            A_0 = np.diag(eigval)
-            C_0 = C.dot(eigvec_r)
-            K_0 = np.linalg.inv(eigvec_r).dot(K)
-            
-            j= self.prep_data.measurement.shape[0]
-            #j=12000
-            states = np.zeros((order+1,j),dtype=np.complex64)
-
-            
-            AKC = (A_0-K_0.dot(C_0))
-            AKC = np.array(AKC, dtype=np.complex64)
-
-            K_0m = K_0.dot(self.prep_data.measurement[:j,:].T)
-            K_0m = np.array(K_0m, dtype = np.complex64)
-            global use_cython
-            if use_cython:
-                states = cython_helpers.estimate_states(AKC, K_0m)#@UndefinedVariable
-            else:
-                this_k = states[:,0]
-                for k in range(j-1):
-     
-                    this_k = AKC.dot(this_k) + K_0m[:,k]
-                    states[:,k+1] = this_k
-
-
-            Y = self.prep_data.measurement[:j,:].T
-            norm = 1/np.einsum('ji,ji->j', Y,Y)
-            
             conj_indices = self.remove_conjugates_new(eigval, eigvec_r,inds_only=True)
-            meas_synth_single = []    
+            
             for i,ind in enumerate(conj_indices):
                 
                 lambda_i =eigval[ind]
-                
-                ident = eigval == lambda_i.conj()
-                ident[ind] = 1                
-                ident=np.diag(ident)
-                
-                C_0I=C_0.dot(ident)
-                
-                meas_synth = C_0I.dot(states)
-                meas_synth = meas_synth.real
-                meas_synth_single.append(meas_synth)
-
-                mYT = np.einsum('ji,ji->j', meas_synth,Y)
-                
-                modal_contributions[order,i] = np.mean(norm*mYT)
-                
+                eigenvalues[order,i]=lambda_i
+                #continue
                 a_i = np.abs(np.arctan2(np.imag(lambda_i),np.real(lambda_i)))
                 b_i = np.log(np.abs(lambda_i))
                 freq_i = np.sqrt(a_i**2+b_i**2)*sampling_rate/2/np.pi
@@ -896,30 +950,103 @@ class SSIDataMC(object):
                 modal_frequencies[order,i]=freq_i
                 modal_damping[order,i]=damping_i
                 mode_shapes[:,i,order]=mode_shape_i
-                #print(modal_contributions[order,:][modal_contributions[order,:]!=0])
+                
+                
+                
+            if estimation_algo ==0:
+                continue
+            
+            
+            try:
+                P = scipy.linalg.solve_discrete_are(a=A.T, b=C.T, q=Q, r=R, s=S, balanced=True)
+            except:
+                try:
+                    Q = (Q + Q.T)*0.5
+                    R = (R + R.T)*0.5
+                    P = scipy.linalg.solve_discrete_are(a=A.T, b=C.T, q=Q, r=R, s=S, balanced=True)
+                except Exception as e:
+                    print('Can not estimate Kalman Gain at order {}. Skipping Modal Contributions!'.format(order))
+                    #print(e)
+                    continue
+                
+                
+            APCS = A.dot(P).dot(C.T)+S
+            CPCR = C.dot(P).dot(C.T)+R
+            K = np.linalg.solve( CPCR.T,APCS.T,).T
+            
+            
+            
+            A_0 = np.diag(eigval)
+            C_0 = C.dot(eigvec_r)
+            K_0 = np.linalg.inv(eigvec_r).dot(K)
+            
+            j= self.prep_data.measurement.shape[0]
+            #j=12000
+            states = np.zeros((order+1,j),dtype=np.complex64)
+
+            
+            AKC = (A_0-K_0.dot(C_0))
+            AKC = np.array(AKC, dtype=np.complex64)
+
+            K_0m = K_0.dot(self.prep_data.measurement[:j,:].T)
+            K_0m = np.array(K_0m, dtype = np.complex64)
+            global use_cython
+            if use_cython:
+                states = estimate_states(AKC, K_0m)#@UndefinedVariable
+            else:
+                
+                for k in range(j-1):
+     
+                    states[:,k+1] = K_0m[:,k] + np.dot(AKC, states[:,k])
+
+
+            Y = self.prep_data.measurement[:j,:].T
+            norm = 1/np.einsum('ji,ji->j', Y,Y)
+            
+            
+            meas_synth_single = []    
+            for i,ind in enumerate(conj_indices):
+                
+                lambda_i =eigval[ind]
+                
+                ident = eigval == lambda_i.conj()
+                ident[ind] = 1                
+                ident=np.diag(ident)
+                
+                C_0I=C_0.dot(ident)
+                
+                meas_synth = C_0I.dot(states)
+                meas_synth = meas_synth.real
+                meas_synth_single.append(meas_synth)
+
+                mYT = np.einsum('ji,ji->j', meas_synth,Y)
+                
+                modal_contributions[order,i] = np.mean(norm*mYT)
+                
+                
                 
             #print(np.sum(modal_contributions[order,:]))
-            
-            if plot_ and order == 20:
+            plot_=False
+            if plot_ and order>10:
                 print(modal_contributions[order,:][modal_contributions[order,:]!=0],np.sum(modal_contributions[order,:]))
                 import matplotlib.pyplot as plot
-                axes=[]
-                for i in range(len(conj_indices)):
-                    plot.figure()
-                    plot.plot(meas_synth_single[i][0,500:1000])
-                    ax=plot.gca()
-                    ax.set_xlim((0,500))
-                    ax.set_ylim((-0.0015,0.0015))
-                    ax.set_xticklabels([])
-                    ax.set_yticklabels([])
-                plot.figure()
-                plot.plot(self.prep_data.measurement[500:1000,0])
-                ax=plot.gca()
-                ax.set_xlim((0,500))
-                ax.set_ylim((-0.0015,0.0015))
-                ax.set_xticklabels([])
-                ax.set_yticklabels([])
-                plot.show()
+#                 axes=[]
+#                 for i in range(len(conj_indices)):
+#                     plot.figure()
+#                     plot.plot(meas_synth_single[i][0,500:1000])
+#                     ax=plot.gca()
+#                     ax.set_xlim((0,500))
+#                     ax.set_ylim((-0.0015,0.0015))
+#                     ax.set_xticklabels([])
+#                     ax.set_yticklabels([])
+#                 plot.figure()
+#                 plot.plot(self.prep_data.measurement[500:1000,0])
+#                 ax=plot.gca()
+#                 ax.set_xlim((0,500))
+#                 ax.set_ylim((-0.0015,0.0015))
+#                 ax.set_xticklabels([])
+#                 ax.set_yticklabels([])
+#                 plot.show()
                 
                 fig,axes=plot.subplots(len(conj_indices)+1,2, sharex='col', sharey='col', squeeze=False)
                 #print(axes)
@@ -964,6 +1091,7 @@ class SSIDataMC(object):
         self.modal_frequencies = modal_frequencies
         self.modal_damping = modal_damping
         self.mode_shapes = mode_shapes
+        self.eigenvalues = eigenvalues
             
         self.state[2]=True
         print('.',end='\n', flush=True)  
@@ -985,8 +1113,8 @@ class SSIDataMC(object):
             this_val=eigval[i]
             this_conj_val = np.conj(this_val)
             if this_val == this_conj_val: #remove real eigvals
-                continue
-                #conj_indices.append(i)
+                #continue
+                conj_indices.append(i)
             for j in range(i+1, num_val): #catches unordered conjugates but takes slightly longer
                 if eigval[j] == this_conj_val:
 
@@ -1028,6 +1156,8 @@ class SSIDataMC(object):
     
     def save_state(self, fname):
         
+        print('Saving results to  {}...'.format(fname))
+        
         dirname, filename = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
@@ -1046,6 +1176,10 @@ class SSIDataMC(object):
             out_dict['self.R_32'] = self.R_32
             out_dict['self.R_42'] = self.R_42
             out_dict['self.R_33'] = self.R_33
+            out_dict['self.Q_1_T'] = self.Q_1_T
+            out_dict['self.Q_2_T'] = self.Q_2_T
+            out_dict['self.Q_3_T'] = self.Q_3_T
+            #out_dict['self.Q_4_T'] = self.Q_4_T
         if self.state[1]:# singular value decomposition / state matrices
             out_dict['self.max_model_order'] = self.max_model_order
             out_dict['self.S'] = self.S
@@ -1054,6 +1188,7 @@ class SSIDataMC(object):
         if self.state[2]:# modal params
             out_dict['self.modal_frequencies'] = self.modal_frequencies
             out_dict['self.modal_damping'] = self.modal_damping
+            out_dict['self.eigenvalues'] = self.eigenvalues
             out_dict['self.mode_shapes'] = self.mode_shapes
             out_dict['self.modal_contributions'] = self.modal_contributions
             
@@ -1094,6 +1229,11 @@ class SSIDataMC(object):
             ssi_object.R_32= in_dict['self.R_32']
             ssi_object.R_42= in_dict['self.R_42']
             ssi_object.R_33= in_dict['self.R_33']
+            if 'self.Q_1_T' in in_dict:
+                ssi_object.Q_1_T= in_dict['self.Q_1_T'] 
+                ssi_object.Q_2_T= in_dict['self.Q_2_T'] 
+                ssi_object.Q_3_T= in_dict['self.Q_3_T'] 
+                #ssi_object.Q_4_T= in_dict['self.Q_4_T'] 
         if state[1]:# singular value decomposition / state matrices
             print('State Matrices Computed')
             ssi_object.max_model_order= int(in_dict['self.max_model_order'])
@@ -1106,7 +1246,10 @@ class SSIDataMC(object):
             ssi_object.modal_damping= in_dict['self.modal_damping']
             ssi_object.mode_shapes= in_dict['self.mode_shapes']
             ssi_object.modal_contributions= in_dict['self.modal_contributions']
-        
+            if 'self.eigenvalues' in in_dict:
+                ssi_object.eigenvalues = in_dict['self.eigenvalues'] 
+                
+        ssi_object.state = state
         return ssi_object
     
     @staticmethod

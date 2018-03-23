@@ -23,16 +23,16 @@ def my_excepthook(type, value, tback):
 sys.excepthook = my_excepthook
 
 import os
-import types
+
 import collections
-import time
+from operator import itemgetter
 from random import shuffle
 
 import matplotlib
 matplotlib.use("Qt5Agg", force=True)
 from matplotlib import rcParams, patches
 from matplotlib import ticker
-from matplotlib.axes import Axes
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, FigureCanvasQT
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.figure import Figure
@@ -60,7 +60,7 @@ from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
 from PyQt5.QtGui import QIcon, QPalette
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHandler, QTimer, QEventLoop
 
-from SSICovRef import BRSSICovRef
+from SSICovRef import BRSSICovRef, PogerSSICovRef
 from SSIData import SSIData, SSIDataMC
 from VarSSIRef import VarSSIRef
 from PRCE import PRCE
@@ -68,8 +68,6 @@ from PLSCF import PLSCF
 
 from PreprocessingTools import PreprocessData
 import warnings
-# TODO: Check interaction between stable and autoselect
-
 
 def resizeEvent_(self, event):
     w = event.size().width()
@@ -88,6 +86,7 @@ def resizeEvent_(self, event):
     self.draw()
     self.update()
     QWidget.resizeEvent(self, event)
+    
 '''
 TODO:
 scale markers right on every platform
@@ -95,10 +94,8 @@ frequency range as argument or from ssi params, sampling freq
 add switch to choose between "unstable only in ..." or "stable in ..."
 (select and merge several poles with a rectangular mouse selection)
 distinguish beetween stabilization criteria and filtering criteria
-add real mode shape plot
 add zoom and sliders (horizontal/vertical) for the main figure
 distinguish between  "export results" and "save state"
-
 '''
 
 
@@ -131,7 +128,7 @@ class StabilGUI(QMainWindow):
             self.mode_selector_add(mode)
 
         self.setGeometry(300, 300, 1000, 600)
-        # self.setWindowModality(Qt.ApplicationModal)
+        
         self.showMaximized()
 
         for widg in [self.mode_val_view, self.current_value_view]:
@@ -155,11 +152,8 @@ class StabilGUI(QMainWindow):
         mpd_max = self.stabil_calc.mpd_max
 
         self.fig = self.stabil_plot.fig
-        #self.canvas = self.stabil_plot.fig.canvas
-        # print(self.canvas)
+        
         self.canvas = FigureCanvasQTAgg(self.fig)
-
-        # self.stabil_plot.reconnect_cursor()
 
         self.canvas.setParent(main_frame)
         if self.stabil_plot.cursor is None:
@@ -420,10 +414,10 @@ class StabilGUI(QMainWindow):
                                                          float(self.mpd_edit.text())],
                                                      select_callback=[lambda x: [self.mpd_edit.setText(str(x)), self.update_stabil_view()]])
  
-    def show_mec_plot(self):
+    def show_MC_plot(self):
 
         b=self.sender().isChecked()
-        self.stabil_plot.show_mec(b)
+        self.stabil_plot.show_MC(b)
 
     def create_histo_plot(self, array, plot_obj, title='', ranges=None, select_ranges=[None], select_callback=[None]):
         '''
@@ -485,15 +479,15 @@ class StabilGUI(QMainWindow):
         # display information about currently selected mode
         i = self.stabil_calc.select_modes[index]
 
-        n, f, stdf, d, stdd, mpc, mp, mpd, mtn, mec = self.stabil_calc.get_modal_values(
+        n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC = self.stabil_calc.get_modal_values(
             i)
         self.current_mode = i
         s = ''
         for text, val in zip(['Frequency=%1.3fHz, \n' % (f), 'Std Frequency=%1.3e, \n' % (stdf),
                               'Order=%1.0f, \n' % (n), 'Damping=%1.3f%%,  \n' % (
                                   d), 'StdDamping=%1.3e,  \n' % (stdd),
-                              'MPC=%1.5f, \n' % (mpc), 'MP=%1.3f\u00b0, \n' % (mp), 'MPD=%1.5f\u00b0, \n' % (mpd), 'MTN=%1.5f, \n' % (mtn), 'MEC=%1.5f, \n' % (mec)],
-                             [f, stdf, n, d, stdd, mpc, mp, mpd, mtn, mec]):
+                              'MPC=%1.5f, \n' % (mpc), 'MP=%1.3f\u00b0, \n' % (mp), 'MPD=%1.5f\u00b0, \n' % (mpd),  'dMP=%1.3f\u00b0, \n' % (dmp), 'dMPD=%1.5f\u00b0, \n' % (dmpd), 'MTN=%1.5f, \n' % (mtn), 'MC=%1.5f, \n' % (MC)],
+                             [f, stdf, n, d, stdd, mpc, mp, mpd, dmp, dmpd,  mtn, MC]):
             if val is not np.nan:
                 s += text
         self.mode_val_view.setText(s)
@@ -504,7 +498,7 @@ class StabilGUI(QMainWindow):
     @pyqtSlot(tuple)
     def mode_selector_add(self, i):
         # add mode tomode_selector and select it
-        n, f, stdf, d, stdd, mpc, mp, mpd, mtn, mec = self.stabil_calc.get_modal_values(
+        n, f, stdf, d, stdd, mpc, mp, mpd,dmp, dmpd, mtn, MC = self.stabil_calc.get_modal_values(
             i)
         index = self.stabil_calc.select_modes.index(i)
         #print(n,f,d,mpc, mp, mpd)
@@ -534,7 +528,7 @@ class StabilGUI(QMainWindow):
         self.mode_selector.clear()
 
         for index, i in enumerate(self.stabil_calc.select_modes):
-            n,  f, stdf,  d, stdd, mpc, mp, mpd, mtn, mec = self.stabil_calc.get_modal_values(
+            n,  f, stdf,  d, stdd, mpc, mp, mpd,dmp, dmpd, mtn, MC = self.stabil_calc.get_modal_values(
                 i)
             text = '{} - {:2.3f}'.format(index, f)
             self.mode_selector.addItem(text)
@@ -582,15 +576,15 @@ class StabilGUI(QMainWindow):
 
     def update_value_view(self, i):
 
-        n, f, stdf, d, stdd, mpc, mp, mpd, mtn, mec = self.stabil_calc.get_modal_values(
+        n, f, stdf, d, stdd, mpc, mp, mpd,dmp, dmpd, mtn, MC = self.stabil_calc.get_modal_values(
             i)
         self.current_mode = i
         s = ''
         for text, val in zip(['Frequency=%1.3fHz, \n' % (f), 'Std Frequency=%1.3e, \n' % (stdf),
                               'Order=%1.0f, \n' % (n), 'Damping=%1.3f%%,  \n' % (
                                   d), 'StdDamping=%1.3e,  \n' % (stdd),
-                              'MPC=%1.5f, \n' % (mpc), 'MP=%1.3f\u00b0, \n' % (mp), 'MPD=%1.5f\u00b0, \n' % (mpd), 'MTN=%1.5f, \n' % (mtn), 'MEC=%1.5f, \n' % (mec)],
-                             [f, stdf, n, d, stdd, mpc, mp, mpd, mtn, mec]):
+                              'MPC=%1.5f, \n' % (mpc), 'MP=%1.3f\u00b0, \n' % (mp), 'MPD=%1.5f\u00b0, \n' % (mpd), 'dMP=%1.3f%%, \n' % (dmp), 'dMPD=%1.5f%%, \n' % (dmpd), 'MTN=%1.5f, \n' % (mtn), 'MC=%1.5f, \n' % (MC)],
+                             [f, stdf, n, d, stdd, mpc, mp, mpd,dmp, dmpd, mtn, MC]):
             if val is not np.nan:
                 s += text
 
@@ -628,10 +622,10 @@ class StabilGUI(QMainWindow):
             mpc_min = None
             mpd_max = None
             
-        if self.stabil_calc.capabilities['mec']:
-            mec_min = float(self.mec_edit.text())
+        if self.stabil_calc.capabilities['MC']:
+            MC_min = float(self.MC_edit.text())
         else:
-            mec_min = None
+            MC_min = None
 
         f_range = (float(self.freq_low.text()), float(self.freq_high.text()))
         order_range = (int(self.n_low.text()), int(
@@ -639,7 +633,7 @@ class StabilGUI(QMainWindow):
 
         self.stabil_plot.update_stabilization(df_max=df_max, stdf_max=stdf_max, dd_max=dd_max, stdd_max=stdd_max,
                                               dmac_max=dmac_max, d_range=d_range, mpc_min=mpc_min, mpd_max=mpd_max,
-                                              mec_min = mec_min, order_range=order_range)
+                                              MC_min = MC_min, order_range=order_range)
         self.stabil_plot.update_xlim(f_range)
         self.stabil_plot.update_ylim((order_range[0], order_range[2]))
 
@@ -821,15 +815,15 @@ class StabilGUI(QMainWindow):
             layout.addWidget(button, i, 4)
             i += 1
             
-        if self.stabil_calc.capabilities['mec']:
-            layout.addWidget(QLabel('MEC_min []'), i, 1)
-            self.mec_edit = QLineEdit('0')
-            self.mec_edit.setMaxLength(8)
-            self.mec_edit.setFixedWidth(60)
-            layout.addWidget(self.mec_edit, i, 3)
-            button = QPushButton('Show MEC')
+        if self.stabil_calc.capabilities['MC']:
+            layout.addWidget(QLabel('MC_min []'), i, 1)
+            self.MC_edit = QLineEdit('0')
+            self.MC_edit.setMaxLength(8)
+            self.MC_edit.setFixedWidth(60)
+            layout.addWidget(self.MC_edit, i, 3)
+            button = QPushButton('Show MC')
             button.setCheckable(True)
-            button.released.connect(self.show_mec_plot)
+            button.released.connect(self.show_MC_plot)
             layout.addWidget(button, i, 4)
             i += 1
 
@@ -838,11 +832,9 @@ class StabilGUI(QMainWindow):
             b0.released.connect(self.prepare_auto_clearing)
 
             self.num_iter_edit = QLineEdit(str(self.stabil_calc.num_iter))
-            self.scales_edit = QLineEdit(str(self.stabil_calc.clearing_scales))
 
             layout.addWidget(b0, i, 1)
             layout.addWidget(self.num_iter_edit, i, 2)
-            layout.addWidget(self.scales_edit, i, 3)
             i += 1
 
             b1 = QPushButton('Classify automatically')
@@ -873,11 +865,10 @@ class StabilGUI(QMainWindow):
     def prepare_auto_clearing(self):
         assert self.stabil_calc.capabilities['auto']
         num_iter = int(self.num_iter_edit.text())
-        scales = [float(scale.strip(', '))
-                  for scale in self.scales_edit.text().strip('[ ]').split(',')]
+
 
         if isinstance(self.stabil_calc, StabilCluster):
-            self.stabil_calc.automatic_clearing(num_iter, scales)
+            self.stabil_calc.automatic_clearing(num_iter)
             self.threshold_box.setPlaceholderText(
                 str(self.stabil_calc.threshold))
             self.stabil_plot.update_stabilization()
@@ -913,12 +904,12 @@ class StabilGUI(QMainWindow):
 
         if isinstance(self.stabil_calc, StabilCluster):
             self.stabil_calc.automatic_selection(num_modes)
-            self.stabil_plot.update_stabilization()
+            #self.stabil_plot.update_stabilization()
             # self.stabil_calc.plot_selection()
 
     def create_diag_val_widget(self, show_sf=True, show_sd=True,
                                show_sv=True, show_sa=True, show_all=True,
-                               show_psd=True, snap_to='sa', f_range=(0, 0), n_range=(0, 1, 0)):
+                               show_psd=False, snap_to='sa', f_range=(0, 0), n_range=(0, 1, 0)):
         layout = QGridLayout()
 
         layout.addWidget(QLabel('View Settings'), 1, 1, 1, 2)
@@ -1130,7 +1121,8 @@ class StabilCalc(object):
         super().__init__()
 
         assert isinstance(
-            modal_data, (BRSSICovRef, SSIData, VarSSIRef, PRCE, PLSCF, SSIDataMC))
+            modal_data, (BRSSICovRef, SSIData, VarSSIRef, PRCE, 
+                         PLSCF, SSIDataMC, PogerSSICovRef))
 
         self.modal_data = modal_data
 
@@ -1140,16 +1132,40 @@ class StabilCalc(object):
         if prep_data is not None:
             assert isinstance(prep_data, PreprocessData)
         self.prep_data = prep_data
+        
+        has_mode_shapes = self.modal_data.__dict__.get(
+            'mode_shapes', None) is not None
+        has_variances = self.modal_data.__dict__.get(
+            'std_frequencies', None) is not None
+        has_data = prep_data is not None
+        has_MC = self.modal_data.__dict__.get(
+            'modal_contributions', None) is not None
+        has_ev = self.modal_data.__dict__.get(
+            'eigenvalues', None) is not None
 
+        self.capabilities = {'f': 1,
+                             'd': 1,
+                             'msh': has_mode_shapes,
+                             'std': has_variances,
+                             'ev': has_ev,
+                             'mtn': 0,
+                             'MC': has_MC,
+                             'auto': isinstance(self, StabilCluster),
+                             'data': has_data}
+        
+        
+        if self.capabilities['ev']:
+            self.masked_lambda = np.ma.array(self.modal_data.eigenvalues, fill_value = 0)
+            
         self.masked_frequencies = np.ma.array(
-            self.modal_data.modal_frequencies)
-        self.masked_damping = np.ma.array(self.modal_data.modal_damping)
+            self.modal_data.modal_frequencies, fill_value = 0)
+        self.masked_damping = np.ma.array(self.modal_data.modal_damping, fill_value = 0)
 
         max_model_order = self.modal_data.max_model_order
         self.num_solutions = self.modal_data.modal_frequencies.shape[1]
         
         self.order_dummy = np.ma.array(
-            [[order] * self.num_solutions for order in range(max_model_order)])
+            [[order] * self.num_solutions for order in range(max_model_order)], fill_value = 0)
 
         # stable-in-... masks
         self.masks = {'mask_pre':   None,  # some constraints (f>0.0, order_range, etc)
@@ -1186,22 +1202,8 @@ class StabilCalc(object):
         self.select_callback = None
         self.state = 0
 
-        has_mode_shapes = self.modal_data.__dict__.get(
-            'mode_shapes', None) is not None
-        has_variances = self.modal_data.__dict__.get(
-            'std_frequencies', None) is not None
-        has_data = prep_data is not None
-        has_mec = self.modal_data.__dict__.get(
-            'modal_contributions', None) is not None
 
-        self.capabilities = {'f': 1,
-                             'd': 1,
-                             'msh': has_mode_shapes,
-                             'std': has_variances,
-                             'mtn': 0,
-                             'mec': has_mec,
-                             'auto': isinstance(self, StabilCluster),
-                             'data': has_data}
+        #print(self.capabilities)
         # self.calculate_soft_critera_matrices()
 
     def calculate_soft_critera_matrices(self):
@@ -1209,87 +1211,167 @@ class StabilCalc(object):
 
         # Direction 1: model order, Direction 2: current pole, Direction 3:
         # previous pole:
+        max_model_order = self.modal_data.max_model_order
+        num_solutions = self.num_solutions
+        capabilities = self.capabilities
         
-        self.freq_diffs = np.ma.zeros(
-            (self.modal_data.max_model_order, self.num_solutions, self.num_solutions))
-        self.damp_diffs = np.ma.zeros(
-            (self.modal_data.max_model_order, self.num_solutions, self.num_solutions))
-        self.MAC_diffs = np.ma.zeros(
-            (self.modal_data.max_model_order, self.num_solutions, self.num_solutions))
-
-        self.MPC_matrix = np.ma.zeros(
-            (self.modal_data.max_model_order, self.num_solutions))
-        self.MP_matrix = np.ma.zeros(
-            (self.modal_data.max_model_order, self.num_solutions))
-        self.MPD_matrix = np.ma.zeros(
-            (self.modal_data.max_model_order, self.num_solutions))
-
-        previous_freq_row = self.masked_frequencies[0, :]
-        previous_damp_row = self.modal_data.modal_damping[0, :]
-        previous_mode_shapes_row = self.modal_data.mode_shapes[:, :, 0]
+        lambda_diffs = np.ma.zeros(
+            (max_model_order, num_solutions, num_solutions), fill_value=0)
+        freq_diffs = np.ma.zeros(
+            (max_model_order, num_solutions, num_solutions), fill_value=0)
+        damp_diffs = np.ma.zeros(
+            (max_model_order, num_solutions, num_solutions), fill_value=0)
+        
+        if capabilities['msh']:
+            MAC_diffs = np.ma.zeros(
+                (max_model_order, num_solutions, num_solutions), fill_value=0)
+            MPD_diffs = np.ma.zeros(
+                (max_model_order, num_solutions, num_solutions), fill_value=0)
+            MP_diffs = np.ma.zeros(
+                (max_model_order, num_solutions, num_solutions), fill_value=0)
+    
+            MPC_matrix = np.ma.zeros(
+                (max_model_order, num_solutions), fill_value=0)
+            MP_matrix = np.ma.zeros(
+                (max_model_order, num_solutions), fill_value=0)
+            MPD_matrix = np.ma.zeros(
+                (max_model_order, num_solutions), fill_value=0)
+        
+        if capabilities['ev']:
+            prev_lambda_row = self.masked_lambda[0,:]
+        prev_freq_row = self.masked_frequencies[0, :]
+        prev_damp_row = self.modal_data.modal_damping[0, :]
+        if capabilities['msh']:
+            prev_mode_shapes_row = self.modal_data.mode_shapes[:, :, 0]
 
         # tuple with array of indizes of non-zero frequencies
-        previous_non_zero_entries = np.nonzero(previous_freq_row)
-        previous_length = len(previous_non_zero_entries[0])
+        #previous_non_zero_entries = np.nonzero(previous_freq_row)
+        prev_non_zero_entries = np.nonzero(prev_lambda_row.imag)
+        prev_length = len(prev_non_zero_entries[0])
+        
+        prev_lambda = prev_lambda_row[prev_non_zero_entries]
+        prev_freq = prev_freq_row[prev_non_zero_entries]
+        prev_damp = prev_damp_row[prev_non_zero_entries]
+        
+        if capabilities['msh']:
+            prev_mode_shapes = \
+               prev_mode_shapes_row[:, prev_non_zero_entries[0]]
+        
+            prev_MPD, prev_MP_new = self.calculateMPD(prev_mode_shapes)
+            prev_MP_new[prev_MP_new>90] -= 180 # in range [-90,90]
+        
+        for curr_order in range(1, max_model_order):
+            
+            if capabilities['ev']:
+                curr_lambda_row = self.masked_lambda[(curr_order),:]
+            
+            curr_freq_row = self.masked_frequencies[(curr_order), :]
 
-        previous_freq = previous_freq_row[previous_non_zero_entries]
-        previous_damp = previous_damp_row[previous_non_zero_entries]
-        previous_mode_shapes = previous_mode_shapes_row[
-            :, previous_non_zero_entries[0]]
+            curr_damp_row = self.modal_data.modal_damping[
+                (curr_order), :]
+            
+            if capabilities['msh']:
+                curr_mode_shapes_row = \
+                    self.modal_data.mode_shapes[:, :, curr_order]
 
-        for current_order in range(1, self.modal_data.max_model_order):
+            curr_non_zero_entries = np.nonzero(curr_lambda_row.imag)
+            # catches zeros and also real poles, which should have been removed in remove conjugates already
 
-            current_freq_row = self.masked_frequencies[(current_order), :]
-
-            current_damp_row = self.modal_data.modal_damping[
-                (current_order), :]
-            current_mode_shapes_row = self.modal_data.mode_shapes[
-                :, :, current_order]
-
-            current_non_zero_entries = np.nonzero(current_freq_row)
-            current_length = len(current_non_zero_entries[0])
-
-            if not current_length:
+            curr_length = len(curr_non_zero_entries[0])
+            
+            #print(curr_length)
+            if not curr_length:
                 continue
+            
+            curr_lambda = curr_lambda_row[curr_non_zero_entries]
+            curr_freq = curr_freq_row[curr_non_zero_entries]
+            curr_damp = curr_damp_row[curr_non_zero_entries]
+            
+            if capabilities['msh']:
+                curr_mode_shapes = \
+                    curr_mode_shapes_row[:, curr_non_zero_entries[0]]
 
-            current_freq = current_freq_row[current_non_zero_entries]
-            current_damp = current_damp_row[current_non_zero_entries]
-            current_mode_shapes = current_mode_shapes_row[
-                :, current_non_zero_entries[0]]
+            div_lambda = np.maximum(
+                np.repeat(np.expand_dims(np.abs(prev_lambda), axis=1), 
+                          curr_lambda.shape[0], axis=1),
+                np.repeat(np.expand_dims(np.abs(curr_lambda), axis=0), 
+                          prev_lambda.shape[0], axis=0))
+            
+            div_freq = np.maximum(
+                np.repeat(np.expand_dims(np.abs(prev_freq), axis=1), 
+                          curr_freq.shape[0], axis=1),
+                np.repeat(np.expand_dims(np.abs(curr_freq), axis=0), 
+                          prev_freq.shape[0], axis=0))
+            
+            div_damp = np.maximum(
+                np.repeat(np.expand_dims(np.abs(prev_damp), axis=1), 
+                          curr_damp.shape[0], axis=1),
+                np.repeat(np.expand_dims(np.abs(curr_damp), axis=0), 
+                          prev_damp.shape[0], axis=0))
 
-            # print(current_freq.shape,previous_freq.shape)
+            if capabilities['msh']:
+                mac_diffs = np.transpose(1 - self.calculateMAC(
+                    prev_mode_shapes[:, :prev_length], curr_mode_shapes[:,:curr_length]))
+                #print(mac_diffs)
+                MAC_diffs[curr_order, curr_non_zero_entries[0], :prev_length] = \
+                    mac_diffs
 
-            div_freq = np.maximum(np.repeat(np.expand_dims(previous_freq, axis=1), current_freq.shape[0], axis=1),
-                                  np.repeat(np.expand_dims(current_freq, axis=0), previous_freq.shape[0], axis=0))
-            div_damp = np.maximum(np.repeat(np.expand_dims(previous_damp, axis=1), current_damp.shape[0], axis=1),
-                                  np.repeat(np.expand_dims(current_damp, axis=0), previous_damp.shape[0], axis=0))
+                MPC_matrix[curr_order, curr_non_zero_entries[0]] = self.calculateMPC(
+                    curr_mode_shapes[:,:curr_length])
+                
+                curr_MPD, curr_MP = self.calculateMPD(curr_mode_shapes[:,:curr_length])
+                MPD_matrix[curr_order, curr_non_zero_entries[0]], MP_matrix[
+                    curr_order, curr_non_zero_entries[0]] = curr_MPD, curr_MP
 
-            self.MAC_diffs[current_order, :current_length, :previous_length] = np.transpose(
-                1 - self.calculateMAC(previous_mode_shapes[:, :previous_length], current_mode_shapes[:, :current_length]))
-
-            self.MPC_matrix[current_order, :current_length] = self.calculateMPC(
-                current_mode_shapes[:, :current_length])
-
-            # print(current_freq.shape,previous_freq.shape)
-            #print(div_freq.shape,np.repeat(np.expand_dims(previous_freq, axis=1), current_freq.shape[0], axis = 1).shape )
-
-            self.freq_diffs[current_order, :current_length, :len(previous_freq)] = np.abs((np.repeat(
-                np.expand_dims(previous_freq, axis=1), current_freq.shape[0], axis=1) - current_freq) / div_freq).T
-            self.damp_diffs[current_order, :current_length, :len(previous_damp)] = np.abs((np.repeat(
-                np.expand_dims(previous_damp, axis=1), current_damp.shape[0], axis=1) - current_damp) / div_damp).T
-            #a=np.abs((np.repeat(np.expand_dims(previous_damp, axis=1), current_damp.shape[0], axis = 1)-current_damp) / div_damp).T
-            # if ~(np.isfinite(a)).all():
-            #    print(a[np.where(~np.isfinite(a))])
-            # print(current_damp)
-            #print(np.pad(previous_damp, (0,max(0,len(current_damp)-len(previous_damp))),'constant',constant_values=0)[:len(current_damp)])
-
-            self.MPD_matrix[current_order, :current_length], self.MP_matrix[
-                current_order, :current_length] = self.calculateMPD(current_mode_shapes[:, :current_length])
-
-            previous_freq = current_freq
-            previous_damp = current_damp
-            previous_mode_shapes = current_mode_shapes
-            previous_length = current_length
+            lambda_diffs[curr_order, curr_non_zero_entries[0], :len(prev_lambda)] = np.abs((np.repeat(
+                np.expand_dims(prev_lambda, axis=1), curr_lambda.shape[0], axis=1) - curr_lambda) / div_lambda).T
+            freq_diffs[curr_order, curr_non_zero_entries[0], :len(prev_freq)] = np.abs((np.repeat(
+                np.expand_dims(prev_freq, axis=1), curr_freq.shape[0], axis=1) - curr_freq) / div_freq).T
+            damp_diffs[curr_order, curr_non_zero_entries[0], :len(prev_damp)] = np.abs((np.repeat(
+                np.expand_dims(prev_damp, axis=1), curr_damp.shape[0], axis=1) - curr_damp) / div_damp).T
+                
+            if capabilities['msh']:
+                
+                div_MPD = np.maximum(np.repeat(np.expand_dims(np.abs(prev_MPD), axis=1), curr_MPD.shape[0], axis=1),
+                                            np.repeat(np.expand_dims(np.abs(curr_MPD), axis=0), prev_MPD.shape[0], axis=0))
+                
+                MPD_diffs[curr_order, curr_non_zero_entries[0], :len(prev_MPD)] = np.abs((np.repeat(
+                    np.expand_dims(prev_MPD, axis=1), curr_MPD.shape[0], axis=1) - curr_MPD) / div_MPD).T
+                
+                curr_MP_new = np.copy(curr_MP) # in range [0,180]
+                curr_MP_new[curr_MP_new>90] -= 180 # in range [-90,90]
+                
+                div_MP = np.maximum(np.repeat(np.expand_dims(np.abs(prev_MP_new), axis=1), curr_MP_new.shape[0], axis=1),
+                                            np.repeat(np.expand_dims(np.abs(curr_MP_new), axis=0), prev_MP_new.shape[0], axis=0))
+                
+                MP_diffs[curr_order, curr_non_zero_entries[0], :len(prev_MP_new)] = np.abs((np.repeat(
+                    np.expand_dims(prev_MP_new, axis=1), curr_MP_new.shape[0], axis=1) - curr_MP_new) / div_MP).T
+            
+            prev_lambda = curr_lambda
+            prev_freq = curr_freq
+            prev_damp = curr_damp
+            
+            if capabilities['msh']:
+                prev_mode_shapes = curr_mode_shapes
+                prev_MPD = curr_MPD
+                prev_MP_new = curr_MP_new
+            
+            prev_length = curr_length
+            prev_non_zero_entries = curr_non_zero_entries
+        
+        self.lambda_diffs = lambda_diffs
+        self.freq_diffs = freq_diffs
+        self.damp_diffs = damp_diffs   
+        self.MAC_diffs = MAC_diffs   
+        self.MPD_diffs = MPD_diffs 
+        self.MP_diffs = MP_diffs 
+          
+        self.MPD_matrix = MPD_matrix  
+        self.MP_matrix= MP_matrix  
+        self.MPC_matrix = MPC_matrix  
+        
+        
+        
         self.state = 1
 
     @staticmethod
@@ -1405,6 +1487,7 @@ class StabilCalc(object):
 
                 MPD[k] = np.degrees((sum(numerator) / sum(denominator)))
                 MP[k] = np.degrees(np.arctan(-V_T[1, 0] / V_T[1, 1]))
+                # MP in [-pi/2, pi/2] = [-90, 90]
                 # phase=np.angle(v[:,k]*np.exp(-1j*np.radians(MP[k])),True)
                 # print(np.mean(phase))
                 # phase[phase>90]-=180
@@ -1413,7 +1496,9 @@ class StabilCalc(object):
 
         MP[MP < 0] += 180  # restricted to +imag region
         MPD[MPD < 0] *= -1
-        # MPD/=90   # normalized
+        
+        #MP [0,180]
+        #MPD >= 0
         return MPD, MP
 
     def export_results(self, fname, binary=False):
@@ -1450,8 +1535,8 @@ class StabilCalc(object):
                 selected_stdmsh = np.zeros(
                     (self.modal_data.mode_shapes.shape[0], len(select_modes)), dtype=complex)
                 
-            if self.capabilities['mec']:
-                selected_mec = [self.modal_data.modal_contributions[index]
+            if self.capabilities['MC']:
+                selected_MC = [self.modal_data.modal_contributions[index]
                                  for index in select_modes]
                 
             if self.capabilities['msh']:
@@ -1495,8 +1580,8 @@ class StabilCalc(object):
             std_freq_str = ''
             std_damp_str = ''
             std_msh_str = ''
-        if self.capabilities['mec']:
-            mec_str = ''
+        if self.capabilities['MC']:
+            MC_str = ''
             
         for col in range(len(select_modes)):
             freq_str += '{:3.3f} \t\t'.format(selected_freq[col])
@@ -1512,8 +1597,8 @@ class StabilCalc(object):
                 std_damp_str += '{:3.3e} \t\t'.format(selected_stdd[col])
                 std_freq_str += '{:3.3e} \t\t'.format(selected_stdf[col])
             
-            if self.capabilities['mec']:
-                mec_str += '{:3.3f} \t\t'.format(selected_mec[col])
+            if self.capabilities['MC']:
+                MC_str += '{:3.3f} \t\t'.format(selected_MC[col])
                 
         if self.capabilities['msh']:
             for row in range(selected_modes.shape[0]):
@@ -1536,9 +1621,9 @@ class StabilCalc(object):
         if self.capabilities['std']:
             export_modes += 'Standard deviations of the Damping [%]:\t' + \
                 std_damp_str + '\n'
-        if self.capabilities['mec']:
+        if self.capabilities['MC']:
             export_modes += 'Modal Contributions of the mode [-]:\t' + \
-                mec_str + '\n'
+                MC_str + '\n'
         if self.capabilities['msh']:
             export_modes += 'Mode shapes:\t\t' + msh_str + '\n'
         if self.capabilities['std']:
@@ -1588,7 +1673,7 @@ class StabilCalc(object):
                                       stdf_max=None, stdd_max=None,
                                       mpc_min=None, mpd_max=None,  mtn_min=None,
                                       df_max=None, dd_max=None, dmac_max=None,
-                                      dev_min=None, dmtn_min=None):
+                                      dev_min=None, dmtn_min=None, MC_min=None):
         if self.state < 1:
             self.calculate_soft_critera_matrices()
 
@@ -1616,18 +1701,20 @@ class StabilCalc(object):
             dev_min = 0.02
         if dmtn_min is None:
             dmtn_min = 0.02
+        if MC_min is None:
+            MC_min = 0
 
         self.state = 2
 
         self.update_stabilization_masks(order_range, d_range, stdf_max, stdd_max,
                                         mpc_min, mpd_max, mtn_min, df_max,
-                                        dd_max, dmac_max, dev_min, dmtn_min)
+                                        dd_max, dmac_max, dev_min, dmtn_min, MC_min)
 
     def update_stabilization_masks(self, order_range=None, d_range=None,
                                    stdf_max=None, stdd_max=None,
                                    mpc_min=None, mpd_max=None,  mtn_min=None,
                                    df_max=None, dd_max=None, dmac_max=None,
-                                   dev_min=None, dmtn_min=None, mec_min=None):
+                                   dev_min=None, dmtn_min=None, MC_min=None):
         if self.state < 2:
             self.calculate_stabilization_masks()
         # update
@@ -1656,8 +1743,8 @@ class StabilCalc(object):
             self.dev_min = dev_min
         if dmtn_min is not None:
             self.dmtn_min = dmtn_min
-        if mec_min is not None:
-            self.mec_min = mec_min
+        if MC_min is not None:
+            self.MC_min = MC_min
 
         self.masked_frequencies.mask = np.ma.nomask
         self.order_dummy.mask = np.ma.nomask
@@ -1714,9 +1801,9 @@ class StabilCalc(object):
             warnings.warn(
                 'Modal Transfer Norm is not yet implemented! Ignoring')
             
-        if mec_min is not None:
-            mask = np.logical_and(mask_pre, self.modal_data.modal_contributions >= mec_min)
-            self.masks['mask_mec'] = mask
+        if MC_min is not None and self.capabilities['MC']:
+            mask = np.logical_and(mask_pre, self.modal_data.modal_contributions >= MC_min)
+            self.masks['mask_MC'] = mask
 
         full_masks = []
         if df_max is not None:
@@ -1829,10 +1916,23 @@ class StabilCalc(object):
             mpc = self.MPC_matrix[i]
             mp = self.MP_matrix[i]
             mpd = self.MPD_matrix[i]
+            MP_diffs = self.MP_diffs[i]
+            #print(np.nonzero(MP_diffs)[0]) 
+            if len(np.nonzero(MP_diffs)[0])>=1:
+                dmp = np.min(MP_diffs[np.nonzero(MP_diffs)])
+            else:
+                dmp=0
+            MPD_diffs = self.MPD_diffs[i]
+            if len(np.nonzero(MPD_diffs)[0])>=1:
+                dmpd = np.min(MPD_diffs[np.nonzero(MPD_diffs)])
+            else:
+                dmpd=0
         else:
             mpc = np.nan
             mp = np.nan
             mpd = np.nan
+            dmp = np.nan
+            dmpd = np.nan
 
         if self.capabilities['std']:
             stdf = self.modal_data.std_frequencies[i]
@@ -1849,12 +1949,12 @@ class StabilCalc(object):
         else:
             mtn = np.nan
             
-        if self.capabilities['mec']:
-            mec = self.modal_data.modal_contributions[i]
+        if self.capabilities['MC']:
+            MC = self.modal_data.modal_contributions[i]
         else:
-            mec = np.nan
-
-        return n,  f, stdf,  d, stdd, mpc, mp, mpd, mtn, mec
+            MC = np.nan
+        #print(dmp, dmpd)
+        return n,  f, stdf,  d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC
 
     def get_mode_shape(self, i):
         assert isinstance(i, (list, tuple))
@@ -1864,32 +1964,69 @@ class StabilCalc(object):
         return self.modal_data.mode_shapes[:, i[1], i[0]]
 
     def save_state(self, fname):
-        #self.select_modes = self.cursor.datalist
 
+        print('Saving results to  {}...'.format(fname))        
+        
         dirname, filename = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
 
-        out_dict = {}
-        # out_dict['self.modal_data']=self.modal_data
+        out_dict = {'self.state':self.state}
 
         out_dict['self.setup_name'] = self.setup_name
         out_dict['self.start_time'] = self.start_time
+        
+        if self.state>=1:
+            out_dict['self.lambda_diffs'] = np.array(self.lambda_diffs)
+            out_dict['self.freq_diffs'] = np.array(self.freq_diffs)
+            out_dict['self.damp_diffs'] = np.array(self.damp_diffs)
+            
+            if self.capabilities['msh']:
+                out_dict['self.MAC_diffs'] = np.array(self.MAC_diffs)
+                out_dict['self.MPD_diffs'] = np.array(self.MPD_diffs)
+                out_dict['self.MP_diffs'] = np.array(self.MP_diffs)
+            
+                out_dict['self.MPC_matrix'] = np.array(self.MPC_matrix)
+                out_dict['self.MP_matrix'] = np.array(self.MP_matrix)
+                out_dict['self.MPD_matrix'] = np.array(self.MPD_matrix)
 
-        out_dict['self.df_max'] = self.df_max
-        out_dict['self.dd_max'] = self.dd_max
-        out_dict['self.dmac_max'] = self.dmac_max
-        out_dict['self.d_range'] = self.d_range
-        out_dict['self.mpc_min'] = self.mpc_min
-        out_dict['self.mpd_max'] = self.mpd_max
-
-        out_dict['self.freq_diffs'] = np.array(self.freq_diffs)
-        out_dict['self.damp_diffs'] = np.array(self.damp_diffs)
-        out_dict['self.MAC_diffs'] = np.array(self.MAC_diffs)
-        out_dict['self.MPC_matrix'] = np.array(self.MPC_matrix)
-        out_dict['self.MP_matrix'] = np.array(self.MP_matrix)
-        out_dict['self.MPD_matrix'] = np.array(self.MPD_matrix)
-
+        if self.state>=2:
+            out_dict['self.order_range'] = self.order_range
+            out_dict['self.d_range'] = self.d_range
+            if self.capabilities['std']:
+                out_dict['self.stdf_max'] = self.stdf_max
+                out_dict['self.stdd_max'] = self.stdd_max
+            if self.capabilities['msh']:
+                out_dict['self.mpc_min'] = self.mpc_min
+                out_dict['self.mpd_max'] = self.mpd_max
+                out_dict['self.mtn_min'] = self.mtn_min   
+                 
+            out_dict['self.df_max'] = self.df_max
+            out_dict['self.dd_max'] = self.dd_max
+            if self.capabilities['msh']:
+                out_dict['self.dmac_max'] = self.dmac_max
+            out_dict['self.dev_min'] = self.dev_min
+            if self.capabilities['mtn']:
+                out_dict['self.dmtn_min'] = self.dmtn_min
+            if self.capabilities['MC']:
+                out_dict['self.MC_min'] = self.MC_min
+            out_dict['self.masks'] = self.masks
+            out_dict['self.nmasks'] = self.nmasks
+            
+        if self.capabilities['auto']:
+            if self.state>=3:                
+                out_dict['self.num_iter'] = self.num_iter 
+                out_dict['self.threshold'] = self.threshold
+                out_dict['self.clear_ctr'] = self.clear_ctr  
+            if self.state>=4:        
+                out_dict['self.use_stabil'] = self.use_stabil
+                out_dict['self.proximity_matrix_sq'] = self.proximity_matrix_sq
+                out_dict['self.cluster_assignments'] = self.cluster_assignments
+            if self.state>=5:
+                out_dict['self.select_clusters'] = self.select_clusters  
+                out_dict['self.nr_poles'] = self.nr_poles         
+                out_dict['self.selection_cut_off'] = self.selection_cut_off
+        
         out_dict['self.select_modes'] = self.select_modes
 
         np.savez_compressed(fname, **out_dict)
@@ -1898,10 +2035,13 @@ class StabilCalc(object):
     def load_state(cls, fname, modal_data, prep_data=None):
         print('Now loading previous results from  {}'.format(fname))
 
-        #assert isinstance(modal_data, (BRSSICovRef, VarSSIRef, PRCE, PLSCF))
-
         in_dict = np.load(fname)
-
+        
+        if 'self.state' in in_dict:
+            state= float(in_dict['self.state'])
+        else:
+            return
+        
         setup_name = str(in_dict['self.setup_name'].item())
         start_time = in_dict['self.start_time'].item()
 
@@ -1909,23 +2049,63 @@ class StabilCalc(object):
         #assert start_time == modal_data.start_time
 
         stabil_data = cls(modal_data, prep_data)
+        
+        if state>=1:
+            stabil_data.lambda_diffs = np.ma.array(in_dict['self.lambda_diffs'])
+            stabil_data.freq_diffs = np.ma.array(in_dict['self.freq_diffs'])
+            stabil_data.damp_diffs = np.ma.array(in_dict['self.damp_diffs'])
+            
+            if stabil_data.capabilities['msh']:
+                stabil_data.MAC_diffs = np.ma.array(in_dict['self.MAC_diffs'])
+                stabil_data.MPD_diffs = np.ma.array(in_dict['self.MPD_diffs'])
+                stabil_data.MP_diffs = np.ma.array(in_dict['self.MP_diffs'])
+                
+                stabil_data.MPC_matrix = np.ma.array(in_dict['self.MPC_matrix'])
+                stabil_data.MP_matrix = np.ma.array(in_dict['self.MP_matrix'])
+                stabil_data.MPD_matrix = np.ma.array(in_dict['self.MPD_matrix'])
+                
+        if state >=2:
+            stabil_data.order_range = tuple(in_dict['self.order_range'])
+            stabil_data.d_range = tuple(in_dict['self.d_range'])
+            if stabil_data.capabilities['std']:
+                stabil_data.stdf_max = float(in_dict['self.df_max'])
+                stabil_data.stdd_max = float(in_dict['self.stdd_max'])
+            if stabil_data.capabilities['msh']:
+                stabil_data.mpc_min = float(in_dict['self.mpc_min'])
+                stabil_data.mpd_max = float(in_dict['self.mpd_max'])
+                stabil_data.mtn_min = float(in_dict['self.mtn_min'])
+            
+            stabil_data.df_max = float(in_dict['self.df_max'])
+            stabil_data.dd_max = float(in_dict['self.dd_max'])
+            if stabil_data.capabilities['msh']:
+                stabil_data.dmac_max = float(in_dict['self.dmac_max'])
+            stabil_data.dev_min = float(in_dict['self.dev_min'])
+            if stabil_data.capabilities['mtn']:
+                stabil_data.dmtn_min = float(in_dict['self.dmtn_min'])
+            if stabil_data.capabilities['MC']:
+                stabil_data.MC_min = float(in_dict['self.MC_min'])
+        
+            stabil_data.masks = in_dict['self.masks'].item()
+            stabil_data.nmasks = in_dict['self.nmasks'].item()
+ 
+        if stabil_data.capabilities['auto']:
+            if state>=3:                
+                stabil_data.num_iter = int(in_dict['self.num_iter'])
+                stabil_data.threshold = float(in_dict['self.threshold'])
+                stabil_data.clear_ctr = in_dict['self.clear_ctr']
+            if state>=4:
+                stabil_data.use_stabil = bool(in_dict['self.use_stabil'])
+                stabil_data.proximity_matrix_sq = in_dict['self.proximity_matrix_sq']
+                stabil_data.cluster_assignments = in_dict['self.cluster_assignments']
+            if state>=5:
+                stabil_data.select_clusters = list(in_dict['self.select_clusters'])
+                stabil_data.nr_poles = list(in_dict['self.nr_poles'])  
+                stabil_data.selection_cut_off = float(in_dict['self.selection_cut_off'])
 
-        stabil_data.df_max = float(in_dict['self.df_max'])
-        stabil_data.dd_max = float(in_dict['self.dd_max'])
-        stabil_data.dmac_max = float(in_dict['self.dmac_max'])
-        stabil_data.d_range = tuple(in_dict['self.d_range'])
-        stabil_data.mpc_min = float(in_dict['self.mpc_min'])
-        stabil_data.mpd_max = float(in_dict['self.mpd_max'])
-
-        stabil_data.freq_diffs = in_dict['self.freq_diffs']
-        stabil_data.damp_diffs = in_dict['self.damp_diffs']
-        stabil_data.MAC_diffs = in_dict['self.MAC_diffs']
-        stabil_data.MPC_matrix = in_dict['self.MPC_matrix']
-        stabil_data.MP_matrix = in_dict['self.MP_matrix']
-        stabil_data.MPD_matrix = in_dict['self.MPD_matrix']
         stabil_data.select_modes = [tuple(a)
                                     for a in in_dict['self.select_modes']]
-
+        
+        stabil_data.state = state
         return stabil_data
 
 
@@ -1935,20 +2115,17 @@ class StabilCluster(StabilCalc):
         '''
         stab_* in %
         '''
-        super().__init__(modal_data, prep_data)
-        # df, dd, dMAC, MPC, MPD, stdf, stdd
-        self.clearing_scales = [1, 1]
+        super().__init__(modal_data, prep_data)#
         
-        if self.capabilities['msh']:
-            self.clearing_scales += [1,1,1]
-        if self.capabilities['std']:
-            self.clearing_scales += [1,1]
+        assert self.capabilities['ev']
+        
         self.num_iter = 20000
         
         self.weight_f = 1
         self.weight_MAC = 1
         self.weight_d = 1
-        self.threshold = 0
+        self.weight_lambda = 1
+        self.threshold = None
 
         """ The automatic modal analysis done in three stages clustering. 
         1st stage: values sorted according to their soft and hard criteria by a 2-means partitioning algorithm
@@ -1958,6 +2135,41 @@ class StabilCluster(StabilCalc):
                    | d = weight*df + 1 - weight*MAC + weight*dd |
                    ---------------------------------------------
         3rd stage: 2-means partitioning of the physical and spurious poles. 
+        
+        
+        E. Neu et al.
+        
+        1. Identify mode candidates from a large number of system orders.
+            -> OMA Algorithm with n_max sufficiently high, i.e. number of mathematical modes should exceed the number pf physical modes at n <= n_max
+            
+        2. Remove as many mathematical modes as possible.        
+        (a) Remove certainly mathematical modes using hard validation criteria.
+            Re(\lambda_n)>= 0 or Im(\lambda_n)==0-> remove conjugates in OMA algorithm
+        (b) Split modes into consistent and non-consistent sets using k-means clustering.
+            p_i = [d_lambda, d_f, d_zeta, 1-MAC, dMPD]
+            power transformation eq 11
+            h_Ti = ln(p_i)
+            normalize: 
+            h_Ni = (h_Ti - mean(h_Ti)) / std(h_Ti)
+            initialize centroids with (+std(h_Ni), -std(h_Ni))
+            
+        
+        3. Divide the remaining modes into homogeneous sets using hierarchical clustering.
+        (a) Derive cutoff distance from the probability distribution of the consistent modes.
+                np.percentile(a,95)
+        (b) Cluster the mode candidates based on a complex distance measure.
+                average linkage / single linkage 
+        (c) Remove all but one mode from a single system order in one cluster.
+                walk over each cluster and ensure each model order exists only once in the cluster, else remove the mode with a higher distance to the cluster center
+                
+        4. Remove the small sets, which typically consist of mathematical modes.
+        (a) Reject sets that are smaller than a threshold derived from the largest set size.
+            no recommendations given in paper (threshold 50 %)
+        (b) Use outlier rejection to remove natural frequency and damping outliers.
+            skip
+        (c) Select a single mode representative from the remaining modes in each cluster.
+            "multivariate" median
+        
         """
     @staticmethod
     def decompress_flat_mask(compress_mask, flat_mask):
@@ -2001,248 +2213,162 @@ class StabilCluster(StabilCalc):
         else:
             plot.show()
             plot.pause(0.001)
-
-    def automatic_clearing(self, num_iter=None, scale=None):
+            
+    def automatic_clearing(self, num_iter=None):
         if self.state < 2:
             self.calculate_soft_critera_matrices()
+        print('Clearing physical modes automatically...')
         # 2-means clustering of all poles by all available criteria
-        # TODO: implement a more flexible way to include/exclude criteria, provide scaling factors
-        # the scale significantly influences convergence as the kmeans
         # algorithm minimizes euclidian distances
-        if num_iter is not None:
-
+        
+        if num_iter is not None: 
             assert isinstance(num_iter, int)
             assert num_iter > 0
             self.num_iter = num_iter
-
-        if scale is not None:
-            assert isinstance(scale, (tuple, list))
-            assert len(scale) == len(self.clearing_scales)
-            self.clearing_scales = scale
-
-        # represent all the vectors by their soft criteria : [index, i, |
-        # val_f, xi_diff, lambda_diff, MAC, MPC, MPD,| MP, hv1, hv2, hv3]
-        mask_pre = np.array(self.get_stabilization_mask('mask_pre'))
-        # in a second run mask_pre is itself masked
-        #mask_pre.mask = np.ma.nomask
-
+        
+        # represent all the vectors by their soft criteria : 
+        # [index, i, d_lambda, d_f, d_xi, dMAC, dMPD]
+        
+        mask_pre = np.ma.array(self.get_stabilization_mask('mask_pre'))
+        # in a second run mask_pre is itself masked        
+ 
         self.freq_diffs.mask = np.ma.nomask
         self.damp_diffs.mask = np.ma.nomask
+        self.lambda_diffs.mask = np.ma.nomask
         if self.capabilities['msh']:
             self.MAC_diffs.mask = np.ma.nomask
-            self.MPC_matrix.mask = np.ma.nomask
-            self.MPD_matrix.mask = np.ma.nomask
-        if self.capabilities['std']:
-            pass
-            #self.modal_data.std_frequencies
-            #self.modal_data.std_damping
-
+            #self.MPD_diffs.mask = np.ma.nomask
+            self.MP_diffs.mask = np.ma.nomask
+ 
         # assuming there are no frequencies equal within given precision
         mask_pre_3d = self.freq_diffs == 0
-
+ 
         soft_criteria_matrices = []
-        for matrix in [self.freq_diffs, self.damp_diffs]:
+        for matrix in [self.lambda_diffs, self.freq_diffs, self.damp_diffs]:
             matrix.mask = mask_pre_3d
             soft_criteria_matrices.append(matrix.min(axis=2))
-        #print([type(matrix) for matrix in soft_criteria_matrices])    
+                
         if self.capabilities['msh']:
             self.MAC_diffs.mask = mask_pre_3d
             soft_criteria_matrices.append(self.MAC_diffs.min(axis=2))
             
-            soft_criteria_matrices += [
-                np.ma.copy(self.MPC_matrix), np.ma.copy(self.MPD_matrix/90)]
-        #print([type(matrix) for matrix in soft_criteria_matrices])
-        if self.capabilities['std']:
-            soft_criteria_matrices += [
-                np.ma.array(np.copy(self.modal_data.std_frequencies/self.modal_data.modal_frequencies)), np.ma.array(np.copy(self.modal_data.std_damping/self.modal_data.modal_damping))]
-        #print([type(matrix) for matrix in soft_criteria_matrices])
-        #                                 df,             dd,             dMAC,         MPC,             MPD
-        
-        # df, dd, dMAC, MPC, MPD, stdf, stdd
-        ideal_physical_values = [1e-16, 1e-16]
-        ideal_spurious_values = [0.02,     0.1    ]
-        if self.capabilities['msh']:
-            ideal_physical_values += [1e-16, 1,     1e-16]
-            ideal_spurious_values += [0.02,   0.1, 0.5    ]
-        if self.capabilities['std']:
-            ideal_physical_values += [1e-16, 1e-16]
-            ideal_spurious_values += [0.1,   5  ]
-        ideal_physical_values = np.array(ideal_physical_values)
-        ideal_spurious_values = np.array(ideal_spurious_values)
-        
-        
-        ideal_physical_values = list(ideal_physical_values*np.array(self.clearing_scales))
-        ideal_spurious_values = list(ideal_spurious_values*np.array(self.clearing_scales))
-        
-
-        for factor, matrix in zip(self.clearing_scales, soft_criteria_matrices):
-            matrix *= factor
-        
-        # filtering to the range <physical, spurious> to enhance k-means
-        for matrix, physical, spurious in zip(soft_criteria_matrices, ideal_physical_values, ideal_spurious_values):
-            # some values might be masked from the reduction from 3D,
-            # if these values are unmasked by mask_pre there will be
-            # a value of 1e+20 which will cause the scipy.clustering to fail
-            mask_pre = np.logical_or(matrix.mask, mask_pre)
-            this_mask = np.logical_or(matrix<min(physical, spurious), matrix > max(physical, spurious))
-            mask_pre = np.logical_or(this_mask, mask_pre)
-        
+            #self.MPD_diffs.mask = mask_pre_3d
+            #soft_criteria_matrices.append(self.MPD_diffs.min(axis=2))
+            
+            self.MP_diffs.mask = mask_pre_3d
+            soft_criteria_matrices.append(self.MP_diffs.min(axis=2))
+         
         for matrix in soft_criteria_matrices:
             matrix.mask = mask_pre
-            
-
-        # remove all matrices that have factor 0
-        for index, factor in reversed(list(enumerate(self.clearing_scales))):
-            if not factor:
-                del ideal_physical_values[index]
-                del ideal_spurious_values[index]
-                del soft_criteria_matrices[index]
-
-        ideal_physical_values = np.array(ideal_physical_values)
-        ideal_spurious_values = np.array(ideal_spurious_values)
 
         # flatten unmasked values and remove first two model orders
         compressed_matrices = [matrix[2:, :].compressed()
                                for matrix in soft_criteria_matrices]
-        # freq_diff, damp_diff, ev_diff, MAC, MPC, MPD, stacked as list of size
-        # order x modes
+        
+        # dlambda, df, dd, dMAC, dMPD, stacked as list of size (order, num_modes)
         all_poles = np.vstack(compressed_matrices).T
-        # whitening (scale to unit variance) significantly improves convergence
-        # rates of the kmeans algorithm
-        #all_poles = scipy.cluster.vq.whiten(all_poles)
+        
+        #transform distribution (weibull like) to logarithmic scale 
+        all_poles = np.log(all_poles)
+
+        # whitening (scale to unit variance) significantly improves 
+        # convergence rates of the kmeans algorithm
+        mean_all_poles = np.mean(all_poles, axis=0)
+        std_all_poles = np.std(all_poles, axis=0)
+        all_poles -= mean_all_poles
+        all_poles /= std_all_poles
+        
         std_dev = np.std(all_poles, axis=0)
-        zero_std_mask = std_dev == 0
-        if zero_std_mask.any():
-            std_dev[zero_std_mask] = 1.0
-            warnings.warn("Some columns have standard deviation zero. "
-                      "The values of these columns will not change.",
-                      RuntimeWarning)
-        all_poles /= std_dev
-        ideal_physical_values /= std_dev
-        ideal_spurious_values /= std_dev
-        #print(std_dev, ideal_physical_values, ideal_spurious_values)
-        #import matplotlib.pyplot as plot
-        
-#         for i in range(all_poles.shape[1]):
-#             plot.figure(figsize = (8.504/2, 5.255/2))
-#             plot.hist(all_poles[:,i], bins=50, label=str(i))
-#             plot.axvline(ideal_physical_values[i], color='red')
-#             plot.axvline(ideal_spurious_values[i], color='red')
-#             plot.legend()
-#         plot.show()
-        
-        # the k-means algorithm is sensitive to the initial starting values in order to converge to a solution
+        ideal_physical_values = -std_dev
+        ideal_spurious_values = std_dev
+
+        # the k-means algorithm is sensitive to the initial starting 
+        # values in order to converge to a solution
         # therefore two starting attempts are introduced
         ctr_init = np.array([ideal_physical_values,
                              ideal_spurious_values])
-
+ 
         # masked arrays are not supported by scipy's kmeans algorithm
         # all_poles an M by N array where the rows are observation vectors
         self.clear_ctr, idx = scipy.cluster.vq.kmeans2(
             all_poles, ctr_init, self.num_iter)
 
-        factor = 0.8
-        while (collections.Counter(idx)[0] < .1 * len(idx) or collections.Counter(idx)[1] < .1 * len(idx)) and factor > 0:
-            print(
-                'The initial centroid for the spurious data was reinitialized with a factor of {0:.2f}..'.format(factor))
-            ctr_init = np.array(
-                [factor * ideal_physical_values, factor * ideal_spurious_values])
 
-            self.clear_ctr, idx = scipy.cluster.vq.kmeans2(
-                all_poles, ctr_init, self.num_iter)
-            factor = factor - 0.05
-
-        if (collections.Counter(idx)[0] < .05 * len(idx) or collections.Counter(idx)[1] < .05 * len(idx)):
-            mask_autoclear = self.get_stabilization_mask('mask_stable')
-            print('Automatic Clearing did not yield satisfactory results. Using default stable mask. \
-You may run "calculate_stabilization_masks(params)" to adjust stabilization "params".')
-        else:
-            print('Possibly physical poles 1st stage: {0}\nSpurious poles 1st stage: {1}'.format(
-                collections.Counter(idx)[0], collections.Counter(idx)[1]))
-            # add unmasked values of the first two model orders that were
-            # previously not considered
-            mask_pre.mask = np.ma.nomask
-            new_idx = np.hstack(
-                (np.ones(np.sum(np.logical_not(mask_pre[:2, :]))), idx))
-            mask_autoclear = self.decompress_flat_mask(mask_pre, new_idx)
-
+        print('Possibly physical poles 1st stage: {0}\nSpurious poles 1st stage: {1}'.format(
+            collections.Counter(idx)[0], collections.Counter(idx)[1]))
+        
+        # add unmasked values of the first two model orders that were
+        # previously not considered
+        mask_pre.mask = np.ma.nomask
+        new_idx = np.hstack(
+            (np.ones(np.sum(np.logical_not(mask_pre[:2, :]))), idx))
+        mask_autoclear = self.decompress_flat_mask(mask_pre, new_idx)
+ 
         # re-apply mask_pre, should not be necessary
         mask_autoclear = np.logical_or(mask_autoclear, mask_pre)
-
+     
         # apply the hard validation criteria
-        mask_autoclear = np.logical_or(
-            mask_autoclear, self.modal_data.modal_damping < 0.01)
-        mask_autoclear = np.logical_or(
-            mask_autoclear, self.modal_data.modal_damping > 20)
-
+#         mask_autoclear = np.logical_or(
+#             mask_autoclear, self.modal_data.modal_damping < 0.001)
+#         mask_autoclear = np.logical_or(
+#             mask_autoclear, self.modal_data.modal_damping > 20)
+        
+        # compute the threshold as the 95th percentile of
+        # P(threshold > d_lambda + d_MAC) = 0.95
+        soft_criteria_matrices[0].mask = np.ma.nomask
+        soft_criteria_matrices[3].mask = np.ma.nomask
+        distance_mat = soft_criteria_matrices[0]+soft_criteria_matrices[3]
+        distance_mat.mask = mask_autoclear
+        self.threshold = np.percentile(distance_mat.compressed(),q=95)
+        
         self.masks['mask_autoclear'] = mask_autoclear
         self.update_stabilization_masks()
-        self.calc_threshold()
+        
         self.state = 3
-
-    def calc_threshold(self):
-
-        mask_autoclear = self.get_stabilization_mask('mask_autoclear')
-        # print(mask_autoclear)
-        self.freq_diffs.mask = np.ma.nomask
-        self.freq_diffs.mask = self.freq_diffs == 0
-        freq_diffs = self.freq_diffs.min(axis=2)
-        self.freq_diffs.mask = np.ma.nomask
-
-        self.MAC_diffs.mask = np.ma.nomask
-        self.MAC_diffs.mask = self.MAC_diffs == 0
-        MAC_diffs = self.MAC_diffs.min(axis=2)
-        self.MAC_diffs.mask = np.ma.nomask
-
-        self.damp_diffs.mask = np.ma.nomask
-        self.damp_diffs.mask = self.damp_diffs == 0
-        damp_diffs = self.damp_diffs.min(axis=2)
-        self.damp_diffs.mask = np.ma.nomask
-
-        freq_diffs.mask = mask_autoclear
-        MAC_diffs.mask = mask_autoclear
-        damp_diffs.mask = mask_autoclear
-
-        self.threshold = self.weight_f * np.mean(freq_diffs) +\
-            self.weight_d * np.mean(damp_diffs) +\
-            self.weight_MAC * np.mean(MAC_diffs)
-
-        print(
-            'The cut-off level for clustering is {0}..'.format(self.threshold))
 
     def automatic_classification(self, threshold=None, use_stabil=False):
         if self.state < 3 and not use_stabil:
             self.automatic_clearing()
+        print('Classifying physical modes automatically...')
 
         if use_stabil:
             mask_autoclear = self.get_stabilization_mask('mask_stable')
-            self.masks['mask_autoclear'] = mask_autoclear
-            self.update_stabilization_masks()
+            print(np.sum(mask_autoclear))
+            #self.masks['mask_autoclear'] = mask_autoclear
+            #self.update_stabilization_masks()
+            #print(123)
         else:
             mask_autoclear = self.get_stabilization_mask('mask_autoclear')
-
+        
+        self.use_stabil = use_stabil
+        
         if threshold is not None:
             assert isinstance(threshold, int)
             self.threshold = threshold
-        elif self.threshold is not None:
-            pass
-        else:
-            self.calc_threshold()
+        if self.threshold is None:
+            self.freq_diffs.mask = np.ma.nomask
+            mask_pre_3d = self.freq_diffs == 0        
+            self.lambda_diffs.mask = mask_pre_3d
+            self.MAC_diffs.mask = mask_pre_3d
+            distance_mat = self.lambda_diffs.min(axis=2)\
+                           + self.MAC_diffs.min(axis=2)
+            distance_mat.mask = mask_autoclear
+            self.threshold = np.percentile(distance_mat.compressed(),q=95)
+        #print(self.threshold)
 
-        length_mat = np.product(mask_autoclear.shape) - np.sum(mask_autoclear)
+        length_mat = np.product(mask_autoclear.shape) \
+                     - np.sum(mask_autoclear)
 
-        self.masked_frequencies.mask = mask_autoclear
-        frequencies_compressed = self.masked_frequencies.compressed()
-        self.masked_frequencies.mask = np.ma.nomask
-
-        self.masked_damping.mask = mask_autoclear
-        damping_compressed = self.masked_damping.compressed()
-        self.masked_damping.mask = np.ma.nomask
+        self.masked_lambda.mask = mask_autoclear
+        lambda_compressed = self.masked_lambda.compressed()
+        self.masked_lambda.mask = np.ma.nomask
 
         dim0, dim1 = mask_autoclear.shape
-
         mode_shapes_compressed = np.zeros(
-            (self.modal_data.mode_shapes.shape[0], length_mat), dtype=np.complex128)
+            (self.modal_data.mode_shapes.shape[0], length_mat), 
+            dtype=np.complex128
+            )
+        
         n = 0
         for i in range(dim0):
             for j in range(dim1):
@@ -2252,36 +2378,55 @@ You may run "calculate_stabilization_masks(params)" to adjust stabilization "par
                 mode_shapes_compressed[:, n] = this_msh
                 n += 1
 
-        l = len(frequencies_compressed)
-
-        f_proximity_matrix = np.abs(
-            frequencies_compressed - frequencies_compressed.reshape((l, 1)))
-        d_proximity_matrix = np.abs(
-            damping_compressed - damping_compressed.reshape((l, 1)))
+        l = len(lambda_compressed)
+        #print(l)
+        div_lambda = np.maximum(
+            np.repeat(np.expand_dims(np.abs(lambda_compressed), axis=1), 
+                      lambda_compressed.shape[0], axis=1),
+            np.repeat(np.expand_dims(np.abs(lambda_compressed), axis=0), 
+                      lambda_compressed.shape[0], axis=0)
+            )
+        
+        lambda_proximity_matrix = np.abs(
+            lambda_compressed - lambda_compressed.reshape((l, 1)))/div_lambda
+            
         mac_proximity_matrix = 1 - \
             self.calculateMAC(mode_shapes_compressed, mode_shapes_compressed)
 
-        proximity_matrix = self.weight_f * f_proximity_matrix + self.weight_MAC * \
-            mac_proximity_matrix + self.weight_d * d_proximity_matrix
+        proximity_matrix = self.weight_lambda * lambda_proximity_matrix \
+                        + self.weight_MAC * mac_proximity_matrix
+        
         # correct round off errors
         proximity_matrix[
             proximity_matrix < np.finfo(proximity_matrix.dtype).eps] = 0
-
+        
         self.proximity_matrix_sq = scipy.spatial.distance.squareform(
             proximity_matrix, checks=False)
         linkage_matrix = scipy.cluster.hierarchy.linkage(
-            self.proximity_matrix_sq, method='single')
+            self.proximity_matrix_sq, method='average')
         self.cluster_assignments = scipy.cluster.hierarchy.fcluster(
             linkage_matrix, self.threshold, criterion='distance')
 
+        for clusternr in range(1, max(self.cluster_assignments)+1):
+            flat_poles_ind = self.cluster_assignments != clusternr + 1
+            mask = self.decompress_flat_mask(mask_autoclear, flat_poles_ind)
+            self.order_dummy.mask = mask
+            for order in range(self.modal_data.max_model_order):
+                if np.sum(self.order_dummy==order)>1:
+                    print('Double Model Order: ', self.order_dummy[order,:])
+        
+        self.order_dummy.mask = np.ma.nomask
+        
         print('Number of classified clusters: {}'.format(
             max(self.cluster_assignments)))
         self.state = 4
 
-    def automatic_selection(self, number=0, fraction=1 / 50):
+
+    def automatic_selection(self, number=0):    
+            
         if self.state < 4:
             self.automatic_classification()
-        #print(number, type(number))
+            
         # count clusters with more than a fraction of the number of elements of
         # the largest cluster and add that many zero size clusters
         poles = []
@@ -2291,24 +2436,31 @@ You may run "calculate_stabilization_masks(params)" to adjust stabilization "par
 
         nr_poles = [len(a[0]) for a in poles]
         max_nr = max(nr_poles)
-        for nr in nr_poles:
-            if nr > max_nr * fraction:
-                nr_poles.append(0)
-            elif nr < max_nr * fraction:
-                continue
+        # enlarge list of poles to improve clustering
+#         for nr in nr_poles:
+#             if nr > max_nr * fraction:
+#                 nr_poles.append(0)
+#             elif nr < max_nr * fraction:
+#                 continue
         nr_poles = np.array(nr_poles, dtype=np.float64)
 
         if number == 0:
-            #print('cluster', self.num_iter)
-            # 2-means clustering of the number-of-poles, return indices; split
-            # into tow clusters
-            ctr, select_clusters = scipy.cluster.vq.kmeans2(
-                np.array(nr_poles, dtype=np.float64), np.array([max_nr, 1e-12]), self.num_iter)
+            # 2-means clustering of the number-of-poles, return indices; 
+            # split into two clusters
+            _, select_clusters = scipy.cluster.vq.kmeans2(
+                np.array(nr_poles, dtype=np.float64), 
+                np.array([max_nr, 1e-12]), self.num_iter)
         else:
-            select_clusters = nr_poles <= number
+            meta_list = list(enumerate(nr_poles))
+            
+            sorted_meta_list = sorted(meta_list, key=itemgetter(1), 
+                                      reverse=True)
+            select_clusters = [1 for p in nr_poles]
+            
+            for i in range(number):
+                ind = sorted_meta_list[i][0]
+                select_clusters[ind]=0
 
-        # print(nr_poles[np.where(select_clusters)])
-        # print(nr_poles[np.where(np.logical_not(select_clusters))])
 
         print('Number of physical modes: {0}'.format(
             collections.Counter(select_clusters)[0]))
@@ -2321,8 +2473,12 @@ You may run "calculate_stabilization_masks(params)" to adjust stabilization "par
                 self.selection_cut_off = min(i - 1, self.selection_cut_off)
         print('Minimum number of elements in retained clusters: {}'.format(
             self.selection_cut_off))
-
-        mask_autoclear = self.masks['mask_autoclear']
+        
+        if self.use_stabil:
+            mask_autoclear = self.get_stabilization_mask('mask_stable')
+            #mask_autoclear = self.masks['mask_autoclear']
+        else:
+            mask_autoclear = self.masks['mask_autoclear']
 
         self.MAC_diffs.mask = self.MAC_diffs == 0
         MAC_diffs = self.MAC_diffs.min(axis=2)
@@ -2339,26 +2495,28 @@ You may run "calculate_stabilization_masks(params)" to adjust stabilization "par
             mask = self.decompress_flat_mask(mask_autoclear, flat_poles_ind)
             self.masks['mask_autosel'].append(np.ma.copy(mask))
 
-            # remove outermost values in all criteria, until only the multi-variate median is left
-            # this pole is selected as the representative solution for this
-            # cluster
+            # remove outermost values in all criteria, until only the 
+            # "multi-variate median" is left this pole is selected as the 
+            # representative solution for this cluster
             num_poles_left = np.product(mask.shape) - np.sum(mask)
-
+            
+            #print(clusternr, num_poles_left)
+            
             while num_poles_left > 1:
                 ind = []
-                for matrix, target in zip([self.masked_frequencies, self.masked_damping, MAC_diffs, self.MPC_matrix, self.MPD_matrix],
-                                          [np.ma.median,             np.ma.median,       np.ma.min, np.ma.max,       np.ma.min]):
+                for matrix, target in zip(
+                    [self.masked_frequencies, self.masked_damping,],
+                    [np.ma.median,             np.ma.median,]):
+                    
                     matrix.mask = mask
 
                     val = target(matrix)
                     min_ = np.min(matrix)
                     max_ = np.max(matrix)
-                    #print(['med','min','max'][[np.ma.median,np.ma.min, np.ma.max].index(target)])
+                    
                     if val - min_ <= max_ - val:
-                        #print('Deleting Max Value')
                         ind.append(np.where(matrix == max_))
                     else:
-                        #print('Deleting Min Value')
                         ind.append(np.where(matrix == min_))
 
                 for i in range(min(len(ind), num_poles_left - 1)):
@@ -2366,13 +2524,21 @@ You may run "calculate_stabilization_masks(params)" to adjust stabilization "par
                     mask[this_ind] = True
 
                 num_poles_left = np.product(mask.shape) - np.sum(mask)
+                
+                #print(clusternr, num_poles_left, len(ind))
+            
             select_mode = np.where(np.logical_not(mask))
             self.select_modes.append((select_mode[0][0], select_mode[1][0]))
             if self.select_callback is not None:
-                # print(self.select_modes[-1])
+#                 for matrix in [self.masked_frequencies, self.masked_damping, 
+#                            MAC_diffs, self.MPC_matrix, self.MPD_matrix]:
+#                 
+#                     matrix.mask = np.ma.nomask
                 self.select_callback(self.select_modes[-1])
 
-        for matrix in [self.masked_frequencies, self.masked_damping, MAC_diffs, self.MPC_matrix, self.MPD_matrix]:
+        for matrix in [self.masked_frequencies, self.masked_damping, 
+                       MAC_diffs, self.MPC_matrix, self.MPD_matrix]:
+            
             matrix.mask = np.ma.nomask
 
         self.state = 5
@@ -2443,7 +2609,7 @@ You may run "calculate_stabilization_masks(params)" to adjust stabilization "par
 
     def plot_classification(self, save_path=None):
         rel_matrix = scipy.cluster.hierarchy.linkage(
-            self.proximity_matrix_sq, method='single')
+            self.proximity_matrix_sq, method='average')
         lvs = scipy.cluster.hierarchy.leaves_list(rel_matrix)
 
         def _llf(id):
@@ -2570,8 +2736,8 @@ You may run "calculate_stabilization_masks(params)" to adjust stabilization "par
             plot.pause(0.001)
         # plot.show(block=False)
 
-    def return_results(self):
-
+    def return_results(self):        
+        
         all_f = []
         all_d = []
         all_n = []
@@ -2581,49 +2747,63 @@ You may run "calculate_stabilization_masks(params)" to adjust stabilization "par
         all_MPD = []
         all_MP = []
         all_msh = []
+        all_MC = []
 
-        for select_mode, mask in zip(self.select_modes, self.masks['mask_autosel']):
-
-            self.masked_frequencies.mask = np.ma.nomask
-            select_f = self.masked_frequencies[select_mode]
-
-            self.masked_damping.mask = np.ma.nomask
-            select_d = self.masked_damping[select_mode]
-
-            select_order = self.order_dummy[select_mode]
-
-            self.masked_frequencies.mask = mask
-            std_f = np.ma.std(self.masked_frequencies)
-
-            self.masked_damping.mask = mask
-            std_d = np.ma.std(self.masked_damping)
-
-            self.MPC_matrix.mask = np.ma.nomask
-            select_MPC = self.MPC_matrix[select_mode]
-
-            self.MP_matrix.mask = np.ma.nomask
-            select_MP = self.MP_matrix[select_mode]
-
-            self.MPD_matrix.mask = np.ma.nomask
-            select_MPD = self.MPD_matrix[select_mode]
-
-            select_msh = self.modal_data.mode_shapes[
-                :, select_mode[1], select_mode[0]]
-
-            # scaling of mode shape
-            select_msh /= select_msh[np.argmax(np.abs(select_msh))][0]
-
-            all_f.append(float(select_f))
-            all_d.append(float(select_d))
-            all_n.append(float(select_order))
-            all_std_f.append(float(std_f))
-            all_std_d.append(float(std_d))
-            all_MPC.append(float(select_MPC))
-            all_MP.append(float(select_MP))
-            all_MPD.append(float(select_MPD))
-            all_msh.append(select_msh)
-
-        return all_f, all_d, all_n, all_std_f, all_std_d, all_MPC, all_MP, all_MPD, all_msh
+        #for select_mode, mask in zip(self.select_modes, self.masks['mask_autosel']):
+        for select_mode in self.select_modes:
+            
+            n,  f, stdf,  d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC = self.get_modal_values(select_mode)
+            msh= self.get_mode_shape(select_mode)
+            
+            all_n.append(n)
+            all_f.append(f)
+            all_std_f.append(stdf)
+            all_d.append(d)
+            all_std_d.append(stdd)
+            all_MPC.append(mpc)
+            all_MP.append(mp)
+            all_MPD.append(mpd)
+            all_MC.append(MC)
+            all_msh.append(msh)
+            
+            continue
+            
+#             self.masked_frequencies.mask = np.ma.nomask
+#             select_f = self.masked_frequencies[select_mode]
+# 
+#             self.masked_damping.mask = np.ma.nomask
+#             select_d = self.masked_damping[select_mode]
+# 
+#             select_order = self.order_dummy[select_mode]
+# 
+#             if self.capabilities['msh']:
+#                 self.MPC_matrix.mask = np.ma.nomask
+#                 select_MPC = self.MPC_matrix[select_mode]
+#     
+# #                 self.MP_matrix.mask = np.ma.nomask
+# #                 select_MP = self.MP_matrix[select_mode]
+#     
+#                 self.MPD_matrix.mask = np.ma.nomask
+#                 select_MPD = self.MPD_matrix[select_mode]
+#     
+#                 select_msh = self.modal_data.mode_shapes[
+#                     :, select_mode[1], select_mode[0]]
+# 
+#                 # scaling of mode shape
+#                 #select_msh /= select_msh[np.argmax(np.abs(select_msh))][0]
+#             if self.capabilities['MC']:
+#                 self.modal_data.modal_contributions[select_mode]
+# 
+#             all_f.append(float(select_f))
+#             all_d.append(float(select_d))
+#             all_n.append(float(select_order))
+#             all_MPC.append(float(select_MPC))
+# #             all_MP.append(float(select_MP))
+#             all_MPD.append(float(select_MPD))
+#             all_msh.append(select_msh)
+            
+            
+        return np.array(all_n),np.array(all_f),np.array(all_std_f),np.array(all_d),np.array(all_std_d),np.array(all_MPC),np.array(all_MP),np.array(all_MPD),np.array(all_MC),np.array(all_msh),
 
 
 class StabilPlot(object):
@@ -2744,13 +2924,13 @@ class StabilPlot(object):
             self.markers['plot_autoclear']=   path_auto
             self.markers['plot_autosel']= 'o'
             
-        if self.stabil_calc.capabilities['mec']:
-            self.stable_plot['plot_mec']=  None  # absolute modal error contribution
-            self.colors['plot_mec']=  'grey'
+        if self.stabil_calc.capabilities['MC']:
+            self.stable_plot['plot_MC']=  None  # absolute modal error contribution
+            self.colors['plot_MC']=  'grey'
             
-            self.labels['plot_mec']=   'modal error contribution criterion'
+            self.labels['plot_MC']=   'modal error contribution criterion'
             
-            self.markers['plot_mec']=   'x'
+            self.markers['plot_MC']=   'x'
             
         if self.stabil_calc.capabilities['mtn']:
             self.stable_plot['plot_dmtn']=  None  # difference modal transfer norm
@@ -2831,14 +3011,14 @@ class StabilPlot(object):
             self.plot_stabil('plot_dev')
         if 'dmtn_min' in criteria and self.stabil_calc.capabilities['mtn']:
             self.plot_stabil('plot_dmtn')
-        if 'mec_min' in criteria and self.stabil_calc.capabilities['mec']:
-            self.plot_stabil('plot_mec')
+        if 'MC_min' in criteria and self.stabil_calc.capabilities['MC']:
+            self.plot_stabil('plot_MC')
             
         self.plot_stabil('plot_pre')
         self.plot_stabil('plot_stable')
 
         if self.stabil_calc.capabilities['auto']:
-            if self.stabil_calc.state >= 3:
+            if self.stabil_calc.state >= 3 and not self.stabil_calc.use_stabil:
                 self.plot_stabil('plot_autoclear')
             if self.stabil_calc.state >= 5:
                 self.plot_stabil('plot_autosel')
@@ -2926,14 +3106,16 @@ class StabilPlot(object):
                                                      facecolors='none', edgecolors=color,
                                                      marker=marker,
                                                      s=size, label=label, visible=visibility)
-
+        
+        self.ax.set_yticks([])
+        
         mask_stable = self.stabil_calc.get_stabilization_mask('mask_pre')
         self.stabil_calc.masked_frequencies.mask = mask_stable
         self.stabil_calc.order_dummy.mask = mask_stable
 
         self.fig.canvas.draw_idle()
     
-    def show_mec(self,b=False):
+    def show_MC(self,b=False):
 
         if b:
             ylim = self.fig.axes[0].get_ylim()
@@ -2943,10 +3125,10 @@ class StabilPlot(object):
                 self.fig.axes[0].set_subplotspec(gs[0])
                 self.fig.axes[1].set_subplotspec(gs[1])
             ax = self.fig.axes[1]
-            mecs=np.zeros((self.stabil_calc.modal_data.max_model_order))
+            MCs=np.zeros((self.stabil_calc.modal_data.max_model_order))
             for order in range(self.stabil_calc.modal_data.max_model_order):
-                mecs[order] = np.sum(self.stabil_calc.modal_data.modal_contributions[order,:])
-            ax.plot(mecs, list(range(self.stabil_calc.modal_data.max_model_order)), marker='o',fillstyle='full', 
+                MCs[order] = np.sum(self.stabil_calc.modal_data.modal_contributions[order,:])
+            ax.plot(MCs, list(range(self.stabil_calc.modal_data.max_model_order)), marker='o',fillstyle='full', 
                     markerfacecolor='white',markeredgecolor='grey', color='darkgrey',
                     markersize=4)
             ax.grid(True)
@@ -2978,7 +3160,8 @@ class StabilPlot(object):
 
         if self.stabil_calc.prep_data is None:
             raise RuntimeError('Measurement Data was not provided!')
-
+        if not b: 
+            return
         ft_freq, sum_ft = self.stabil_calc.prep_data.get_fft()
 
         #print('ft_freq = ', ft_freq)
@@ -3318,7 +3501,7 @@ class ModeShapePlot(object):
 
         super().__init__()
         import PlotMSH
-        sys.path.append("/vegas/users/staff/womo1998/Projects/2016_Burscheid") 
+        #sys.path.append("/vegas/users/staff/womo1998/Projects/2016_Burscheid") 
         #from main_Burscheid import print_mode_info
         
         self.mode_shape_plot = PlotMSH.ModeShapePlot(
@@ -3567,6 +3750,7 @@ class DataCursor(Cursor, QObject):
         if datapoint not in self.datalist:
             self.datalist.append(datapoint)
         x, y = self.x[datapoint], self.y[datapoint]
+        #print(x,y)
         self.scatter_objs.append(self.ax.scatter(
             x, y, facecolors='none', edgecolors='red', s=200, visible=False))
         self.mode_selected.emit(datapoint)
@@ -3808,7 +3992,7 @@ class DelayedDoubleSpinBox(QDoubleSpinBox):
 
 
 if __name__ == '__main__':
-    pass
+    
 #     min=QSliderL.value()
 #     max=QSliderU.value()
 #     QScrollBar.setRange(min,max)
@@ -3817,3 +4001,93 @@ if __name__ == '__main__':
 #     max = QScrollBar.maximum
 #     QSliderL.setValue(min)
 #     QSliderU.setValue(max)
+#
+    nbins=150
+#     x=np.arange(0,5,5/nbins)
+    import scipy .stats
+    aa = np.random.rand(25)/2+0.5
+#     q5fit=[]
+#     q50fit=[]
+#     q95fit=[]
+#     q5num=[]
+#     q50num=[]
+#     q95num=[]
+#     q5real=[]
+#     q50real=[]
+#     q95real=[]
+    for a in aa:
+        print(a)
+        scale=2
+        loc=0
+        random_numbers=np.random.weibull(a=a, size=(30000))*scale+loc
+#         a_,loc_,scale_=scipy.stats.weibull_min.fit(random_numbers)#,floc=loc,scale=scale)
+        log_rand=np.log(random_numbers)
+        mean_log_rand=np.mean(log_rand)
+        std_log_rand= np.std(log_rand)
+        log_rand -= mean_log_rand
+        log_rand /=std_log_rand
+        n,bins,patches= plot.hist(log_rand, bins=nbins,range=(-5,5),alpha=.5, normed=True,label='log {:1.2f}, {:1.2f}, {:1.2f}, {:1.2f}'.format(a, a,loc,scale))
+        n,bins,patches= plot.hist(random_numbers, bins=nbins,range=(0,5),alpha=.5, normed=True,label='normal {:1.2f}, {:1.2f}, {:1.2f}, {:1.2f}'.format(a, a,loc,scale))
+        plot.legend()
+        plot.show()
+#         #y_=(a_/scale_)*(((x-loc_)/scale_)**(a_-1))*np.exp(-(((x-loc_)/scale_)**a_))
+#         #plot.plot(x,y_,color='grey')
+#         #y=(a/scale)*(((x-loc)/scale)**(a-1))*np.exp(-(((x-loc)/scale)**a))
+#         #plot.plot(x,y,color='black')
+#         num = np.percentile(a=random_numbers, q=[5,50,95])
+#         q5num.append(num[0])
+#         q50num.append(num[1])
+#         q95num.append(num[2])
+#         fit = scipy.stats.weibull_min.ppf(q=[0.05,0.5,0.95],c=a_,loc=loc_, scale=scale_)
+#         q5fit.append(fit[0])
+#         q50fit.append(fit[1])
+#         q95fit.append(fit[2])
+#         
+#         real = scipy.stats.weibull_min.ppf(q=[0.05,0.5,0.95],c=a,loc=loc, scale=scale)
+#         q5real.append(real[0])
+#         q50real.append(real[1])
+#         q95real.append(real[2])
+#         
+#         #print('numeric: {:1.2f}, {:1.2f}, {:1.2f}'.format(*num))
+#         #print('fit: {:1.2f}, {:1.2f}, {:1.2f}'.format(*fit))
+#         #print('real: {:1.2f}, {:1.2f}, {:1.2f}'.format(*real))
+#         #print('')
+#         
+#     plot.figure(figsize=(5,5))
+#     plot.scatter(q5real,q5fit,label='q5fit')
+#     plot.scatter(q5real,q5num,label='q5num')
+#     minval = min(q5real+q5fit+q5num)
+#     maxval = max(q5real+q5fit+q5num)
+#     plot.plot([minval,maxval],[minval,maxval],)
+#     plot.xlim((minval,maxval))
+#     plot.ylim((minval,maxval))
+#     plot.xlabel('real')
+#     plot.ylabel('fit/num')
+#     plot.legend()
+#     
+#     
+#     plot.figure(figsize=(5,5))
+#     plot.scatter(q50real,q50fit,label='q50fit')
+#     plot.scatter(q50real,q50num,label='q50num')
+#     minval = min(q50real+q50fit+q50num)
+#     maxval = max(q50real+q50fit+q50num)
+#     plot.plot([minval,maxval],[minval,maxval],)
+#     plot.xlim((minval,maxval))
+#     plot.ylim((minval,maxval))
+#     plot.xlabel('real')
+#     plot.ylabel('fit/num')
+#     plot.legend()
+#     
+#     plot.figure(figsize=(5,5))
+#     plot.scatter(q95real,q95fit,label='q95fit')
+#     plot.scatter(q95real,q95num,label='q95num')
+#     minval = min(q95real+q95fit+q95num)
+#     maxval = max(q95real+q95fit+q95num)
+#     plot.plot([minval,maxval],[minval,maxval],)
+#     plot.xlim((minval,maxval))
+#     plot.ylim((minval,maxval))
+#     plot.xlabel('real')
+#     plot.ylabel('fit/num')
+#     plot.legend()
+#     #plot.legend()
+#     plot.show()

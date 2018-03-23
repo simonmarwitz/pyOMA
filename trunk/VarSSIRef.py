@@ -18,7 +18,7 @@ from PreprocessingTools import PreprocessData
 TODO:
 - define unit tests to check functionality after changes
 - optimize multi order qr-based estimation routine
-- iterate over conjugate indices instead of removing them
+- iterate over conjugate indices instead of removing them --> SSI_Data MC
 - add mode-shape integration with variances
 - add mode-shape rescaling with channel-factors
 '''
