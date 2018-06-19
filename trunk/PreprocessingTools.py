@@ -17,14 +17,21 @@ TODO:
 import numpy as np
 from scipy import signal
 import scipy.signal.ltisys
+import scipy.integrate
 import os
 import csv
 import sys
 import datetime
+import time
 
 import multiprocessing as mp
 import ctypes as c
 import warnings
+
+import matplotlib.pyplot as plt
+import matplotlib.pyplot as plot
+import matplotlib.cm as cm
+import matplotlib.mlab as mlb
 
 def nearly_equal(a,b,sig_fig=5):
     return ( a==b or 
@@ -413,6 +420,11 @@ class PreprocessData(object):
         self.ft_freq = ft_freq
         self.sum_ft = sum_ft
         
+        self.corr_matrix = None
+        self.psd_mats = None
+        self.s_vals_cf = None
+        self.s_vals_psd = None
+        
     @classmethod
     def init_from_config(cls, conf_file, meas_file, chan_dofs_file=None, **kwargs):
         '''
@@ -679,6 +691,10 @@ class PreprocessData(object):
         out_dict['self.start_time']=self.start_time
         out_dict['self.ft_freq']=self.ft_freq
         out_dict['self.sum_ft']=self.sum_ft
+        out_dict['self.corr_matrix'] =self.corr_matrix
+        out_dict['self.psd_mats']=self.psd_mats
+        out_dict['self.s_vals_cf']=self.s_vals_cf
+        out_dict['self.s_vals_psd']=self.s_vals_psd
         
         #out_dict['self.geometry_data'] = self.geometry_data
 
@@ -721,6 +737,14 @@ class PreprocessData(object):
                 sum_ft = sum_ft.item()
         else:
             sum_ft = None
+        spectral_values = [None,None,None,None]
+        for obj_num,name in enumerate(['self.corr_matrix', 'self.psd_mats', 'self.s_vals_cf','self.s_vals_psd']):
+            try:
+                spectral_values[obj_num] = in_dict[name]
+            except Exception as e:
+                print(e)
+            
+        
         #sum_ft = in_dict.get( 'self.sum_ft', None)
         
         preprocessor = cls(measurement, sampling_rate, total_time_steps, 
@@ -732,6 +756,12 @@ class PreprocessData(object):
         
         chan_dofs = [[int(float(chan_dof[0])), str(chan_dof[1]), float(chan_dof[2]), float(chan_dof[3]), str(chan_dof[-1])] for chan_dof in in_dict['self.chan_dofs']]
         preprocessor.add_chan_dofs(chan_dofs)
+        
+        preprocessor.corr_matrix = spectral_values[0]
+        preprocessor.pds_mats = spectral_values[1]
+        preprocessor.s_vals_cf = spectral_values[2]
+        preprocessor.s_vals_psd = spectral_values[3]
+        
         assert preprocessor.num_ref_channels == int(in_dict['self.num_ref_channels'])
         assert preprocessor.num_roving_channels == int(in_dict['self.num_roving_channels'])
         assert preprocessor.num_analised_channels == int(in_dict['self.num_analised_channels'])
@@ -739,76 +769,67 @@ class PreprocessData(object):
         #preprocessor.add_geometry_data(in_dict['self.geometry_data'].item())  
         return preprocessor
     
-    def filter_data(self, lowpass=None, highpass=None, filt_order=4, num_int=0,overwrite=False,plot_filter=False):
-        '''
-        Applies various filters to the data
-        '''
+    def filter_data(self, lowpass=None, highpass=None, overwrite=False, order=4, ftype='butter',  RpRs = [None, None], plot_filter=False):
+        
+        
+        ''' checks '''
+        error = 0
+        if (highpass is None) and (lowpass is None): error += 1
+        ftype_list = ['butter', 'cheby1', 'cheby2', 'ellip', 'bessel']
+        if not (isinstance(order, int) and (ftype in ftype_list) and (order > 1)): error += 1
+        if (ftype=='cheby1' or ftype=='cheby2' or ftype=='ellip') and (RpRs[0]==None or RpRs[1]==None): error += 1
+        
+        if error > 0: 
+            raise RuntimeError('Invalid arguments.') 
+            return
+        
+        print("Filtering data...")
+        
+        nyq = self.sampling_rate/2
+        
+        freqs = []
+        if lowpass is not None:
+            freqs.append(float(lowpass))
+            btype = 'lowpass'
+        if highpass is not None:
+            freqs.append(float(highpass))
+            btype = 'highpass'
+        if len(freqs) == 2:
+            btype = 'bandpass'
+            freqs.sort()
 
-        if lowpass is not None: lowpass=float(lowpass)
-        if highpass is not None: highpass=float(highpass)
-        filt_order=int(filt_order)
-        print('filtering data, with {},{}'.format(lowpass,highpass))
-        import scipy.signal
-        import scipy.integrate
+        freqs[:] = [x/nyq for x in freqs]
         
-        nyq=self.sampling_rate*0.5
+        order = int(order)
+        measurement = self.measurement
         
-        if lowpass is not None and highpass is not None:            
-            b, a = scipy.signal.butter(filt_order, [highpass/nyq, lowpass/nyq], btype='band')
-        elif lowpass is not None:
-            b, a = scipy.signal.butter(filt_order, lowpass/nyq, btype = 'low')
-        elif highpass is not None:
-            b, a = scipy.signal.butter(filt_order, highpass/nyq, btype = 'high')
-            
-        if plot_filter:
-            import matplotlib.pyplot as plt
-            
-            w, h = scipy.signal.freqz(b, a, worN=2000)
-            plt.close()
-            plt.figure()
-            plt.plot((nyq / np.pi) * w, abs(h))
-            plt.plot([0, nyq], [np.sqrt(0.5), np.sqrt(0.5)],
-                 '--', label='sqrt(0.5)')
-            plt.xlabel('Frequency (Hz)')
-            plt.ylabel('Gain')
-            plt.grid(True)
-            plt.legend(loc='best')
-            plt.grid(which='both', axis='both')
-            plt.axvline(100, color='green') # cutoff frequency
-            plt.show()
-            plt.figure()
-            plt.plot(self.measurement[:,1], label='Original signal (Hz)')
-        self.measurement_filt = scipy.signal.filtfilt(b,a,self.measurement,axis=0, padlen=0)
+        
+        b, a = signal.iirfilter(order, freqs, rp=RpRs[0], rs=RpRs[1], btype=btype, ftype=ftype)
+        
+        self.measurement_filt = signal.filtfilt(b, a, measurement, axis=0, padlen=0)
+        
         if overwrite:
             self.measurement = self.measurement_filt
-        #for ii in range(self.measurement_filt.shape[1]):
-            #pass
-        #    self.measurement_filt[:,ii]  -= self.measurement_filt[:,ii].mean(0)
+        
         if plot_filter:
-            plt.plot(self.measurement_filt[:,1], label='Filtered signal (Hz)')
-            plt.legend()
+            w, h = scipy.signal.freqz(b, a, worN=2000)
+            _, f_plot = plt.subplots(2)
+            f_plot[0].set_title('Filter data')           
+            f_plot[0].plot((nyq / np.pi) * w, abs(h))
+            f_plot[0].plot([0, nyq], [np.sqrt(0.5), np.sqrt(0.5)], '--')
+            f_plot[0].axvline(100, color='green') # cutoff frequency
+            f_plot[1].plot(self.measurement[:,1], label='Original signal (Hz)')
+            f_plot[1].plot(self.measurement_filt[:,1], label='Filtered signal (Hz)')
             plt.show()
-        return
-    
-        for i in range(num_int):
-            #size = 2**np.floor(np.log2(self.measurement_filt.shape[0]))+1
-            for ii in range(self.measurement_filt.shape[1]):
-                #self.measurement_filt[:,ii] = scipy.integrate.romb(self.measurement_filt[:size,ii], 1/self.sampling_rate)
-                temp = scipy.integrate.cumtrapz(self.measurement_filt[:,ii], dx=1/self.sampling_rate,axis=0)
-                self.measurement_filt[:temp.shape[0],ii] = temp
-                self.measurement_filt[:,ii]  -= self.measurement_filt[:,ii].mean(0)            
-        
-            #plt.plot(self.measurement_filt[:,1], label='Integrated {} signal (Hz)'.format(i))
-        #plt.legend()
-        #plt.show()
-        
+
+        return self.measurement_filt
+            
     def plot_data(self, channels=[], figsize=None):
         if len(channels)==0:
             channels=list(range(self.num_analised_channels))
-        import matplotlib.pyplot as plot
-        import matplotlib.cm as cm
+
         colors = cm.rainbow(np.linspace(0, 1, len(channels)))
-        
+            
 #         plot.rc('font', size=10)    
 #         plot.rc('legend', fontsize=10, labelspacing=0.1)
 #         plot.rc('axes',linewidth=0.2)
@@ -924,36 +945,256 @@ class PreprocessData(object):
             self.measurement[:,i] /= factor
             self.channel_factors[i]=factor
         
-        #import matplotlib.pyplot as plot
-        #print(self.channel_factors)
-        #for i in range(self.measurement.shape[1]):
-        #    plot.hist(self.measurement[:,i],bins=50,alpha=0.1)
-        #plot.show()
-        
     
-    def decimate_data(self, decimate_factor, highpass=None):  
-        '''
-        decimates the measurement data by the supplied factor
-        makes use of scipy's decimate filter
-        '''  
-
+    def decimate_data(self, decimate_factor, highpass=None,  order=8, filter_type='cheby1'):
         
-        if highpass is not None:
-            nyq = self.sampling_rate/2
-            target_fs = self.sampling_rate/decimate_factor
-            lowpass = target_fs/2
-            b, a = signal.butter(4, [highpass/nyq, lowpass/nyq], btype='band')   
-            ftype=scipy.signal.ltisys.dlti(b,a)
-        else:
-            ftype='iir'
-            
-        meas_decimated = scipy.signal.decimate(self.measurement, decimate_factor, axis=0,ftype=ftype, zero_phase=True)
+        '''
+        decimates measurement data
+        filter type and order are choosable (order 8 and type cheby1 are standard for scipy signal.decimate function)
+        maximum ripple in the passband (rp) and minimum attenuation in the stop band (rs) are modifiable
+        '''
+        
+        #input validation
+        decimate_factor = abs(decimate_factor)
+        order = abs(order)
+        ftype_list = ['butter', 'cheby1', 'cheby2', 'ellip', 'bessel']
+        if not ((isinstance(decimate_factor, int) or isinstance(decimate_factor, int)) and isinstance(order, int) and (filter_type in ftype_list)
+                and (decimate_factor > 1) and (order > 1)):
+            raise RuntimeError('Invalid arguments.')
+            return
+        
+        print("Decimating data...")
+        
+        RpRs = [None, None]
+        if filter_type=='cheby1' or filter_type=='cheby2' or filter_type=='ellip':
+            RpRs = [0.5, 0.5] #standard for signal.decimate
+        
+        nyq = self.sampling_rate/2
+        
+        meas_decimated = self.filter_data(lowpass= nyq*0.8/decimate_factor, highpass=highpass, overwrite=False, order=order, ftype=filter_type,  RpRs = RpRs,  plot_filter=False)
         
         self.sampling_rate /=decimate_factor
+        meas_decimated = meas_decimated[slice(None, None, decimate_factor)]
         self.total_time_steps = meas_decimated.shape[0]
-        self.measurement = meas_decimated
+        self.measurement = meas_decimated 
+    
+    def psd_welch(self, n_lines=256, refs_only=True, window='hamm'):
+        '''
+        DONE:
         
+        - modify to compute one-sided PSD only, to save computation time
+        - make possible to pass arguments to signal.csd
+        - compute cross-psd of all  channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
+        
+        '''
+        
+        print("Estimating Correlation Function and Power Spectral Density by Welch's method...")
+        
+        measurement = self.measurement
+        sampling_rate = self.sampling_rate
+        num_analised_channels = self.num_analised_channels
+        if refs_only:
+            num_ref_channels = self.num_ref_channels
+        else:
+            num_ref_channels = num_analised_channels
+        
+        psd_mats_shape = (num_analised_channels, num_ref_channels, n_lines+1 )      
+        psd_mats = np.zeros(psd_mats_shape, dtype=complex)
+        
+        for channel_1 in range(num_analised_channels):
+            for channel_2 in range(num_ref_channels):
+                _, Pxy_den = scipy.signal.csd(measurement[:,channel_1],measurement[:,channel_2], 
+                                              sampling_rate, nperseg=2*n_lines, window=window, scaling='spectrum', return_onesided=True)    
+                Pxy_den *= n_lines
+                psd_mats[channel_1, channel_2, :] = Pxy_den
+                     
+        freqs = np.fft.rfftfreq(2*n_lines , 1/sampling_rate) 
+        
+        self.psd_mats = psd_mats
+        self.freqs = freqs
+        self.n_lines = n_lines
+
+        return psd_mats, freqs   
+        
+        
+    def corr_welch(self, tau_max, window='hamming'):
+        
+        psd_mats, freqs = self.psd_welch(n_lines = tau_max, window=window)
+        
+        '''
+        DONE:
+        - compute cross-correlations of all channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
+        '''
+        
+        num_analised_channels = self.num_analised_channels
+        num_ref_channels = self.num_ref_channels
+        corr_mats_shape = (num_analised_channels, num_ref_channels, tau_max)
+            
+        corr_matrix = np.zeros(corr_mats_shape)
+        
+        for channel_1 in range(num_analised_channels):
+            for channel_2 in range(num_ref_channels):
+                this_psd = psd_mats[channel_1, channel_2,:]
+                this_corr = np.fft.irfft(this_psd)
+                this_corr = this_corr[:tau_max].real
+                
+                corr_matrix[channel_1, channel_2, :] = this_corr
+
+        self.corr_matrix = corr_matrix
+        self.tau_max = tau_max
+        return corr_matrix
+        
+    
+    def psd_blackman_tukey(self, tau_max=256, window = 'bartlett'):
+        print("Estimating Correlation Function and Power Spectral Density by Blackman-Tukey's method...")
+        
+        '''
+        TO DO:
+        - use rfft
+        - why was 2*... removed from the amplitude correction?
+        - compare with psd_welch
+        - check energy in time domain and frequency domain with parsevals theorem 
+        - compute cross-psd of all  channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
+        - compute only one-sided psd (i.e. length only tau_max - 1 or similar)
+        - read about the window choices in the reference that is mentioned in the comment and try to implement other windows that ensure non-negative fourier transform
+        
+        '''
+        
+        num_analised_channels = self.num_analised_channels
+        num_ref_channels = self.num_ref_channels
+        ref_channels = self.ref_channels
+        corr_matrix = self.compute_correlation_matrices(tau_max)  
+        
+        psd_mats_shape = (num_analised_channels, num_ref_channels, tau_max)  
+        psd_mats = np.zeros(psd_mats_shape, dtype=complex)
+
+        for channel_1 in range(num_analised_channels):
+            for channel_2 in range(num_ref_channels):
+                this_correlation_function = corr_matrix[channel_1, channel_2,:]
+                # create window, use Bartlett for nonnegative Fourier transform
+                # otherwise Coherence becomes invalid
+                # another option is to convolve another window with itself
+                # from : SPECTRAL ANALYSIS OF SIGNALS, Petre Stoica and Randolph Moses, pp. 42 ff
+                # window options: bartlett, blackman, hamming, hanning
+                if window == 'bartlett':
+                    win = np.bartlett(len(this_correlation_function))
+                elif window=='blackman':
+                    win = np.blackman(len(this_correlation_function))
+                    win = np.convolve(win, win, 'same')
+                    win /= np.max(win)
+                elif window=='hamming':
+                    win = np.hamming(len(this_correlation_function))
+                    win = np.convolve(win, win, 'same')
+                    win /= np.max(win)
+                elif window=='hanning':
+                    win = np.hanning(len(this_correlation_function))
+                    win = np.convolve(win, win, 'same')
+                    win /= np.max(win)
+                elif window == 'rect':
+                    win = np.ones(len(this_correlation_function))
+                else:
+                    raise RuntimeError('Invalid window.')
+                    return
+                #test with coherence, should be between 0 and 1
+                #coherence = np.abs(G12)**2/G11/G22
+                
+                # applies window and calculates fft
+                fft = np.fft.rfft(this_correlation_function*win, n=2*tau_max-1)
+                print(this_correlation_function.shape, fft.shape)
+                # corrections
+                fft = fft[:tau_max]
+                ampl_correction= (tau_max)/(win).sum()
+                fft *= ampl_correction
+                
+                if channel_1 == channel_2:
+                    fft = np.abs(fft)
+
+                psd_mats[channel_1, channel_2, :] = fft
+
+        
+        freqs = np.fft.rfftfreq(2*tau_max - 1, 1/self.sampling_rate) 
+
+        self.psd_mats = psd_mats
+        self.freqs = freqs
+        self.n_lines = tau_max
+        
+        return psd_mats, freqs
+
+    def welch(self, n_lines):
+        print("Estimating Correlation Function and Power Spectral Density by Welch's method...")
+        
+        
+        num_analised_channels = self.num_analised_channels
+        num_ref_channels = self.num_ref_channels
+        
+        ref_channels = self.ref_channels
+        dofs = list(range(self.measurement.shape[1]))
+        
+        signal = self.measurement
+        
+        #psd_mats_shape = (num_analised_channels, num_analised_channels, 2*n_lines)  
+        psd_mats_shape = (num_analised_channels, num_ref_channels, 2*n_lines//2+1 )     
+            
+        psd_mats = np.zeros(psd_mats_shape, dtype=complex)
+        
+        for channel_1 in range(num_analised_channels):
+            for channel_2, ref_channel in enumerate(ref_channels):
+                #f, Pxy_den = scipy.signal.csd(signal[:,channel_1],signal[:,channel_2], self.sampling_rate, nperseg=n_lines*2, window='hamm', scaling='spectrum', return_onesided=False)
+                f, Pxy_den = scipy.signal.csd(signal[:,channel_1],signal[:,ref_channel], self.sampling_rate, nperseg=n_lines*2, window='hamm', scaling='spectrum', return_onesided=True)
+                
+                if channel_1 == channel_2:
+                    assert (Pxy_den.imag==0).all()
+                    
+                #Pxy_den *= 2*n_lines-1
+                Pxy_den *= n_lines
+                psd_mats[channel_1, channel_2, :] = Pxy_den
+                
+        corr_mats_shape = (num_analised_channels, num_ref_channels, n_lines)
+            
+        corr_matrix = np.zeros(corr_mats_shape)
+        
+        for channel_1 in range(num_analised_channels):
+            for channel_2 in range(num_ref_channels):
+                this_psd = psd_mats[channel_1, channel_2,:]
+                this_corr = np.fft.ifft(this_psd)
+                this_corr = this_corr[:n_lines].real
+                
+                #win = np.hamming(2*n_lines-1)[n_lines-1:]
+                #this_corr /= win
+                
+                
+                corr_matrix[channel_1, channel_2, :] = this_corr
+                #corr_matrix[channel_1, channel_2, n_lines-1:] = this_corr
+                #corr_matrix[channel_1, channel_2, :n_lines] = np.flip(this_corr,axis=-1)
+                
+        '''
+        s_vals_cf = np.zeros((len(dofs), corr_matrix.shape[2]))
+        for t in range(corr_matrix.shape[2]):
+            s_vals_cf[:,t] = np.linalg.svd(corr_matrix[:,:,t],True,False)
+    #     
+        s_vals_psd = np.zeros((num_analised_channels, psd_mats.shape[2]))
+        for t in range(psd_mats.shape[2]):
+            s_vals_psd[:,t] = np.linalg.svd(psd_mats[:,:,t],True,False)     
+          '''   
+        self.corr_matrix = corr_matrix
+        self.psd_mats = psd_mats
+        self.n_lines = n_lines
+        '''self.s_vals_cf = s_vals_cf
+        self.s_vals_psd = s_vals_psd'''
+        
+        return corr_matrix, psd_mats#, s_vals_cf, s_vals_psd        
+          
+    
     def compute_correlation_matrices(self, tau_max, num_blocks=False):
+        '''
+        This function computes correlation functions of all channels with
+        selected reference channels up to a time lag of tau_max
+        if num_blocks is greater than 1 the correlation functions are computed in
+        blocks, which allows the estimation of variances for each time-lag at 
+        the expense of a slightly reduced quality of the correlation function
+        i.e. blocks may not overlap and therefore for the higher lags, less samples
+        are used for the estimation of the correlation        
+        '''
         print('Computing Correlation Matrices...')
         total_time_steps = self.total_time_steps
         num_analised_channels = self.num_analised_channels
@@ -967,24 +1208,22 @@ class PreprocessData(object):
         all_channels = ref_channels + roving_channels
         all_channels.sort()
         
-                
         if not num_blocks:
             num_blocks = 1
             
         block_length = int(np.floor(total_time_steps/num_blocks))
-        #tau_max = num_block_columns+num_block_rows
+        
         if block_length <= tau_max:
             raise RuntimeError('Block length (={}) must be greater or equal to max time lag (={})'.format(block_length, tau_max))
-        #extract_length = block_length - tau_max
 
         corr_matrices_mem = []
         
-        corr_mats_shape = (num_analised_channels, tau_max * num_ref_channels)
+        corr_mats_shape = (num_analised_channels, num_ref_channels, tau_max)
+        
         for n_block in range(num_blocks):
             corr_memory = mp.Array(c.c_double, np.zeros((np.product(corr_mats_shape)))) # shared memory, can be used by multiple processes @UndefinedVariable
             corr_matrices_mem.append(corr_memory)
             
-        #measurement*=float(np.sqrt(block_length))
         measurement_shape=measurement.shape
         measurement_memory = mp.Array(c.c_double, measurement.reshape(measurement.size, 1))# @UndefinedVariable
                 
@@ -1011,7 +1250,7 @@ class PreprocessData(object):
         else:
             iterators.append(curr_it)
 
-        
+        #self.init_child_process(measurement_memory, corr_matrices_mem)
         for curr_it in iterators:
             pool.apply_async(self.compute_covariance , args=(curr_it,
                                                         tau_max,
@@ -1020,15 +1259,15 @@ class PreprocessData(object):
                                                         all_channels, 
                                                         measurement_shape,
                                                         corr_mats_shape))
+            #self.compute_covariance(curr_it, tau_max, block_length, ref_channels, all_channels, measurement_shape, corr_mats_shape)
                                   
         pool.close()
         pool.join()               
 
-
         corr_matrices = []
         for corr_mats_mem in corr_matrices_mem:
             corr_mats = np.frombuffer(corr_mats_mem.get_obj()).reshape(corr_mats_shape) 
-            corr_matrices.append(corr_mats*num_blocks)
+            corr_matrices.append(corr_mats)
             
         self.corr_matrices = corr_matrices      
         
@@ -1036,108 +1275,45 @@ class PreprocessData(object):
         #corr_mats_mean = np.sum(corr_matrices, axis=0)
         #corr_mats_mean /= num_blocks - 1
         self.corr_mats_mean = corr_mats_mean
-        #self.corr_mats_std = np.std(corr_matrices, axis=0)
         
+        #self.corr_mats_std = np.std(corr_matrices, axis=0)
+    
         print('.',end='\n', flush=True)   
         
-    def compute_covariance(self, curr_it, tau_max, block_length, ref_channels, all_channels, measurement_shape, corr_mats_shape, detrend=False):
+        return corr_mats_mean
         
-        overlap = True
+    def compute_covariance(self, curr_it, tau_max, block_length, ref_channels, all_channels, measurement_shape, corr_mats_shape):
         
-        #sys.stdout.flush()
-        #normalize=False
         for this_it in curr_it:
             if len(this_it) > 2:
                 print('.',end='', flush=True)
                 del this_it[2]
             n_block, tau = this_it
-            num_analised_channels = len(all_channels)
-            num_ref_channels =len(ref_channels)
             
             measurement = np.frombuffer(measurement_memory.get_obj()).reshape(measurement_shape)
-            if overlap:
-                this_measurement = measurement[(n_block)*block_length:(n_block+1)*block_length+tau,:]#/np.sqrt(block_length)
-            else:
-                this_measurement = measurement[(n_block)*block_length:(n_block+1)*block_length,:]
+
+            this_measurement = measurement[(n_block)*block_length:(n_block+1)*block_length,:]
                 
-            if detrend:this_measurement = this_measurement - np.mean(this_measurement,axis=0)
+            refs = this_measurement[:-tau,ref_channels]
             
-            refs = (this_measurement[:-tau,ref_channels]).T
+            current_signals = this_measurement[tau:, all_channels]
             
-            current_signals = (this_measurement[tau:, all_channels]).T
-            
-            this_block = (np.dot(current_signals, refs.T))/current_signals.shape[0]
+            this_block = np.dot(current_signals.T, refs)/current_signals.shape[0]
 
             corr_memory = corr_matrices_mem[n_block]
             
             corr_mats = np.frombuffer(corr_memory.get_obj()).reshape(corr_mats_shape)
             
             with corr_memory.get_lock():
-                corr_mats[:,(tau-1)*num_ref_channels:tau*num_ref_channels] = this_block        
+                corr_mats[:,:,tau-1] = this_block
         
     def init_child_process(self, measurement_memory_, corr_matrices_mem_):
         #make the  memory arrays available to the child processes
-        
         global measurement_memory
         measurement_memory = measurement_memory_   
         
         global corr_matrices_mem
         corr_matrices_mem = corr_matrices_mem_
-        
-    def plot_covariances(self):
-        tau_max = self.tau_max
-        num_ref_channels = self.num_ref_channels     
-        num_analised_channels = self.num_analised_channels   
-        corr_matrices = self.corr_matrices
-        ref_channels = self.ref_channels
-#         subspace_matrices = []
-#         for n_block in range(self.num_blocks):
-#             corr_matrix = self.corr_matrices[n_block]
-#             this_subspace_matrix= np.zeros(((num_block_rows+1)*num_analised_channels, num_block_columns*num_ref_channels))
-#             for block_column in range(num_block_columns):
-#                 this_block_column = corr_matrix[block_column*num_analised_channels:(num_block_rows+1+block_column)*num_analised_channels,:]
-#                 this_subspace_matrix[:,block_column*num_ref_channels:(block_column+1)*num_ref_channels]=this_block_column
-#             subspace_matrices.append(this_subspace_matrix)
-        #self.subspace_matrices = subspace_matrices
-        #subspace_matrices = self.subspace_matrices
-        
-        import matplotlib.pyplot as plot
-        #matrices = subspace_matrices+[self.subspace_matrix]
-        #matrices = [self.subspace_matrix]
-        for corr_matrix in corr_matrices:
-            for num_channel,ref_channel in enumerate(ref_channels):
-                indices = (np.arange(tau_max)*num_analised_channels + ref_channel,np.repeat([num_channel],tau_max))
-                print(indices, corr_matrix.shape)
-                plot.plot(corr_matrix[indices])
-             
-        plot.show()                
-    def correct_time_lag(self, channel, lag, sampling_rate):
-        '''
-        Method does not work very well for small time lags, although
-        it might be necessary in certain cases
-        '''
-        #lag in ms
-        #sampling rate in 1/s
-        
-        def gcd(a, b):
-            #Return greatest common divisor using Euclid's Algorithm.
-            while b:      
-                a, b = b, a % b
-            return a
-        
-        def lcm(a, b):
-            #Return lowest common multiple.
-            return a * b // gcd(a, b)
-        
-        delta_t=1/sampling_rate*1000 #ms
-        sig_num=2
-        factor = lcm(int(delta_t*10**sig_num), int(lag*10**sig_num))/(10**sig_num)
-        resampled_col=signal.resample(self.measurement[:,channel], factor*self.measurement.shape[0])
-        num_shift = int(sampling_rate*factor*lag/1000)
-        shifted_col= resampled_col[num_shift:]
-        decimated_col=signal.decimate(shifted_col, factor)
-        self.measurement=self.measurement[:decimated_col.shape[1],:]
-        self.measurement[:,channel]=decimated_col
         
     def get_rms(self):
         self.correct_offset()
@@ -1149,334 +1325,57 @@ class PreprocessData(object):
         
         if snr != 0 and amplitude == 0:
             rms = self.get_rms()
-            #print(rms)
             amplitude = rms*snr
         else:
             amplitude = [amplitude for channel in range(self.num_analised_channels)]
             
-        for channel in self.ref_channels+self.roving_channels:
-            
+        for channel in self.ref_channels+self.roving_channels:            
             self.measurement[:,channel] += np.random.normal(0,amplitude[channel],self.total_time_steps)
         
-        
-    def get_fft(self):
+    def get_fft(self,svd=True):
         
         if self.ft_freq is None or self.sum_ft is None:
-            self.ft_freq, self.sum_ft = self.calculate_fft()
+            ft, self.ft_freq  = self.psd_welch(refs_only=False)
+            if not svd:
+                self.sum_ft = np.abs(np.sum(ft, axis=0))
+            else:
+                self.sum_ft = np.zeros((self.num_analised_channels, len(self.ft_freq )))
+                for i in range(len(self.ft_freq )):
+                    u,s,vt = np.linalg.svd(ft[:,:,i])
+                    self.sum_ft[:,i]=s#10*np.log(s)
+                    
+        #print(self.ft_freq.shape, self.sum_ft.shape)
         return self.ft_freq, self.sum_ft
     
-    def calculate_fft(self):  
-        print("Calculating FFT's")
+    def plot_svd_spectrum(self,NFFT=512, log_scale=False):
         
-            
-        ft_freq=None
-        sum_ft=None
-        for column in range(self.measurement.shape[1]):
-            sample_signal = self.measurement[:,column]  
-   
-            # one-dimensional averaged discrete Fourier Transform for real input
-            section_length = 2048
-            overlap = 0.5 * section_length
-            increment = int(section_length - overlap)
-            num_average = (len(sample_signal) - section_length) // increment
-            if num_average<1:
-                continue
-            for iii in range(num_average):
-                this_signal = sample_signal[(iii * increment):(iii * increment + section_length)]
-                
-                ft = np.fft.rfft(this_signal * np.hanning(len(this_signal)))
-                ft = abs(ft)
-                if iii == 0:
-                    average_ft = np.zeros(len(ft))
-                average_ft = average_ft + ft
-        
-            average_ft = average_ft / num_average
-            
-            if column == 0:
-                sum_ft = np.zeros(len(ft))
-            
-            sum_ft = sum_ft + average_ft
-    
-            ft_freq = np.fft.rfftfreq(section_length, d = (1/self.sampling_rate))
-        
-
-        return ft_freq, sum_ft
-    
-    def plot_svd_spectrum(self,):
-        import matplotlib.pyplot as plot
         plot.figure( tight_layout=1)
-        NFFT =  2048
-        pxy,freq = plot.csd(self.measurement[:,0],self.measurement[:,0], NFFT, self.sampling_rate)
-        psd_matrix = np.zeros((self.num_analised_channels,self.num_analised_channels,len(freq)), dtype=complex)
-         
-     
-        for i in range(self.num_analised_channels):
-            for j in range(self.num_analised_channels):
-                pxy,freq =plot.csd(self.measurement[:,i],self.measurement[:,j], NFFT, self.sampling_rate)
-                psd_matrix[i,j,:]=pxy
+        
+        psd_matrix, freq = self.psd_welch(NFFT,False)
         svd_matrix = np.zeros((self.num_analised_channels, len(freq)))
+        print(freq)
         for i in range(len(freq)):
             u,s,vt = np.linalg.svd(psd_matrix[:,:,i])
-            svd_matrix[:,i]=10*np.log(s)
+            if log_scale: s = 10*np.log10(s)
+            svd_matrix[:,i]=s#10*np.log(s)
             
         plot.figure( tight_layout=1)
         for i in range(self.num_analised_channels):
             plot.plot(freq,svd_matrix[i,:])
              
-        #plot.margins(0,0.1,tight=1)
+
         plot.xlim((0,self.sampling_rate/2))
-        plot.grid(1)
+        #plot.grid(1)
         plot.xlabel('Frequenz [\si{\hertz}]')
-        plot.ylabel('Singul\\"arwert Magnitude [\si{\decibel}]')
-        plot.yticks([0,-25,-50,-75,-100,-125,-150,-175,-200,-225,-250])
-        plot.ylim((-225,0))
-        plot.xlim((0.1,5))
-        #plot.xticks([0,1,3])
-        plot.grid(b=0)
-        #plot.gca().xaxis.set_label_coords(0.5, -0.035)
+        if log_scale: plot.ylabel('Singul\\"arwert Magnitude [\si{\decibel}]')
+        else: plot.ylabel('Singul\\"arwert Magnitude')
+        #plot.yticks([0,-25,-50,-75,-100,-125,-150,-175,-200,-225,-250])
+        #plot.ylim((-225,0))
+        #plot.xlim((0.1,5))
+
+        #plot.grid(b=0)
         
         plot.show()
-        
-# from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
-#     QCheckBox, QButtonGroup, QLabel, QComboBox, \
-#     QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction,\
-#     QFileDialog,  QMessageBox, QApplication, QRadioButton,\
-#     QLineEdit, QSizePolicy, QDoubleSpinBox
-# from PyQt5.QtGui import QIcon, QPalette
-# from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHandler, QTimer, QEventLoop
-# #make qt application not crash on errors
-# def my_excepthook(type, value, tback):
-#     # log the exception here
-# 
-#     # then call the default handler
-#     sys.__excepthook__(type, value, tback)
-# 
-# sys.excepthook = my_excepthook
-# 
-# class PreProcessGUI(QMainWindow):
-# 
-#     def __init__(self, prep_data):
-# 
-#         QMainWindow.__init__(self)
-#         self.setWindowTitle('Preprocessor: {} - {}'.format(
-#             prep_data.setup_name, prep_data.start_time))
-# 
-#         self.prep_data = prep_data
-#         
-#         self.create_menu()
-#         self.create_main_frame()
-# 
-#         
-# 
-#         self.setGeometry(300, 300, 1000, 600)
-#         # self.setWindowModality(Qt.ApplicationModal)
-#         self.showMaximized()
-# 
-# '''
-#         set up all the widgets and other elements to draw the GUI
-#         '''
-#         main_frame = QWidget()
-# 
-#         df_max = self.stabil_calc.df_max * 100
-#         dd_max = self.stabil_calc.dd_max * 100
-#         dmac_max = self.stabil_calc.dmac_max * 100
-#         d_range = self.stabil_calc.d_range
-#         mpc_min = self.stabil_calc.mpc_min
-#         mpd_max = self.stabil_calc.mpd_max
-# 
-#         self.fig = self.stabil_plot.fig
-#         #self.canvas = self.stabil_plot.fig.canvas
-#         # print(self.canvas)
-#         self.canvas = FigureCanvasQTAgg(self.fig)
-# 
-#         # self.stabil_plot.reconnect_cursor()
-# 
-#         self.canvas.setParent(main_frame)
-#         if self.stabil_plot.cursor is None:
-#             self.stabil_plot.init_cursor()
-#         self.stabil_plot.cursor.show_current_info.connect(
-#             self.update_value_view)
-#         self.stabil_plot.cursor.mode_selected.connect(self.mode_selector_add)
-#         self.stabil_plot.cursor.mode_deselected.connect(
-#             self.mode_selector_take)
-#         main_layout = QHBoxLayout()
-# 
-#         left_pane_layout = QVBoxLayout()
-#         left_pane_layout.addStretch(1)
-#         palette = QPalette()
-#         palette.setColor(QPalette.Base, Qt.transparent)
-# 
-#         self.current_value_view = QTextEdit()
-#         self.current_value_view.setFrameShape(QFrame.Box)
-#         self.current_value_view.setPalette(palette)
-# 
-#         self.diag_val_widget = QWidget()
-# 
-#         fra_1 = QFrame()
-#         fra_1.setFrameShape(QFrame.Panel)
-#         fra_1.setLayout(self.create_stab_val_widget(df_max=df_max,
-#                                                     dd_max=dd_max, d_mac=dmac_max, d_range=d_range, mpc_min=mpc_min,
-#                                                     mpd_max=mpd_max))
-#         left_pane_layout.addWidget(fra_1)
-# 
-#         left_pane_layout.addStretch(2)
-# 
-#         fra_2 = QFrame()
-#         fra_2.setFrameShape(QFrame.Panel)
-#         fra_2.setLayout(self.create_diag_val_widget())
-#         left_pane_layout.addWidget(fra_2)
-# 
-#         left_pane_layout.addStretch(2)
-#         left_pane_layout.addWidget(self.current_value_view)
-#         left_pane_layout.addStretch(1)
-# 
-#         right_pane_layout = QVBoxLayout()
-# 
-#         self.plot_selector_c = QRadioButton('Mode Shape in Complex Plane')
-#         self.plot_selector_c.toggled.connect(self.toggle_cpl_plot)
-#         self.plot_selector_msh = QRadioButton('Mode Shape in Spatial Model')
-#         self.plot_selector_msh.toggled.connect(self.toggle_msh_plot)
-# 
-#         self.group = QButtonGroup()
-#         self.group.addButton(self.plot_selector_c)
-#         self.group.addButton(self.plot_selector_msh)
-# 
-#         self.mode_selector = QComboBox()
-#         self.mode_selector.currentIndexChanged[
-#             int].connect(self.update_mode_val_view)
-# 
-#         self.mode_plot_widget = QWidget()
-#         self.cmplx_plot_widget = QWidget()
-# 
-#         self.cmpl_plot = cmpl_plot
-#         fig = self.cmpl_plot.fig
-#         canvas1 = FigureCanvasQTAgg(fig)
-#         canvas1.setParent(self.cmplx_plot_widget)
-# 
-#         self.msh_plot = msh_plot
-#         if msh_plot is not None:
-#             fig = msh_plot.fig
-#             #FigureCanvasQTAgg.resizeEvent = resizeEvent_
-#             #canvas2 = fig.canvas.switch_backends(FigureCanvasQTAgg)
-#             #canvas2.resizeEvent = types.MethodType(resizeEvent_, canvas2)
-#             canvas2 = fig.canvas
-#             #self.canvas.resize_event = resizeEvent_
-#             #self.canvas.resize_event  = funcType(resizeEvent_, self.canvas, FigureCanvasQTAgg)
-#             #msh_plot.canvas = canvas2
-#             #self.canvas.mpl_connect('button_release_event', self.update_lims)
-#             #if fig.get_axes():
-#             #    fig.get_axes()[0].mouse_init()
-#             canvas2.setParent(self.mode_plot_widget)
-#         else:
-#             canvas2 = QWidget()
-# 
-#         lay = QHBoxLayout()
-#         lay.addWidget(canvas1)
-#         self.cmplx_plot_widget.setLayout(lay)
-#         self.cmpl_plot.plot_diagram()
-# 
-#         lay = QHBoxLayout()
-#         lay.addWidget(canvas2)
-#         self.mode_plot_widget.setLayout(lay)
-# 
-#         self.mode_val_view = QTextEdit()
-#         self.mode_val_view.setFrameShape(QFrame.Box)
-# 
-#         self.mode_val_view.setPalette(palette)
-#         right_pane_layout.addStretch(1)
-#         right_pane_layout.addWidget(self.mode_selector)
-# 
-#         right_pane_layout.addWidget(self.plot_selector_c)
-#         right_pane_layout.addWidget(self.plot_selector_msh)
-#         right_pane_layout.addStretch(2)
-#         self.mode_plot_layout = QVBoxLayout()
-#         self.mode_plot_layout.addWidget(self.cmplx_plot_widget)
-#         right_pane_layout.addLayout(self.mode_plot_layout)
-#         right_pane_layout.addStretch(2)
-#         right_pane_layout.addWidget(self.mode_val_view)
-#         right_pane_layout.addStretch(1)
-# 
-#         main_layout.addLayout(left_pane_layout)
-#         main_layout.addWidget(self.canvas)
-#         main_layout.setStretchFactor(self.canvas, 1)
-#         main_layout.addLayout(right_pane_layout)
-#         vbox = QVBoxLayout()
-#         vbox.addLayout(main_layout)
-#         vbox.addLayout(self.create_buttons())
-#         main_frame.setLayout(vbox)
-#         self.stabil_plot.fig.set_facecolor('none')
-#         self.setCentralWidget(main_frame)
-#         self.current_mode = (0, 0)
-# 
-#         return
-# 
-#     def create_buttons(self):
-#         b0 = QPushButton('Apply')
-#         b0.released.connect(self.update_stabil_view)
-#         b1 = QPushButton('Save Figure')
-#         b1.released.connect(self.save_figure)
-# 
-#         b2 = QPushButton('Export Results')
-#         b2.released.connect(self.save_results)
-#         b3 = QPushButton('Save State')
-#         b3.released.connect(self.save_state)
-#         b4 = QPushButton('OK and Close')
-#         b4.released.connect(self.close)
-# 
-#         lay = QHBoxLayout()
-# 
-#         lay.addWidget(b0)
-#         lay.addWidget(b1)
-#         lay.addWidget(b2)
-#         lay.addWidget(b3)
-#         lay.addWidget(b4)
-#         lay.addStretch()
-# 
-#         return lay
-#     def create_menu(self):
-#         '''
-#         create the menubar and add actions to it
-#         '''
-#         def add_actions(target, actions):
-#             for action in actions:
-#                 if action is None:
-#                     target.addSeparator()
-#                 else:
-#                     target.addAction(action)
-#                     
-# 
-#         def create_action(text, slot=None, shortcut=None,
-#                           icon=None, tip=None, checkable=False,
-#                           signal="triggered()"):
-#             action = QAction(text, self)
-#             if icon is not None:
-#                 action.setIcon(QIcon(":/%s.png" % icon))
-#             if shortcut is not None:
-#                 action.setShortcut(shortcut)
-#             if tip is not None:
-#                 action.setToolTip(tip)
-#                 action.setStatusTip(tip)
-#             if slot is not None:
-#                 getattr(action, signal.strip('()')).connect(slot)
-#             if checkable:
-#                 action.setCheckable(True)
-#             return action
-# 
-#         file_menu = self.menuBar().addMenu("&File")
-# 
-#         load_file_action = create_action("&Save plot",
-#                                          shortcut="Ctrl+S",
-#                                          slot=None,
-#                                          tip="Save the plot")
-#         quit_action = create_action("&Quit",
-#                                     slot=self.close,
-#                                     shortcut="Ctrl+Q",
-#                                     tip="Close the application")
-# 
-#         add_actions(file_menu,
-#                     (load_file_action, None, quit_action))
-# 
-#         help_menu = self.menuBar().addMenu("&Help")
 
 
 def load_measurement_file(fname, **kwargs):
@@ -1496,34 +1395,152 @@ def load_measurement_file(fname, **kwargs):
     return headers, units, start_time, sample_rate, measurement  
 
 def main():
-    
-    def handler(msg_type, msg_string):
-        pass
+    pass
+#     def handler(msg_type, msg_string):
+#         pass
+# 
+#     if not 'app' in globals().keys():
+#         global app
+#         app = QApplication(sys.argv)
+#     if not isinstance(app, QApplication):
+#         app = QApplication(sys.argv)
+# 
+#     # qInstallMessageHandler(handler) #suppress unimportant error msg
+#     prep_data = PreprocessData.load_state('/vegas/scratch/womo1998/towerdata/towerdata_results_var/Wind_kontinuierlich__9_2016-10-05_04-00-00_000000/prep_data.npz')
+#     #prep_data = None
+#     preprocess_gui = PreProcessGUI(prep_data)
+#     loop = QEventLoop()
+#     preprocess_gui.destroyed.connect(loop.quit)
+#     loop.exec_()
+#     print('Exiting GUI')
+# 
+#     return
 
-    if not 'app' in globals().keys():
-        global app
-        app = QApplication(sys.argv)
-    if not isinstance(app, QApplication):
-        app = QApplication(sys.argv)
-
-    # qInstallMessageHandler(handler) #suppress unimportant error msg
-    prep_data = PreprocessData.load_state('/vegas/scratch/womo1998/towerdata/towerdata_results_var/Wind_kontinuierlich__9_2016-10-05_04-00-00_000000/prep_data.npz')
-    #prep_data = None
-    preprocess_gui = PreProcessGUI(prep_data)
-    loop = QEventLoop()
-    preprocess_gui.destroyed.connect(loop.quit)
-    loop.exec_()
-    print('Exiting GUI')
-
-    return
-
-def example():
-    path = '/ismhome/staff/womo1998/Projects/2017_Burscheid/Messdaten/2017_10_25_asc_Dateien/Messung_3.asc'
-    #measurement = np.loadtxt(path)
-    measurement = np.load('/ismhome/staff/womo1998/Projects/2017_Burscheid/Messdaten/2017_10_25_asc_Dateien/Messung_3.npz')
+def example_filter():
+    path = 'Messung_Test.asc'
+    measurement = np.loadtxt(path)
     prep_data = PreprocessData(measurement, sampling_rate=128)
-    print('test')
+    
+    prep_data.filter_data(order = 4, ftype='cheby1', lowpass=20, highpass=None, RpRs = [0.1, 0.1], overwrite=False, plot_filter=True)
+
+def example_decimate():
+    path = 'Messung_Test.asc'
+    measurement = np.loadtxt(path)
+    prep_data = PreprocessData(measurement, sampling_rate=128)
+    
+    _, f_plot = plt.subplots(2)
+    f_plot[0].set_title('Decimate data')           
+    f_plot[0].plot(np.linspace(0, 1, len(prep_data.measurement[:,1])), prep_data.measurement[:,1])
+    print('Original sampling rate: ', prep_data.sampling_rate, 'Hz')
+    print('Original number of time steps: ', prep_data.total_time_steps)
+    
+    prep_data.decimate_data(5, order=8, filter_type='cheby1')
+    
+    print(prep_data.measurement[:,1])
+    f_plot[1].plot(np.linspace(0, 1, len(prep_data.measurement[:,1])), prep_data.measurement[:,1])
+    print('Decimated sampling rate: ', prep_data.sampling_rate, 'Hz')
+    print('Decimated number of time steps: ', prep_data.total_time_steps)
+    plt.show()
+    
+def example_welch():
+    path = 'Messung_Test.asc'
+    measurement = np.loadtxt(path)
+    prep_data = PreprocessData(measurement, sampling_rate=128, ref_channels=[0, 1])
+    
+    startA = time.time()
+    corr_matrix, psd_mats = prep_data.welch(256)
+    print('Function A - Time elapsed: ', time.time() - startA)
+
+    startB = time.time()
+    corr_matrix_new = prep_data.corr_welch(256)
+    psd_mats_new, freqs = prep_data.psd_mats, prep_data.freqs # were certainly generated during function call by corr_welch
+    print('Function B - Time elapsed: ', time.time() - startB)
+ 
+    chA = 7
+    chB = 1 
+
+    _, f_plot = plt.subplots(2)
+    f_plot[0].set_title('Correlation Values - different functions')  
+    f_plot[0].plot(corr_matrix[chA,chB,:])
+    f_plot[1].plot(corr_matrix_new[chA,chB,:])
+    plt.figure()
+    plt.title('Correlation Values - Superimposed graph')  
+    plt.plot(corr_matrix[chA,chB,:])
+    plt.plot(corr_matrix_new[chA,chB,:])
+    #plt.show()
+    
+
+    _, f_plot = plt.subplots(2)
+    f_plot[0].set_title('PSD Values - different functions')  
+    f_plot[0].plot(np.abs(psd_mats[chA,chB,:]))
+    f_plot[1].plot(np.abs(psd_mats_new[chA,chB,:]))
+    plt.figure()
+    plt.title('PSD Values - Superimposed graph')  
+    plt.plot(np.abs(psd_mats[chA,chB,:]))
+    plt.plot(np.abs(psd_mats_new[chA,chB,:]))
+            
+    plt.show()
+
+def example_blackman_tukey():
+    path = 'Messung_Test.asc'
+    measurement = np.loadtxt(path)
+    prep_data = PreprocessData(measurement, sampling_rate=128, ref_channels=[0, 1])
+    
+    startA = time.time()
+    psd_mats, freqs = prep_data.psd_blackman_tukey(tau_max=256, window = 'bartlett')
+    corr_matrix = prep_data.corr_mats_mean
+    print('Time elapsed: ', time.time() - startA)
+    #print(freqs)
+    chA = 7
+    chB = 1
+    
+    plt.figure()
+    plt.title('Correlation Values')  
+    plt.plot(corr_matrix[chA,chB,:])
+    plt.figure()
+    plt.title('PSD Values')  
+    plt.plot(freqs,np.abs(psd_mats[chA,chB,:]))
+    plt.show()
+
+def compare_PSD_Corr():
+    path = 'Messung_Test.asc'
+    measurement = np.loadtxt(path)
+    prep_data = PreprocessData(measurement, sampling_rate=128, ref_channels=[0, 1])
+    
+    prep_data.filter_data(lowpass=10, highpass=0.1, overwrite=True)
+    
+    startA = time.time()
+    psd_mats_b, freqs_b = prep_data.psd_blackman_tukey(tau_max=2048, window = 'rect')
+    corr_matrix_b = prep_data.corr_mats_mean 
+    print('Blackman-Tukey - Time elapsed: ', time.time() - startA)
+    
+    startB = time.time()
+    corr_matrix_w = prep_data.corr_welch(2048, window='hamming')
+    psd_mats_w, freqs_w = prep_data.psd_mats, prep_data.freqs
+    print('Welch - Time elapsed: ', time.time() - startB)
+    
+    
+    chA = 7
+    chB = 1
+    
+    plt.figure()
+    plt.title('Correlation Values')  
+    plt.plot(corr_matrix_b[chA,chB,:])
+    plt.plot(corr_matrix_w[chA,chB,:])
+    plt.figure()
+    plt.title('PSD Values')  
+    plt.plot(freqs_b,np.abs(psd_mats_b[chA,chB,:]))
+    plt.plot(freqs_w,np.abs(psd_mats_w[chA,chB,:]))
+    plt.show()    
     
 if __name__ =='__main__':
-    example()
-    #main()
+    import os
+    path = 'E:/OneDrive/BHU_NHRE/Python/2017_PreProcessGUI/'
+    path = '/ismhome/staff/womo1998/Projects/2017_PreProcessGUI/'
+    os.chdir(path)
+    #example_filter()
+    #example_decimate()
+    #example_welch()
+    #example_blackman_tukey()
+    compare_PSD_Corr()
+    main()

@@ -8,8 +8,10 @@ import numpy as np
 
 import scipy.cluster
 import scipy.spatial
+import scipy.stats
 
 import sys
+from nose.importer import Importer
 
 # make qt application not crash on errors
 
@@ -60,11 +62,38 @@ from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
 from PyQt5.QtGui import QIcon, QPalette
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHandler, QTimer, QEventLoop
 
-from SSICovRef import BRSSICovRef, PogerSSICovRef
-from SSIData import SSIData, SSIDataMC
-from VarSSIRef import VarSSIRef
-from PRCE import PRCE
-from PLSCF import PLSCF
+NoneType = type(None)
+
+try:
+    from SSICovRef import BRSSICovRef, PogerSSICovRef
+except ImportError:
+    BRSSICovRef = NoneType
+    PogerSSICovRef = NoneType
+try:    
+    from SSIData import SSIData, SSIDataMC
+except ImportError:
+    SSIData = NoneType
+    SSIDataMC = NoneType
+    
+try:
+    from VarSSIRef import VarSSIRef
+except ImportError:
+    VarSSIRef = NoneType
+    
+try:
+    from PRCE import PRCE
+except ImportError:
+    PRCE = NoneType
+
+try:
+    from PLSCF import PLSCF
+except ImportError:
+    PLSCF = NoneType
+    
+try:
+    from ERA import ERA
+except ImportError:
+    ERA = NoneType
 
 from PreprocessingTools import PreprocessData
 import warnings
@@ -481,11 +510,17 @@ class StabilGUI(QMainWindow):
 
         n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC = self.stabil_calc.get_modal_values(
             i)
+        if self.stabil_calc.capabilities['std']:
+            import scipy.stats
+            num_blocks = self.stabil_calc.modal_data.num_blocks
+            stdf = scipy.stats.t.ppf(0.975,num_blocks)*stdf/np.sqrt(num_blocks)
+            stdd = scipy.stats.t.ppf(0.975,num_blocks)*stdd/np.sqrt(num_blocks)
+            
         self.current_mode = i
         s = ''
-        for text, val in zip(['Frequency=%1.3fHz, \n' % (f), 'Std Frequency=%1.3e, \n' % (stdf),
+        for text, val in zip(['Frequency=%1.3fHz, \n' % (f), 'CI Frequency ± %1.3e, \n' % (stdf),
                               'Order=%1.0f, \n' % (n), 'Damping=%1.3f%%,  \n' % (
-                                  d), 'StdDamping=%1.3e,  \n' % (stdd),
+                                  d), 'CI Damping ± %1.3e,  \n' % (stdd),
                               'MPC=%1.5f, \n' % (mpc), 'MP=%1.3f\u00b0, \n' % (mp), 'MPD=%1.5f\u00b0, \n' % (mpd),  'dMP=%1.3f\u00b0, \n' % (dmp), 'dMPD=%1.5f\u00b0, \n' % (dmpd), 'MTN=%1.5f, \n' % (mtn), 'MC=%1.5f, \n' % (MC)],
                              [f, stdf, n, d, stdd, mpc, mp, mpd, dmp, dmpd,  mtn, MC]):
             if val is not np.nan:
@@ -578,13 +613,21 @@ class StabilGUI(QMainWindow):
 
         n, f, stdf, d, stdd, mpc, mp, mpd,dmp, dmpd, mtn, MC = self.stabil_calc.get_modal_values(
             i)
+        
+
+        if self.stabil_calc.capabilities['std']:
+            import scipy.stats
+            num_blocks = self.stabil_calc.modal_data.num_blocks
+            stdf = scipy.stats.t.ppf(0.975,num_blocks)*stdf/np.sqrt(num_blocks)
+            stdd = scipy.stats.t.ppf(0.975,num_blocks)*stdd/np.sqrt(num_blocks)
+            
         self.current_mode = i
         s = ''
-        for text, val in zip(['Frequency=%1.3fHz, \n' % (f), 'Std Frequency=%1.3e, \n' % (stdf),
+        for text, val in zip(['Frequency=%1.3fHz, \n' % (f), 'CI Frequency ± %1.3e, \n' % (stdf),
                               'Order=%1.0f, \n' % (n), 'Damping=%1.3f%%,  \n' % (
-                                  d), 'StdDamping=%1.3e,  \n' % (stdd),
-                              'MPC=%1.5f, \n' % (mpc), 'MP=%1.3f\u00b0, \n' % (mp), 'MPD=%1.5f\u00b0, \n' % (mpd), 'dMP=%1.3f%%, \n' % (dmp), 'dMPD=%1.5f%%, \n' % (dmpd), 'MTN=%1.5f, \n' % (mtn), 'MC=%1.5f, \n' % (MC)],
-                             [f, stdf, n, d, stdd, mpc, mp, mpd,dmp, dmpd, mtn, MC]):
+                                  d), 'CI Damping ± %1.3e,  \n' % (stdd),
+                              'MPC=%1.5f, \n' % (mpc), 'MP=%1.3f\u00b0, \n' % (mp), 'MPD=%1.5f\u00b0, \n' % (mpd),  'dMP=%1.3f\u00b0, \n' % (dmp), 'dMPD=%1.5f\u00b0, \n' % (dmpd), 'MTN=%1.5f, \n' % (mtn), 'MC=%1.5f, \n' % (MC)],
+                             [f, stdf, n, d, stdd, mpc, mp, mpd, dmp, dmpd,  mtn, MC]):
             if val is not np.nan:
                 s += text
 
@@ -1119,10 +1162,10 @@ class StabilCalc(object):
     def __init__(self, modal_data, prep_data=None):
 
         super().__init__()
-
+        #print(type(modal_data))
         assert isinstance(
             modal_data, (BRSSICovRef, SSIData, VarSSIRef, PRCE, 
-                         PLSCF, SSIDataMC, PogerSSICovRef))
+                         PLSCF, SSIDataMC, PogerSSICovRef, ERA))
 
         self.modal_data = modal_data
 
@@ -2268,7 +2311,7 @@ class StabilCluster(StabilCalc):
         # dlambda, df, dd, dMAC, dMPD, stacked as list of size (order, num_modes)
         all_poles = np.vstack(compressed_matrices).T
         
-        #transform distribution (weibull like) to logarithmic scale 
+        #transform distribution (weibull like) to logarithmic scale (resembles normal distribution)
         all_poles = np.log(all_poles)
 
         # whitening (scale to unit variance) significantly improves 
@@ -2820,6 +2863,8 @@ class StabilPlot(object):
         self.fig = Figure(facecolor='white', dpi=100, figsize=(16, 12))
         self.fig.set_tight_layout(True)
         self.ax = self.fig.add_subplot(111)
+        
+#         self.ax2 = self.ax.twinx()
 
         canvas = FigureCanvasBase(self.fig)
 
@@ -3084,9 +3129,14 @@ class StabilPlot(object):
                 std_frequencies = np.ma.array(
                     self.stabil_calc.modal_data.std_frequencies)
                 std_frequencies.mask = mask
-
+                
+                # standard error
+                num_blocks = self.stabil_calc.modal_data.num_blocks
+                std_error = std_frequencies.compressed()/np.sqrt(num_blocks)
+                
+                # 95 % confidence interval -> student t (tabulated percentage points) * std_error (approx 2* std_error)
                 self.stable_plot[name] = self.ax.errorbar(self.stabil_calc.masked_frequencies.compressed(),
-                                                          self.stabil_calc.order_dummy.compressed(), xerr=std_frequencies.compressed(), zorder=zorder,
+                                                          self.stabil_calc.order_dummy.compressed(), xerr=scipy.stats.t.ppf(0.975,num_blocks)*std_error, zorder=zorder,
                                                           fmt='none',  ecolor=color, label=label, visible=visibility)
 
         else:
@@ -3168,10 +3218,19 @@ class StabilPlot(object):
         #print('sum_ft = ', sum_ft)
         #print('self.stabil_calc.modal_data.max_model_order = ',
         #      self.stabil_calc.modal_data.max_model_order)
-        sum_ft = sum_ft / (np.amax(sum_ft)) * 0.5 * \
+        
+        sum_ft = sum_ft / (np.max(sum_ft)) * 0.5 * \
             self.stabil_calc.modal_data.max_model_order
-        self.psd_plot = self.ax.plot(
-            ft_freq, sum_ft, color='grey', linestyle='solid', visible=b)
+        for channel in range(sum_ft.shape[0]):
+#             self.psd_plot = self.ax2.semilogy(
+#                 ft_freq, sum_ft[channel,:], color='grey', linestyle='solid', visible=b)
+            self.psd_plot = self.ax.plot(
+                ft_freq, sum_ft[channel,:], color='grey', linestyle='solid', visible=b)
+#         ymin,ymax= self.ax2.get_ylim()
+#         ymin = np.percentile(sum_ft[-1,:],5)
+#         ymax = (ymax-ymin)*2+ymin
+#         self.ax2.set_ylim((ymin,ymax))
+#         self.ax2.set_yticks([],[])
         self.fig.canvas.draw_idle()
 
     def update_xlim(self, xlim):
@@ -3909,7 +3968,7 @@ def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None
 
     assert isinstance(stabil_plot, StabilPlot)
     cmpl_plot = ComplexPlot()
-    if geometry_data is not None and prep_data is not None:
+    if geometry_data is not None:# and prep_data is not None:
         msh_plot = ModeShapePlot(
             stabil_plot.stabil_calc, modal_data, geometry_data, prep_data,)
     else:

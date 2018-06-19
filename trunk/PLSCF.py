@@ -768,7 +768,8 @@ class PLSCF(object):
         modal_frequencies = np.zeros((max_model_order, max_model_order))
         modal_damping = np.zeros((max_model_order, max_model_order))
         mode_shapes = np.zeros((num_analised_channels, max_model_order, max_model_order),dtype=complex)
-                          
+        eigenvalues = np.zeros((max_model_order, max_model_order), dtype=complex)
+                   
         for this_model_order in range(max_model_order+1):
             
             # minimal model order should be 2 !!!
@@ -884,9 +885,10 @@ class PLSCF(object):
                 current_frequencies = np.zeros((1,max_model_order))
                 current_damping = np.zeros((1,max_model_order))
                 current_mode_shapes = np.zeros((num_analised_channels,max_model_order), dtype=complex)
-                                 
+                    
                 for jj in range(len(eigenvalues_single)):
-                    k = eigenvalues_single[jj]        
+                    k = eigenvalues_single[jj]       
+                     
                     lambda_k = np.log(complex(k)) * sampling_rate
                     freq_j = np.abs(lambda_k) / (2*np.pi)     
         
@@ -912,8 +914,9 @@ class PLSCF(object):
                     
                 modal_frequencies[(this_model_order-1),:] = current_frequencies
                 modal_damping[(this_model_order-1),:] = current_damping
+                eigenvalues[(this_model_order-1),:len(eigenvalues_single)] = eigenvalues_single
                 mode_shapes[:,:,(this_model_order-1)] = current_mode_shapes
-        
+        self.eigenvalues = eigenvalues
         self.modal_frequencies = modal_frequencies
         self.modal_damping = modal_damping
         self.mode_shapes = mode_shapes

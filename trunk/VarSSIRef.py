@@ -936,6 +936,7 @@ class VarSSIRef(object):
             Q2 = self.Q2
             Q3 = self.Q3  
         
+        eigenvalues = np.zeros((max_model_order, max_model_order),dtype=np.complex128)
         modal_frequencies = np.zeros((max_model_order, max_model_order))
         std_frequencies = np.zeros((max_model_order, max_model_order))        
         modal_damping = np.zeros((max_model_order, max_model_order))  
@@ -1083,6 +1084,7 @@ class VarSSIRef(object):
                 mode_shape_i *= np.exp(-1j*alpha_ik)
                 #alpha = np.arctan(sik.imag/sik.real)
                 
+                eigenvalues[order,i]=lambda_i
                 modal_frequencies[order,i]=freq_i
                 modal_damping[order,i]=damping_i
                 mode_shapes[:,i,order]=mode_shape_i
@@ -1206,7 +1208,8 @@ class VarSSIRef(object):
                     print('Frequency: {}, Std_Frequency: {}'.format(freq_i, std_frequencies[order,i]))
                     print('Damping: {}, Std_damping: {}'.format(damping_i, std_damping[order, i]))
                     print('Mode_Shape: {}, Std_Mode_Shape: {}'.format(mode_shape_i, std_mode_shapes[:,i,order]))
-                
+        self.eigenvalues = eigenvalues
+        
         self.modal_frequencies = modal_frequencies
         self.std_frequencies = std_frequencies
         
@@ -1549,6 +1552,7 @@ class VarSSIRef(object):
                             
         if self.state[2]:# modal params 
 
+            out_dict['self.eigenvalues'] = self.eigenvalues
             out_dict['self.modal_frequencies'] = self.modal_frequencies
             out_dict['self.modal_damping'] = self.modal_damping
             out_dict['self.mode_shapes'] = self.mode_shapes
@@ -1641,6 +1645,7 @@ class VarSSIRef(object):
 
             print('State Matrices and Sensitivities Computed: {} up to order {}'.format(ssi_object.lsq_method, ssi_object.max_model_order))
         if state[2]:# modal params
+            ssi_object.eigenvalues = in_dict['self.eigenvalues']
             ssi_object.modal_frequencies = in_dict['self.modal_frequencies']
             ssi_object.modal_damping = in_dict['self.modal_damping']
             ssi_object.mode_shapes = in_dict['self.mode_shapes']

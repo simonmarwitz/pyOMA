@@ -1,6 +1,8 @@
 # GUI
 #from PyQt5 import QtGui, QtCore
 
+#http://pyqt.sourceforge.net/Docs/PyQt4/qcombobox.html
+
 from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
     QCheckBox, QButtonGroup, QLabel, QToolButton, QComboBox, QStyle,\
     QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction, \
@@ -11,7 +13,6 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMessageHandler, QEventLoop, QSize
 # Matplotlib
 import matplotlib
-from PostProcessingTools import MergePoSER
 matplotlib.use("Qt5Agg",force=True) 
 from matplotlib import rcParams
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -47,11 +48,44 @@ import itertools
 from numpy import disp
 from StabilDiagram import StabilCalc, DelayedDoubleSpinBox
 from PreprocessingTools import PreprocessData, GeometryProcessor
-from SSICovRef import BRSSICovRef, PogerSSICovRef
-from SSIData import SSIData, SSIDataMC
-from VarSSIRef import VarSSIRef
-from PRCE import PRCE
-from PLSCF import PLSCF
+
+NoneType = type(None)
+
+try:
+    from SSICovRef import BRSSICovRef, PogerSSICovRef
+except ImportError:
+    BRSSICovRef = NoneType
+    PogerSSICovRef = NoneType
+try:    
+    from SSIData import SSIData, SSIDataMC
+except ImportError:
+    SSIData = NoneType
+    SSIDataMC = NoneType
+    
+try:
+    from VarSSIRef import VarSSIRef
+except ImportError:
+    VarSSIRef = NoneType
+    
+try:
+    from PRCE import PRCE
+except ImportError:
+    PRCE = NoneType
+
+try:
+    from PLSCF import PLSCF
+except ImportError:
+    PLSCF = NoneType
+    
+try:
+    from ERA import ERA
+except ImportError:
+    ERA = NoneType
+    
+try:
+    from PostProcessingTools import MergePoSER
+except ImportError:
+    MergePoSER = NoneType
 #from pyparsing import line
 from copy import deepcopy
 
@@ -220,7 +254,7 @@ class ModeShapePlot(object):
         
         #modal_data = modal_data
         if modal_data is not None:
-            assert isinstance(modal_data, (BRSSICovRef, SSIData,SSIDataMC,VarSSIRef, PRCE, PLSCF, PogerSSICovRef))
+            assert isinstance(modal_data, (BRSSICovRef, SSIData,SSIDataMC,VarSSIRef, PRCE, PLSCF, PogerSSICovRef, ERA))
         self.modal_data = modal_data
         
         assert isinstance(geometry_data, GeometryProcessor)
@@ -1021,9 +1055,12 @@ class ModeShapePlot(object):
         
         for axis in ['X', 'Y', 'Z']:
             if axis in self.axis_obj:
-                self.axis_obj[axis][0].remove()
-                self.axis_obj[axis][1].remove()
-                del self.axis_obj[axis]
+                try:
+                    self.axis_obj[axis][0].remove()
+                    self.axis_obj[axis][1].remove()
+                    del self.axis_obj[axis]
+                except ValueError:
+                    continue
         
         self.scale
         
@@ -1232,7 +1269,12 @@ class ModeShapePlot(object):
             for obj in patch:
                 obj.set_visible(self.show_chan_dofs)
         self.canvas.draw_idle()
-
+        
+    def rescale_mode_shape(self,modeshape):
+        #scaling of mode shape
+        modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
+        return modeshape
+    
     def draw_msh(self):
         '''
         assigns displacement values to the
@@ -1242,7 +1284,7 @@ class ModeShapePlot(object):
         '''
 
         mode_shape = self.mode_shapes[:,self.mode_index[1], self.mode_index[0]]
-        mode_shape = BRSSICovRef.rescale_mode_shape(mode_shape)
+        mode_shape = self.rescale_mode_shape(mode_shape)
         ampli = self.amplitude
 
         self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() } 
@@ -1283,19 +1325,19 @@ class ModeShapePlot(object):
                     if not np.allclose(x,0):
                         #print(x, phase)
                         if self.disp_nodes[node][0] > 0:
-                            raise RuntimeWarning('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
+                            RuntimeWarning('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
                         self.phi_nodes[node][0] = phase
                         self.disp_nodes[node][0] = x * disp * ampli #/ norm
                     if not np.allclose(y,0):
                         #print(y,phase)
                         if self.disp_nodes[node][1] > 0:
-                            raise RuntimeWarning('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
+                            RuntimeWarning('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
                         self.phi_nodes[node][1] = phase
                         self.disp_nodes[node][1] = y * disp * ampli #/ norm
                     if not np.allclose(z,0):
                         #print(z,phase)
                         if self.disp_nodes[node][2] > 0:
-                            raise RuntimeWarning('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
+                            RuntimeWarning('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
                         self.phi_nodes[node][2] = phase
                         self.disp_nodes[node][2] = z * disp * ampli #/ norm
                     
@@ -1326,19 +1368,19 @@ class ModeShapePlot(object):
             if not np.allclose(x,0):
                 #print(x, phase)
                 if self.disp_nodes[i_sl][0] > 0:
-                    raise RuntimeWarning('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
+                    RuntimeWarning('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
                 self.phi_nodes[i_sl][0] = phase
                 self.disp_nodes[i_sl][0] += master_disp * x_sl
             if not np.allclose(y,0):
                 #print(y,phase)
                 if self.disp_nodes[i_sl][1] > 0:
-                    raise RuntimeWarning('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
+                    RuntimeWarning('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
                 self.phi_nodes[i_sl][1] = phase
                 self.disp_nodes[i_sl][1] += master_disp * y_sl
             if not np.allclose(z,0):
                 #print(z,phase)
                 if self.disp_nodes[i_sl][2] > 0:
-                    raise RuntimeWarning('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
+                    RuntimeWarning('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
                 self.phi_nodes[i_sl][2] = phase
                 self.disp_nodes[i_sl][2] += master_disp * z_sl
 
@@ -1363,7 +1405,7 @@ class ModeShapePlot(object):
                         
                 moving_nodes = set()
                 for chan_dof in self.chan_dofs:#
-                    chan_, node, az, elev, chan_name  = chan_dof[0:4]+chan_dof[-1]
+                    chan_, node, az, elev, chan_name  = chan_dof[0:4]+ [chan_dof[-1]]
                     moving_nodes.add(node)
                 
                 clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))#@UndefinedVariable

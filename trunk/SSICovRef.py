@@ -898,10 +898,12 @@ class PogerSSICovRef(object):
                 ref_inds = np.array([setup['prep_data'].ref_channels.index(ref_channel) for ref_channel in ssi_ref_channels[this_num_setup]])
                 
                 # shape (num_analised_channels, tau_max * num_ref_channels)
-                this_block_column = setup['prep_data'].corr_mats_mean[:,block_row*num_ref_channels:(num_block_columns+block_row)*num_ref_channels]
+                #this_block_column = setup['prep_data'].corr_mats_mean[:,block_row*num_ref_channels:(num_block_columns+block_row)*num_ref_channels]
+                this_tau_max = setup['prep_data'].tau_max
+                this_block_column = setup['prep_data'].corr_mats_mean.reshape((this_analised_channels, num_ref_channels*this_tau_max),order='F')[:,block_row*num_ref_channels:(num_block_columns+block_row)*num_ref_channels]
                 
                 #ref_inds = np.hstack([ref_inds+block_column*this_analised_channels for block_column in range(num_block_columns)])
-                #print(this_block_column.shape, ref_inds,ref_inds.shape, subspace_matrix.shape)
+                #print(this_block_column.shape, subspace_matrix.shape)
                 #shape (num_block_rows+1)*num_analised_channels,num_block_columns*num_ref_channels
                 subspace_matrix[block_row*num_analised_channels+sum_analised_channels:block_row*num_analised_channels+sum_analised_channels+this_analised_channels,:]=this_block_column
                 
@@ -1178,7 +1180,7 @@ class PogerSSICovRef(object):
         np.savez_compressed(fname, **out_dict)
         
     @classmethod 
-    def load_state(cls, fname, prep_data):
+    def load_state(cls, fname, ):
         print('Now loading previous results from  {}'.format(fname))
         
         in_dict=np.load(fname)    
@@ -1195,15 +1197,15 @@ class PogerSSICovRef(object):
                                                     ]):
             if this_state: print(state_string)
         
-        assert isinstance(prep_data, PreprocessData)
+        #assert isinstance(prep_data, PreprocessData)
         setup_name= str(in_dict['self.setup_name'].item())
         start_time=in_dict['self.start_time'].item()
-        assert setup_name == prep_data.setup_name
-        start_time = prep_data.start_time
+        #assert setup_name == prep_data.setup_name
+        #start_time = prep_data.start_time
         
-        assert start_time == prep_data.start_time
+        #assert start_time == prep_data.start_time
         #prep_data = in_dict['self.prep_data'].item()
-        ssi_object = cls(prep_data)
+        ssi_object = cls()
         ssi_object.state = state
         if state[0]:# covariances
             ssi_object.toeplitz_matrix = in_dict['self.toeplitz_matrix']
