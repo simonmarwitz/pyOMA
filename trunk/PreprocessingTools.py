@@ -30,8 +30,7 @@ import warnings
 
 import matplotlib.pyplot as plt
 import matplotlib.pyplot as plot
-import matplotlib.cm as cm
-import matplotlib.mlab as mlb
+import warnings
 
 def nearly_equal(a,b,sig_fig=5):
     return ( a==b or 
@@ -321,9 +320,11 @@ class PreprocessData(object):
     - apply windowing functions
     '''
     def __init__(self, measurement, sampling_rate, total_time_steps=None, 
-                 num_channels=None,ref_channels=None, roving_channels=None,
+                 #num_channels=None,
+                 ref_channels=None,
                  accel_channels=None, velo_channels=None, disp_channels=None,
-                 setup_name=None, channel_headers=None, start_time=None, ft_freq=None, sum_ft=None):
+                 setup_name=None, channel_headers=None, start_time=None, 
+                 ft_freq=None, sum_ft=None, F=None, **kwargs):
         
         super().__init__()
         
@@ -335,6 +336,11 @@ class PreprocessData(object):
         assert isinstance(sampling_rate, (int,float))
         self.sampling_rate = sampling_rate
         
+        #added by anil
+        if F is not None:
+            assert isinstance(F, np.ndarray)
+        self.F = F
+        
         if total_time_steps is None:
             total_time_steps = measurement.shape[0]
         
@@ -345,45 +351,46 @@ class PreprocessData(object):
         if ref_channels is None:
             ref_channels = list(range(measurement.shape[1]))
         self.ref_channels = ref_channels
-        if roving_channels is None:
-            roving_channels = [i for i in range(measurement.shape[1]) if i not in ref_channels]
-        self.roving_channels = roving_channels
+#         if roving_channels is None:
+#             roving_channels = [i for i in range(measurement.shape[1]) if i not in ref_channels]
+#         self.roving_channels = roving_channels
         
         self.num_ref_channels = len(self.ref_channels)
-        self.num_roving_channels = len(self.roving_channels)
-        self.num_analised_channels = self.num_ref_channels + self.num_roving_channels
+#         self.num_roving_channels = len(self.roving_channels)
+        self.num_analised_channels = measurement.shape[1]#self.num_ref_channels + self.num_roving_channels
         
-        if num_channels is None:
-            num_channels = self.num_analised_channels
+        #if num_channels is None:
+        #    num_channels = self.num_analised_channels
             
-        assert num_channels <= self.measurement.shape[1]    
+        #assert num_channels <= self.measurement.shape[1]    
         
-        if ((self.num_ref_channels + self.num_roving_channels) > num_channels):
-                sys.exit('The sum of reference and roving channels is greater than the number of all channels!')
+        #if ((self.num_ref_channels + self.num_roving_channels) > num_channels):
+        #        sys.exit('The sum of reference and roving channels is greater than the number of all channels!')
         
         for ref_channel in self.ref_channels:
             if (ref_channel < 0):
                 sys.exit('A reference channel number cannot be negative!')
-            if (ref_channel > (num_channels - 1)):
+            if (ref_channel > (self.num_analised_channels - 1)):
                 sys.exit('A reference channel number cannot be greater than the number of all channels!')
-            for rov_channel in self.roving_channels:
-                if (rov_channel < 0):
-                    sys.exit('A roving channel number cannot be negative!')
-                if (rov_channel > (num_channels - 1)):
-                    sys.exit('A roving channel number cannot be greater than the number of all channels!')
-                if (ref_channel == rov_channel):
-                    sys.exit('Any channel can be either a reference OR a roving channel. Check your definitions!')
+            #for rov_channel in self.roving_channels:
+            #    if (rov_channel < 0):
+            #        sys.exit('A roving channel number cannot be negative!')
+            #    if (rov_channel > (num_channels - 1)):
+            #        sys.exit('A roving channel number cannot be greater than the number of all channels!')
+            #    if (ref_channel == rov_channel):
+            #       sys.exit('Any channel can be either a reference OR a roving channel. Check your definitions!')
         
         if disp_channels is None:
             disp_channels = []
         if velo_channels is None:
             velo_channels = []
         if accel_channels is None:
-            accel_channels = [c for c in self.ref_channels+self.roving_channels if c not in disp_channels or c not in velo_channels]
+            #accel_channels = [c for c in self.ref_channels+self.roving_channels if c not in disp_channels or c not in velo_channels]
+            accel_channels = [c for c in range(self.num_analised_channels) if c not in disp_channels or c not in velo_channels]
         
-        for channel in self.ref_channels+self.roving_channels:
+        for channel in range(self.num_analised_channels):
             if (channel in accel_channels) + (channel in velo_channels) + (channel in disp_channels) != 1:
-                import warnings
+                
                 warnings.warn('Measuring quantity of channel {} is not defined.'.format(channel))  
             
         self.accel_channels = accel_channels
@@ -420,6 +427,8 @@ class PreprocessData(object):
         self.ft_freq = ft_freq
         self.sum_ft = sum_ft
         
+        self.tau_max = 0
+        
         self.corr_matrix = None
         self.psd_mats = None
         self.s_vals_cf = None
@@ -434,7 +443,8 @@ class PreprocessData(object):
         if delete_channels are specified, these will be checked against 
         all other channel definitions, which will be adjusted accordingly
         '''
-        assert os.path.exists(conf_file)
+        if not os.path.exists(conf_file):
+            raise RuntimeError('Conf File does not exist: {}'.format(conf_file))
         
         with open(conf_file, 'r') as f:
             
@@ -481,6 +491,21 @@ class PreprocessData(object):
             chan_dofs = cls.load_chan_dofs(chan_dofs_file)
         else:
             chan_dofs = None
+            
+        if chan_dofs is not None:
+            for chan_dof in chan_dofs:
+                if len(chan_dof)==5:
+                    chan = chan_dof[0]
+                    chan_name = chan_dof[4]
+                    if len(chan_name)==0:
+                        continue
+                    elif headers[chan] == 'Channel_{}'.format(chan):
+                        headers[chan] = chan_name
+                    elif headers[chan] != chan_name:
+                        print('Different headers for channel {} in measurement file ({}) and in channel-DOF-assignment ({}).'.format(chan, headers[chan], chan_name))
+                    else:
+                        continue
+                    
         #print(delete_channels)
         if delete_channels:
             #delete_channels.sort(reverse=True)
@@ -488,50 +513,107 @@ class PreprocessData(object):
             names=['Reference Channels', 'Accel. Channels', 'Velo. Channels', 'Disp. Channels']
             channel_lists=[ref_channels, accel_channels, velo_channels, disp_channels]
             #print(chan_dofs)
-            channel = measurement.shape[1]
-            #num_channels = measurement.shape[1]
-            while channel >= 0:
-                
-                if channel in delete_channels:
-                    # affected lists: ref_channels, accel_channels, velo_channels, disp_channels + chan_dofs
-                    # remove channel from all lists
-                    # decrement all channels higher than channel in all lists
-                    #num_channels -= 1
-                    for channel_list in channel_lists:
-                        if channel in channel_list:
-                            channel_list.remove(channel)
-                            print('Channel {} removed from {} list'.format(channel, names[channel_lists.index(channel_list)]))
-                        for channel_ind in range(len(channel_list)):
-                            if channel_list[channel_ind] > channel:
-                                channel_list[channel_ind] -= 1 
-                                
-                    if chan_dofs:
-                        this_num_channels = len(chan_dofs)
-                        chan_dof_ind = 0
-                        while chan_dof_ind < this_num_channels:
-                            if channel==chan_dofs[chan_dof_ind][0]:
-                                print('Channel-DOF-Assignment {} removed.'.format(chan_dofs[chan_dof_ind]))
-                                del chan_dofs[chan_dof_ind]
-                                this_num_channels -= 1
-                            elif channel < chan_dofs[chan_dof_ind][0]:
-                                chan_dofs[chan_dof_ind][0] -= 1
-                            chan_dof_ind += 1
-                    print('Now removing Channel {} (no. {})!'.format(headers[channel], channel))  
-                    del headers[channel]
-                channel -= 1
-            #print(chan_dofs)   
             
-            measurement=np.delete(measurement, delete_channels, axis=1)
+            num_all_channels = measurement.shape[1]
+            #print(chan_dofs, ref_channels, accel_channels, velo_channels,disp_channels, headers)
+            new_chan_dofs = []
+            new_ref_channels = []
+            new_accel_channels = []
+            new_velo_channels = []
+            new_disp_channels =[]
+            new_headers = []
+            new_channel = 0
+            for channel in range(num_all_channels):
+                if channel in delete_channels:
+                    print('Now removing Channel {} (no. {})!'.format(headers[channel], channel)) 
+                    continue
+                else:
+                    for chan_dof in chan_dofs:
+                        if chan_dof[0] == channel:
+                            node, az, elev = chan_dof[1:4]
+                            if len(chan_dof)==5:
+                                cname = chan_dof[4]
+                            else:
+                                cname = ''
+                            break
+                    else:
+                        print('Could not find channel in chan_dofs')
+                        continue
+                    
+                    new_chan_dofs.append([new_channel, node, az, elev, cname])
+                    if channel in ref_channels:
+                        new_ref_channels.append(new_channel)
+                    if channel in accel_channels:
+                        new_accel_channels.append(new_channel)
+                    if channel in velo_channels:
+                        new_velo_channels.append(new_channel)
+                    if channel in disp_channels:
+                        new_disp_channels.append(new_channel)
+                    new_headers.append(headers[channel])
+                    
+                    new_channel += 1
+                                
+            measurement = np.delete(measurement, delete_channels, axis=1)      
+                  
+            chan_dofs = new_chan_dofs
+            ref_channels = new_ref_channels
+            accel_channels = new_accel_channels
+            velo_channels = new_velo_channels
+            disp_channels = new_disp_channels
+            headers = new_headers
+            #print(chan_dofs, ref_channels, accel_channels, velo_channels,disp_channels, headers)
+            
+            
+            
+            
+            
+#             channel = measurement.shape[1]
+#             #num_channels = measurement.shape[1]
+#             while channel >= 0:
+#                 
+#                 if channel in delete_channels:
+#                     # affected lists: ref_channels, accel_channels, velo_channels, disp_channels + chan_dofs
+#                     # remove channel from all lists
+#                     # decrement all channels higher than channel in all lists
+#                     #num_channels -= 1
+#                     for channel_list in channel_lists:
+#                         if channel in channel_list:
+#                             channel_list.remove(channel)
+#                             print('Channel {} removed from {} list'.format(channel, names[channel_lists.index(channel_list)]))
+#                         for channel_ind in range(len(channel_list)):
+#                             if channel_list[channel_ind] > channel:
+#                                 channel_list[channel_ind] -= 1 
+#                                 
+#                     if chan_dofs:
+#                         this_num_channels = len(chan_dofs)
+#                         chan_dof_ind = 0
+#                         while chan_dof_ind < this_num_channels:
+#                             if channel==chan_dofs[chan_dof_ind][0]:
+#                                 print('Channel-DOF-Assignment {} removed.'.format(chan_dofs[chan_dof_ind]))
+#                                 del chan_dofs[chan_dof_ind]
+#                                 this_num_channels -= 1
+#                             elif channel < chan_dofs[chan_dof_ind][0]:
+#                                 chan_dofs[chan_dof_ind][0] -= 1
+#                             chan_dof_ind += 1
+#                     print('Now removing Channel {} (no. {})!'.format(headers[channel], channel))  
+#                     del headers[channel]
+#                 channel -= 1
+#             #print(chan_dofs)   
+#             
+#             measurement=np.delete(measurement, delete_channels, axis=1)
         total_time_steps = measurement.shape[0]
         num_channels = measurement.shape[1]
-        roving_channels = [i for i in range(num_channels) if i not in ref_channels]
+        #roving_channels = [i for i in range(num_channels) if i not in ref_channels]
         if not accel_channels and not velo_channels and not disp_channels:
             accel_channels = [i for i in range(num_channels)]
         #print(measurement.shape, ref_channels)
         #print(measurement)
         prep_data = cls(measurement, sampling_rate, total_time_steps, 
-                 num_channels, ref_channels, roving_channels,
-                 accel_channels, velo_channels, disp_channels, channel_headers=headers, start_time=start_time )
+                 #num_channels, 
+                 ref_channels, #roving_channels,
+                 accel_channels, velo_channels, disp_channels, 
+                 channel_headers=headers, start_time=start_time,
+                 setup_name = name, **kwargs)
         if chan_dofs:
             prep_data.add_chan_dofs(chan_dofs)
         
@@ -565,7 +647,12 @@ class PreprocessData(object):
                 if line[0].startswith('#'):
                     break
                 while len(line)<=5:line.append('')
-                chan_num, node, az, elev, chan_name = [float(line[i]) if not i in [1,4] else line[i].strip(' ') for i in range(5)]
+                chan_num, node, az, elev, chan_name = [line[i].strip(' ') for i in range(5)]
+                chan_num, az, elev = int(float(chan_num)), float(az), float(elev)
+                #print(chan_num, node, az, elev)
+                if node == 'None':
+                    node=None
+                    #print(None)
                 chan_dofs.append([chan_num, node, az, elev, chan_name])
         return chan_dofs
     
@@ -642,7 +729,8 @@ class PreprocessData(object):
         '''
         for chan_dof in chan_dofs:
             chan_dof[0]=int(chan_dof[0])
-            chan_dof[1]=str(chan_dof[1])
+            if chan_dof[1] is not None:
+                chan_dof[1]=str(chan_dof[1])
             chan_dof[2]=float(chan_dof[2])
             chan_dof[3]=float(chan_dof[3])
             if len(chan_dof)==4:
@@ -679,9 +767,9 @@ class PreprocessData(object):
         out_dict['self.sampling_rate'] = self.sampling_rate
         out_dict['self.total_time_steps'] = self.total_time_steps
         out_dict['self.ref_channels'] = self.ref_channels
-        out_dict['self.roving_channels'] = self.roving_channels
+        #out_dict['self.roving_channels'] = self.roving_channels
         out_dict['self.num_ref_channels'] = self.num_ref_channels
-        out_dict['self.num_roving_channels'] = self.num_roving_channels
+        #out_dict['self.num_roving_channels'] = self.num_roving_channels
         out_dict['self.num_analised_channels'] = self.num_analised_channels
         out_dict['self.accel_channels']=self.accel_channels
         out_dict['self.velo_channels']=self.velo_channels
@@ -691,6 +779,7 @@ class PreprocessData(object):
         out_dict['self.start_time']=self.start_time
         out_dict['self.ft_freq']=self.ft_freq
         out_dict['self.sum_ft']=self.sum_ft
+        out_dict['self.tau_max']=self.tau_max
         out_dict['self.corr_matrix'] =self.corr_matrix
         out_dict['self.psd_mats']=self.psd_mats
         out_dict['self.s_vals_cf']=self.s_vals_cf
@@ -712,11 +801,11 @@ class PreprocessData(object):
         sampling_rate = float(in_dict['self.sampling_rate'])
         total_time_steps = int(in_dict['self.total_time_steps'])
         ref_channels = list(in_dict['self.ref_channels'])
-        roving_channels = list(in_dict['self.roving_channels'])
+        #roving_channels = list(in_dict['self.roving_channels'])
         if in_dict['self.channel_headers'].shape:
             channel_headers = list(in_dict['self.channel_headers'])
         else:
-            channel_headers =['' for chan in ref_channels+roving_channels]
+            channel_headers =['' for chan in range(float(in_dict['self.num_analised_channels']))]
         start_time=in_dict['self.start_time'].item()
         
         accel_channels =  list(in_dict['self.accel_channels'])
@@ -737,8 +826,8 @@ class PreprocessData(object):
                 sum_ft = sum_ft.item()
         else:
             sum_ft = None
-        spectral_values = [None,None,None,None]
-        for obj_num,name in enumerate(['self.corr_matrix', 'self.psd_mats', 'self.s_vals_cf','self.s_vals_psd']):
+        spectral_values = [None,None,None,None,None]
+        for obj_num,name in enumerate(['self.corr_matrix', 'self.psd_mats', 'self.s_vals_cf','self.s_vals_psd', 'self.tau_max']):
             try:
                 spectral_values[obj_num] = in_dict[name]
             except Exception as e:
@@ -748,29 +837,30 @@ class PreprocessData(object):
         #sum_ft = in_dict.get( 'self.sum_ft', None)
         
         preprocessor = cls(measurement, sampling_rate, total_time_steps, 
-                 ref_channels=ref_channels, roving_channels=roving_channels,
+                 ref_channels=ref_channels, #roving_channels=roving_channels,
                  accel_channels=accel_channels, velo_channels=velo_channels, 
                  disp_channels=disp_channels, setup_name=setup_name,
                  channel_headers=channel_headers, start_time=start_time, 
                  ft_freq=ft_freq, sum_ft = sum_ft)
         
-        chan_dofs = [[int(float(chan_dof[0])), str(chan_dof[1]), float(chan_dof[2]), float(chan_dof[3]), str(chan_dof[-1])] for chan_dof in in_dict['self.chan_dofs']]
+        chan_dofs = [[int(float(chan_dof[0])), str(chan_dof[1]), float(chan_dof[2]), float(chan_dof[3]), str(chan_dof[4] if 5 == len(chan_dof) else '')] for chan_dof in in_dict['self.chan_dofs']]
         preprocessor.add_chan_dofs(chan_dofs)
         
         preprocessor.corr_matrix = spectral_values[0]
         preprocessor.pds_mats = spectral_values[1]
         preprocessor.s_vals_cf = spectral_values[2]
         preprocessor.s_vals_psd = spectral_values[3]
+        preprocessor.tau_max = spectral_values[4]
         
         assert preprocessor.num_ref_channels == int(in_dict['self.num_ref_channels'])
-        assert preprocessor.num_roving_channels == int(in_dict['self.num_roving_channels'])
+        #assert preprocessor.num_roving_channels == int(in_dict['self.num_roving_channels'])
         assert preprocessor.num_analised_channels == int(in_dict['self.num_analised_channels'])
         
         #preprocessor.add_geometry_data(in_dict['self.geometry_data'].item())  
         return preprocessor
     
     def filter_data(self, lowpass=None, highpass=None, overwrite=False, order=4, ftype='butter',  RpRs = [None, None], plot_filter=False):
-        
+        print('Filtering data in the band: {} .. {}.'.format(lowpass, highpass))
         
         ''' checks '''
         error = 0
@@ -783,7 +873,7 @@ class PreprocessData(object):
             raise RuntimeError('Invalid arguments.') 
             return
         
-        print("Filtering data...")
+        #print("Filtering data...")
         
         nyq = self.sampling_rate/2
         
@@ -800,16 +890,17 @@ class PreprocessData(object):
 
         freqs[:] = [x/nyq for x in freqs]
         
+        #print(freqs)
         order = int(order)
         measurement = self.measurement
         
-        
         b, a = signal.iirfilter(order, freqs, rp=RpRs[0], rs=RpRs[1], btype=btype, ftype=ftype)
-        
         self.measurement_filt = signal.filtfilt(b, a, measurement, axis=0, padlen=0)
+        if self.F is not None:
+            self.F_filt = signal.filtfilt(b, a, self.F, axis=0, padlen=0)
         
-        if overwrite:
-            self.measurement = self.measurement_filt
+        if np.isnan(self.measurement_filt).any():
+            RuntimeWarning('Your filtered data contains NaNs. Check your filter settings! Continuing...')
         
         if plot_filter:
             w, h = scipy.signal.freqz(b, a, worN=2000)
@@ -817,98 +908,56 @@ class PreprocessData(object):
             f_plot[0].set_title('Filter data')           
             f_plot[0].plot((nyq / np.pi) * w, abs(h))
             f_plot[0].plot([0, nyq], [np.sqrt(0.5), np.sqrt(0.5)], '--')
-            f_plot[0].axvline(100, color='green') # cutoff frequency
+            f_plot[0].axvline(nyq, color='green') # cutoff frequency
             f_plot[1].plot(self.measurement[:,1], label='Original signal (Hz)')
             f_plot[1].plot(self.measurement_filt[:,1], label='Filtered signal (Hz)')
             plt.show()
 
+        if overwrite:
+            self.measurement = self.measurement_filt
+            if self.F is not None:
+                self.F = self.F_filt
+            
         return self.measurement_filt
             
-    def plot_data(self, channels=[], figsize=None):
-        if len(channels)==0:
-            channels=list(range(self.num_analised_channels))
-
-        colors = cm.rainbow(np.linspace(0, 1, len(channels)))
+    def plot_data(self, channels=None, single_channels = False,f_max = None, NFFT = 512):
+        
+        t = np.linspace(start=0, stop=self.total_time_steps/self.sampling_rate, num=self.total_time_steps)
+        
+        if channels is None:
+            channels = list(range(self.num_analised_channels))
             
-#         plot.rc('font', size=10)    
-#         plot.rc('legend', fontsize=10, labelspacing=0.1)
-#         plot.rc('axes',linewidth=0.2)
-#         plot.rc('xtick.major',width=0.2)
-#         plot.rc('ytick.major',width=0.2)
-# 
-#         plot.rc('text', usetex=True)
-#         plot.rc('text.latex',preamble=r"\usepackage{siunitx}")
-#         
-#         figsize[0]/=3
-#         figsize[1]/=3
-#         plot.figure(figsize=figsize, tight_layout=True)
-#         plot.plot(np.linspace(0,512/self.sampling_rate,512),self.measurement[512:1024,4], color=colors[5])
-#         ylims = plot.ylim()
-#         plot.xlim((0,512/self.sampling_rate))
-#         plot.yticks([])
-#         plot.ylabel('accel. [\si{\meter\per\second\squared}]')
-#         plot.xlabel('time [\si{second}]')
-#         ovl_meas = self.measurement[512:1024,4]
-#         ovl_meas[ovl_meas>0.005]=0.005
-#         ovl_meas[ovl_meas<-0.005]=-0.005
-#         plot.figure(figsize=figsize, tight_layout=True)
-#         plot.plot(np.linspace(0,512/self.sampling_rate,512),ovl_meas, color=colors[2])
-#         plot.ylim(ylims)
-#         plot.xlim((0,512/self.sampling_rate))
-#         plot.yticks([])
-#         plot.ylabel('accel. [\si{\meter\per\second\squared}]')
-#         plot.xlabel('time [\si{second}]')
-#         plot.show()
-#         
-#         
-#         #plot.rc('xtick.major',pad=-10)
-#         #plot.rc('ytick.major',pad=-10)
-#         fig=plot.figure(figsize=figsize, tight_layout=True)
-#         from mpl_toolkits.mplot3d import Axes3D
-#         ax=fig.add_subplot(111,projection='3d')
-#         for channel in range(3):
-#             ax.plot3D(xs=np.array(range(self.measurement.shape[0]))/self.sampling_rate,zs=self.measurement[:,channel]/self.measurement[:,channel].max(), ys=np.repeat(-1*channel, self.measurement.shape[0]), label=self.channel_headers[channel],color=colors[channel*2], alpha=0.65)
-#         #plot.plot(self.measurement[:,0],alpha=0.75)
-#         ax.set_xlim((0,self.measurement.shape[0]/self.sampling_rate),)
-#         ax.set_xticks([])
-#         ax.set_zticks([])
-#         ax.set_yticks([])
-#         ymin,ymax=ax.get_zlim()
-#         numblocks=7
-#         xstep = self.measurement.shape[0]/numblocks/self.sampling_rate
-#         #for channel in range(3):
-#          #   for block in range(1,numblocks):
-#                 #print(block*xstep,ymin,ymax,channel)
-#                 #ax.plot3D(xs=(block*xstep,block*xstep), zs=(ymin,ymax), ys = (-channel,-channel), color='red')
-#                 #ax.plot_surface(X=(block*xstep,block*xstep), Z=(ymin,ymax), Y = (-channel,-channel), color='red')
-# 
-#         for block in range(0,numblocks+1):
-#             print(block*xstep,ymin,ymax,channel)
-#             #ax.plot3D(xs=(block*xstep,block*xstep), zs=(ymin,ymax), ys = (-channel,-channel), color='red')
-#             ax.plot_surface(X=([block*xstep,block*xstep],[block*xstep,block*xstep]), Z=([ymin,ymax],[ymin,ymax]), Y = ([0,0],[-channel,-channel]), color='red',alpha=0.25)
-# 
-#         ax.set_zlim((ymin,ymax))
-#         ax.set_ylim((-2,0))
-#         ax.set_xlabel('time')
-#         ax.set_ylabel('channel')
-#         ax.set_zlabel('acceleration')
-#         
-#         #ax.yaxis._axinfo['label']['space_factor']=2.8
-#         #ax.yaxis.set_label_coords(-0.5, -4)
-#         #ax.zaxis.set_label_coords(-0.5, -4)
-#         plot.show()
+        if single_channels:
+            fig, axes = plot.subplots(nrows=len(channels), ncols=2, sharey='col', sharex='col', tight_layout = True)
+        else:
+            fig, axes = plot.subplots(nrows=2, ncols=1, squeeze=False, tight_layout = True)
+            
+        for i, channel in enumerate(channels):
+            if not single_channels:
+                i = 0
+            axes[i, 0].plot(t,self.measurement[:,channel], alpha=.5, label=str(channel))
+            axes[i, 0].grid(True, axis='y',ls='dotted')
+        axes[-1,0].set_xlabel('t [s]')
+        axes[-1,0].set_ylabel('')
         
+        if single_channels:
+            psd_mats, freqs = self.psd_welch(NFFT,False)
+            for i,channel in enumerate(channels):
+                axes[i, 1].plot(freqs,np.abs(psd_mats[channel,channel,:]), alpha=.5, label=str(channel))
+                axes[i,1].grid(True, axis='x',ls='dotted')
+            axes[-1,1].set_xlabel('f [Hz]')
+            axes[-1,1].set_ylabel('')
+            axes[-1,1].set_yscale('log')
+            if f_max:
+                axes[-1,1].set_xlim((0,f_max))
+        else:
+            self.plot_svd_spectrum(NFFT, log_scale=True,ax=axes[1,0])
+            if f_max:
+                axes[1,0].set_xlim((0,f_max))
+        for ax in axes.flat:
+            ax.legend()
         
-        fig=plot.figure()
-        from mpl_toolkits.mplot3d import Axes3D
-        ax=fig.add_subplot(111,projection='3d')
-        for channel in channels:
-            ax.plot3D(xs=np.array(range(self.measurement.shape[0]))/self.sampling_rate,zs=self.measurement[:,channel]/self.measurement[:,channel].max(), ys=np.repeat(-1*channel, self.measurement.shape[0]), label=self.channel_headers[channel], color=colors[channel], alpha=0.5)
-        ax.set_xlim((0,self.measurement.shape[0]/self.sampling_rate))
-        ax.set_xlabel('time $t$ [s]')
-        ax.set_zlabel('acceleration [$m/s^2$]')
-        ax.set_ylabel('Channel Nr.')
-        plot.show()
+        return fig
     
     def correct_offset(self, x=None):
         '''
@@ -947,13 +996,16 @@ class PreprocessData(object):
         
     
     def decimate_data(self, decimate_factor, highpass=None,  order=8, filter_type='cheby1'):
-        
+        if highpass:
+            print('Decimating data with factor {} and additional highpass filtering at {}!'.format(decimate_factor, highpass))
+        else:
+            print('Decimating data with factor {}!'.format(decimate_factor))
         '''
         decimates measurement data
         filter type and order are choosable (order 8 and type cheby1 are standard for scipy signal.decimate function)
         maximum ripple in the passband (rp) and minimum attenuation in the stop band (rs) are modifiable
         '''
-        
+        #signal.decimate()
         #input validation
         decimate_factor = abs(decimate_factor)
         order = abs(order)
@@ -963,18 +1015,21 @@ class PreprocessData(object):
             raise RuntimeError('Invalid arguments.')
             return
         
-        print("Decimating data...")
         
         RpRs = [None, None]
         if filter_type=='cheby1' or filter_type=='cheby2' or filter_type=='ellip':
-            RpRs = [0.5, 0.5] #standard for signal.decimate
+            RpRs = [0.05, 0.05] #standard for signal.decimate
         
         nyq = self.sampling_rate/2
         
         meas_decimated = self.filter_data(lowpass= nyq*0.8/decimate_factor, highpass=highpass, overwrite=False, order=order, ftype=filter_type,  RpRs = RpRs,  plot_filter=False)
         
+
         self.sampling_rate /=decimate_factor
         meas_decimated = meas_decimated[slice(None, None, decimate_factor)]
+        if self.F is not None:
+            F_decimated = self.F_filt[slice(None, None, decimate_factor)]
+            self.F = F_decimated
         self.total_time_steps = meas_decimated.shape[0]
         self.measurement = meas_decimated 
     
@@ -1201,12 +1256,12 @@ class PreprocessData(object):
         num_ref_channels = self.num_ref_channels
         measurement = self.measurement
         ref_channels = self.ref_channels        
-        roving_channels = self.roving_channels
+        #roving_channels = self.roving_channels
         
         self.tau_max = tau_max
         
-        all_channels = ref_channels + roving_channels
-        all_channels.sort()
+        all_channels = list(range(num_analised_channels))#ref_channels + roving_channels
+        #all_channels.sort()
         
         if not num_blocks:
             num_blocks = 1
@@ -1250,16 +1305,16 @@ class PreprocessData(object):
         else:
             iterators.append(curr_it)
 
-        #self.init_child_process(measurement_memory, corr_matrices_mem)
+        self.init_child_process(measurement_memory, corr_matrices_mem)
         for curr_it in iterators:
-            pool.apply_async(self.compute_covariance , args=(curr_it,
-                                                        tau_max,
-                                                        block_length, 
-                                                        ref_channels, 
-                                                        all_channels, 
-                                                        measurement_shape,
-                                                        corr_mats_shape))
-            #self.compute_covariance(curr_it, tau_max, block_length, ref_channels, all_channels, measurement_shape, corr_mats_shape)
+#             pool.apply_async(self.compute_covariance , args=(curr_it,
+#                                                         tau_max,
+#                                                         block_length, 
+#                                                         ref_channels, 
+#                                                         all_channels, 
+#                                                         measurement_shape,
+#                                                         corr_mats_shape))
+            self.compute_covariance(curr_it, tau_max, block_length, ref_channels, all_channels, measurement_shape, corr_mats_shape)
                                   
         pool.close()
         pool.join()               
@@ -1274,7 +1329,7 @@ class PreprocessData(object):
         corr_mats_mean = np.mean(corr_matrices, axis=0)
         #corr_mats_mean = np.sum(corr_matrices, axis=0)
         #corr_mats_mean /= num_blocks - 1
-        self.corr_mats_mean = corr_mats_mean
+        self.corr_matrix = corr_mats_mean
         
         #self.corr_mats_std = np.std(corr_matrices, axis=0)
     
@@ -1299,7 +1354,12 @@ class PreprocessData(object):
             current_signals = this_measurement[tau:, all_channels]
             
             this_block = np.dot(current_signals.T, refs)/current_signals.shape[0]
-
+#             for i, ref_channel in enumerate(ref_channels):
+#                 print(this_block[ref_channel,i])
+#                 for chan_dof in self.chan_dofs:
+#                     if chan_dof[0]==ref_channel:
+#                         print(chan_dof)
+                        
             corr_memory = corr_matrices_mem[n_block]
             
             corr_mats = np.frombuffer(corr_memory.get_obj()).reshape(corr_mats_shape)
@@ -1329,7 +1389,7 @@ class PreprocessData(object):
         else:
             amplitude = [amplitude for channel in range(self.num_analised_channels)]
             
-        for channel in self.ref_channels+self.roving_channels:            
+        for channel in range(self.num_analised_channels):            
             self.measurement[:,channel] += np.random.normal(0,amplitude[channel],self.total_time_steps)
         
     def get_fft(self,svd=True):
@@ -1342,40 +1402,47 @@ class PreprocessData(object):
                 self.sum_ft = np.zeros((self.num_analised_channels, len(self.ft_freq )))
                 for i in range(len(self.ft_freq )):
                     u,s,vt = np.linalg.svd(ft[:,:,i])
-                    self.sum_ft[:,i]=s#10*np.log(s)
+                    self.sum_ft[:,i]=10*np.log(s)
+                    #print(10*np.log(s))
                     
         #print(self.ft_freq.shape, self.sum_ft.shape)
         return self.ft_freq, self.sum_ft
     
-    def plot_svd_spectrum(self,NFFT=512, log_scale=False):
-        
-        plot.figure( tight_layout=1)
+    def get_time_accel(self, channel):
+        time_vec = np.linspace(0, self.total_time_steps/self.sampling_rate, self.total_time_steps)
+        accel_vel = self.measurement[:,channel]
+        return time_vec, accel_vel   
+     
+    def plot_svd_spectrum(self,NFFT=512, log_scale=False, ax=None):
+
+        if ax is None:
+            ax=plot.subplot(111)
         
         psd_matrix, freq = self.psd_welch(NFFT,False)
         svd_matrix = np.zeros((self.num_analised_channels, len(freq)))
-        print(freq)
+        #print(freq)
         for i in range(len(freq)):
             u,s,vt = np.linalg.svd(psd_matrix[:,:,i])
             if log_scale: s = 10*np.log10(s)
             svd_matrix[:,i]=s#10*np.log(s)
             
-        plot.figure( tight_layout=1)
+
         for i in range(self.num_analised_channels):
-            plot.plot(freq,svd_matrix[i,:])
+            ax.plot(freq, svd_matrix[i,:])
              
 
-        plot.xlim((0,self.sampling_rate/2))
+        ax.set_xlim((0,self.sampling_rate/2))
         #plot.grid(1)
-        plot.xlabel('Frequenz [\si{\hertz}]')
-        if log_scale: plot.ylabel('Singul\\"arwert Magnitude [\si{\decibel}]')
-        else: plot.ylabel('Singul\\"arwert Magnitude')
+        ax.set_xlabel('Frequenz [\si{\hertz}]')
+        if log_scale: ax.set_ylabel('Singul\\"arwert Magnitude [\si{\decibel}]')
+        else: ax.set_ylabel('Singul\\"arwert Magnitude')
         #plot.yticks([0,-25,-50,-75,-100,-125,-150,-175,-200,-225,-250])
         #plot.ylim((-225,0))
         #plot.xlim((0.1,5))
 
         #plot.grid(b=0)
         
-        plot.show()
+        #plot.show()
 
 
 def load_measurement_file(fname, **kwargs):
@@ -1488,7 +1555,7 @@ def example_blackman_tukey():
     
     startA = time.time()
     psd_mats, freqs = prep_data.psd_blackman_tukey(tau_max=256, window = 'bartlett')
-    corr_matrix = prep_data.corr_mats_mean
+    corr_matrix = prep_data.corr_matrix
     print('Time elapsed: ', time.time() - startA)
     #print(freqs)
     chA = 7
@@ -1511,7 +1578,7 @@ def compare_PSD_Corr():
     
     startA = time.time()
     psd_mats_b, freqs_b = prep_data.psd_blackman_tukey(tau_max=2048, window = 'rect')
-    corr_matrix_b = prep_data.corr_mats_mean 
+    corr_matrix_b = prep_data.corr_matrix 
     print('Blackman-Tukey - Time elapsed: ', time.time() - startA)
     
     startB = time.time()
