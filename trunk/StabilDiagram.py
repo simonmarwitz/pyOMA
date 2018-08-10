@@ -96,6 +96,9 @@ except ImportError:
     ERA = NoneType
 
 from PreprocessingTools import PreprocessData
+
+
+
 import warnings
 
 def resizeEvent_(self, event):
@@ -1302,8 +1305,12 @@ class StabilCalc(object):
         
             prev_MPD, prev_MP_new = self.calculateMPD(prev_mode_shapes)
             prev_MP_new[prev_MP_new>90] -= 180 # in range [-90,90]
-        
-        for curr_order in range(1, max_model_order):
+            
+        printsteps = list(np.linspace(1,max_model_order, 100, dtype=int))
+        for curr_order in range(1, max_model_order):                
+            while curr_order in printsteps: 
+                del printsteps[0]
+                print('.',end='', flush=True)
             
             if capabilities['ev']:
                 curr_lambda_row = self.masked_lambda[(curr_order),:]
@@ -1414,9 +1421,9 @@ class StabilCalc(object):
         self.MPC_matrix = MPC_matrix  
         
         
-        
         self.state = 1
 
+        print('.',end='\n', flush=True)  
     @staticmethod
     def calculateMAC(v1, v2):
         '''
@@ -1942,8 +1949,9 @@ class StabilCalc(object):
         return np.logical_not(mask)
 
     def get_max_f(self):
-        return float(np.amax(self.masked_frequencies))
-
+        #return float(np.amax(self.masked_frequencies))
+        return self.prep_data.sampling_rate/2
+        
     def get_modal_values(self, i):
         # needed for gui
         assert isinstance(i, (list, tuple))
@@ -3219,6 +3227,7 @@ class StabilPlot(object):
         #print('self.stabil_calc.modal_data.max_model_order = ',
         #      self.stabil_calc.modal_data.max_model_order)
         
+        sum_ft = sum_ft - np.min(sum_ft)
         sum_ft = sum_ft / (np.max(sum_ft)) * 0.5 * \
             self.stabil_calc.modal_data.max_model_order
         for channel in range(sum_ft.shape[0]):
@@ -3556,12 +3565,12 @@ class ComplexPlot(object):
 
 class ModeShapePlot(object):
 
-    def __init__(self, stabil_calc, modal_data, geometry_data, prep_data,):
-
-        super().__init__()
+    def __init__(self, stabil_calc, modal_data, geometry_data, prep_data,**kwargs):
         import PlotMSH
+        #print(kwargs)
+        super().__init__()
         #sys.path.append("/vegas/users/staff/womo1998/Projects/2016_Burscheid") 
-        #from main_Burscheid import print_mode_info
+        #from main_Burscheid_2017 import print_mode_info
         
         self.mode_shape_plot = PlotMSH.ModeShapePlot(
             stabil_calc=stabil_calc, 
@@ -3571,7 +3580,7 @@ class ModeShapePlot(object):
             amplitude=20, 
             linewidth=0.5,
             #callback_fun=print_mode_info
-            )
+            **kwargs)
         self.mode_shape_plot.show_axis = False
         # self.mode_shape_plot.draw_nodes()
         self.mode_shape_plot.draw_lines()
@@ -3961,8 +3970,8 @@ def nearly_equal(a, b, sig_fig=5):
             )
 
 
-def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None, select_modes=[]):
-    
+def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None, select_modes=[],**kwargs):
+    #print(kwargs)
     def handler(msg_type, msg_string):
         pass
 
@@ -3970,7 +3979,7 @@ def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None
     cmpl_plot = ComplexPlot()
     if geometry_data is not None:# and prep_data is not None:
         msh_plot = ModeShapePlot(
-            stabil_plot.stabil_calc, modal_data, geometry_data, prep_data,)
+            stabil_plot.stabil_calc, modal_data, geometry_data, prep_data,**kwargs)
     else:
         msh_plot = None
 

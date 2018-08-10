@@ -93,10 +93,9 @@ from copy import deepcopy
 '''
 TODO:
 - button for Axes3d.set_axis_off/on
-#- always enforce equal aspect, set lims before every call of draw i.e. redefine draw
 - implement scale (for correct drawing of axis arrows)
 - use current axes settings when starting the animation 
-- rewrite the whole thing properly!
+- rewrite the whole thing properly!!!
 '''
 
 def nearly_equal(a,b,sig_fig=5):
@@ -187,26 +186,6 @@ class ModeShapePlot(object):
     - animate the currently displayed deformed structure
     - save the still frame
 
-
-    Geometry definition:
-    - draw single and multiple nodes (deformed and undeformed)
-    - draw single and multiple lines (deformed and undeformed)
-    - draw single and multiple master-slave assignments onto the nodes 
-        (undeformed only)
-    - draw single and multiple channel-degree of freedom assignments 
-        onto the nodes (undeformed only
-    - initiate creation/editing/loading/saving of such geometric information
-
-    SSI Solutions:
-    - load a SSI_solutions file
-    - extract and display the following from the SSI_solutions file (*.slv):
-        - available orders
-        - available modes for selected order
-        - modal values for selected mode and order
-            frequency, damping, eigenvalue
-        - mode shapes for selected mode and order
-    - currently modeshapes are normalized to unit modal displacement by default
-
     currently __not__ supported:
     - 3D surface plots, as they are not properly supported by the 
         underlying matplotlib api
@@ -215,6 +194,24 @@ class ModeShapePlot(object):
     - saving of the animation as a movie file
     - drawing multiple modeshapes into one plot
     - plot modeshape in a single call from a script i.e. use static methods
+    
+                | Merging Routine
+Variable in     | single-setup  poger/preger  poser merging
+PlotMSH         |
+________________|____________________________________________
+modal_freq.     | modal_data    modal_data    merged_data
+modal_damping   | modal_data    modal_data    merged_data
+modeshapes      | modal_data    modal_data    merged_data
+                |
+num_channels    | prep_data     modal_data    merged_data
+                |
+chan_dofs       | prep_data     modal_data    merged_data
+                |    
+select_modes    | stabil_data   stabil_data   merged_data
+                |
+nodes           | geometry_data geometry_data geometry_data
+lines           | geometry_data geometry_data geometry_data
+master-slaves   | geometry_data geometry_data geometry_data 
     '''
     # define this class's signals and the types of data they emit
     grid_requested = pyqtSignal(str, bool)
@@ -227,7 +224,7 @@ class ModeShapePlot(object):
                  stabil_calc=None,
                  modal_data=None,
                  prep_data=None,
-                 merged_data=None,     
+                 merged_data=None,
                  selected_mode=[0,0],
                  amplitude=1,
                  real=False,
@@ -241,7 +238,7 @@ class ModeShapePlot(object):
                  linewidth = 1,
                  callback_fun=None
                  ):
-        
+        #print(callback_fun)
         assert merged_data is not None or (prep_data is not None and modal_data is not None and stabil_calc is not None) or isinstance(modal_data, PogerSSICovRef)
         
         if stabil_calc is not None:
@@ -1254,7 +1251,12 @@ class ModeShapePlot(object):
         in the internal channel - DOF assignment table
         '''
         for i, chan_dof in enumerate(self.chan_dofs):
-            chan, node, az, elev, chan_name = chan_dof[0:4]+chan_dof[-1:] 
+            
+            chan, node, az, elev, chan_name = chan_dof[0:4]+chan_dof[-1:]
+            if node is None:
+                continue
+            if not node in self.geometry_data.nodes.keys():
+                continue
             self.add_chan_dof(chan, node, az, elev, chan_name, i)
             
     def refresh_chan_dofs(self, visible = None):
@@ -1284,6 +1286,7 @@ class ModeShapePlot(object):
         '''
 
         mode_shape = self.mode_shapes[:,self.mode_index[1], self.mode_index[0]]
+        #print(mode_shape)
         mode_shape = self.rescale_mode_shape(mode_shape)
         ampli = self.amplitude
 
@@ -1310,6 +1313,10 @@ class ModeShapePlot(object):
             found = False 
             for chan_dof in self.chan_dofs:
                 chan_, node, az, elev, chan_name = chan_dof[0:4]+chan_dof[-1:]
+                if node is None:
+                    continue
+                if not node in self.geometry_data.nodes.keys():
+                    continue
                 if chan_ == chan:
                     
                     x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
@@ -1406,6 +1413,10 @@ class ModeShapePlot(object):
                 moving_nodes = set()
                 for chan_dof in self.chan_dofs:#
                     chan_, node, az, elev, chan_name  = chan_dof[0:4]+ [chan_dof[-1]]
+                    if node is None:
+                        continue
+                    if not node in self.geometry_data.nodes.keys():
+                        continue
                     moving_nodes.add(node)
                 
                 clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))#@UndefinedVariable
@@ -1525,6 +1536,10 @@ class ModeShapePlot(object):
                 moving_nodes = set()
                 for chan_dof in self.chan_dofs:#
                     chan_, node, az, elev, = chan_dof[0:4]
+                    if node is None:
+                        continue
+                    if not node in self.geometry_data.nodes.keys():
+                        continue
                     moving_nodes.add(node)
                 
                 #clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))#@UndefinedVariable
@@ -1672,6 +1687,11 @@ class ModeShapePlot(object):
             disp_nodes={ i : [0,0,0] for i in self.geometry_data.nodes.keys() } 
             for chan_dof in self.chan_dofs:
                 chan_, node, az, elev, = chan_dof[0:4]
+                
+                if node is None:
+                    continue
+                if not node in self.geometry_data.nodes.keys():
+                    continue
                 x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
                 disp_nodes[node][0]+=self.prep_data.measurement_filt[num,chan_]*x*self.amplitude
                 disp_nodes[node][1]+=self.prep_data.measurement_filt[num,chan_]*y*self.amplitude
