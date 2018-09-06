@@ -11,7 +11,6 @@ import scipy.spatial
 import scipy.stats
 
 import sys
-from nose.importer import Importer
 
 # make qt application not crash on errors
 
@@ -1218,7 +1217,7 @@ class StabilCalc(object):
                       'mask_ad':    None,  # absolute damping
                       'mask_stdf':    None,  # uncertainty frequency
                       'mask_stdd':    None,  # uncertainty damping
-                      'mask_mpc':  None,  # absolute modal phase collineratity
+                      'mask_mpc':  None,  # absolute modal phase collinearity
                       'mask_mpd':  None,  # absolute mean phase deviation
                       'mask_mtn':  None,  # absolute modal transfer norm
                       'mask_df':    None,  # difference frequency
@@ -1291,11 +1290,13 @@ class StabilCalc(object):
             prev_mode_shapes_row = self.modal_data.mode_shapes[:, :, 0]
 
         # tuple with array of indizes of non-zero frequencies
-        #previous_non_zero_entries = np.nonzero(previous_freq_row)
-        prev_non_zero_entries = np.nonzero(prev_lambda_row.imag)
+        if capabilities['ev']:
+            prev_non_zero_entries = np.nonzero(prev_lambda_row.imag)
+        else:
+            prev_non_zero_entries = np.nonzero(prev_freq_row)
         prev_length = len(prev_non_zero_entries[0])
-        
-        prev_lambda = prev_lambda_row[prev_non_zero_entries]
+        if capabilities['ev']:
+            prev_lambda = prev_lambda_row[prev_non_zero_entries]
         prev_freq = prev_freq_row[prev_non_zero_entries]
         prev_damp = prev_damp_row[prev_non_zero_entries]
         
@@ -1323,29 +1324,33 @@ class StabilCalc(object):
             if capabilities['msh']:
                 curr_mode_shapes_row = \
                     self.modal_data.mode_shapes[:, :, curr_order]
+                    
+            # catches zeros and also real poles, which should have been removed in remove conjugates already        
+            if capabilities['ev']:
+                curr_non_zero_entries = np.nonzero(curr_lambda_row.imag)
+            else:
+                curr_non_zero_entries = np.nonzero(curr_freq_row)
 
-            curr_non_zero_entries = np.nonzero(curr_lambda_row.imag)
-            # catches zeros and also real poles, which should have been removed in remove conjugates already
 
             curr_length = len(curr_non_zero_entries[0])
             
             #print(curr_length)
             if not curr_length:
                 continue
-            
-            curr_lambda = curr_lambda_row[curr_non_zero_entries]
+            if capabilities['ev']:
+                curr_lambda = curr_lambda_row[curr_non_zero_entries]
             curr_freq = curr_freq_row[curr_non_zero_entries]
             curr_damp = curr_damp_row[curr_non_zero_entries]
             
             if capabilities['msh']:
                 curr_mode_shapes = \
                     curr_mode_shapes_row[:, curr_non_zero_entries[0]]
-
-            div_lambda = np.maximum(
-                np.repeat(np.expand_dims(np.abs(prev_lambda), axis=1), 
-                          curr_lambda.shape[0], axis=1),
-                np.repeat(np.expand_dims(np.abs(curr_lambda), axis=0), 
-                          prev_lambda.shape[0], axis=0))
+            if capabilities['ev']:
+                div_lambda = np.maximum(
+                    np.repeat(np.expand_dims(np.abs(prev_lambda), axis=1), 
+                              curr_lambda.shape[0], axis=1),
+                    np.repeat(np.expand_dims(np.abs(curr_lambda), axis=0), 
+                              prev_lambda.shape[0], axis=0))
             
             div_freq = np.maximum(
                 np.repeat(np.expand_dims(np.abs(prev_freq), axis=1), 
@@ -1372,9 +1377,10 @@ class StabilCalc(object):
                 curr_MPD, curr_MP = self.calculateMPD(curr_mode_shapes[:,:curr_length])
                 MPD_matrix[curr_order, curr_non_zero_entries[0]], MP_matrix[
                     curr_order, curr_non_zero_entries[0]] = curr_MPD, curr_MP
-
-            lambda_diffs[curr_order, curr_non_zero_entries[0], :len(prev_lambda)] = np.abs((np.repeat(
-                np.expand_dims(prev_lambda, axis=1), curr_lambda.shape[0], axis=1) - curr_lambda) / div_lambda).T
+                    
+            if capabilities['ev']:
+                lambda_diffs[curr_order, curr_non_zero_entries[0], :len(prev_lambda)] = np.abs((np.repeat(
+                    np.expand_dims(prev_lambda, axis=1), curr_lambda.shape[0], axis=1) - curr_lambda) / div_lambda).T
             freq_diffs[curr_order, curr_non_zero_entries[0], :len(prev_freq)] = np.abs((np.repeat(
                 np.expand_dims(prev_freq, axis=1), curr_freq.shape[0], axis=1) - curr_freq) / div_freq).T
             damp_diffs[curr_order, curr_non_zero_entries[0], :len(prev_damp)] = np.abs((np.repeat(
@@ -1396,8 +1402,8 @@ class StabilCalc(object):
                 
                 MP_diffs[curr_order, curr_non_zero_entries[0], :len(prev_MP_new)] = np.abs((np.repeat(
                     np.expand_dims(prev_MP_new, axis=1), curr_MP_new.shape[0], axis=1) - curr_MP_new) / div_MP).T
-            
-            prev_lambda = curr_lambda
+            if capabilities['ev']:
+                prev_lambda = curr_lambda
             prev_freq = curr_freq
             prev_damp = curr_damp
             
@@ -1408,8 +1414,8 @@ class StabilCalc(object):
             
             prev_length = curr_length
             prev_non_zero_entries = curr_non_zero_entries
-        
-        self.lambda_diffs = lambda_diffs
+        if capabilities['ev']:
+            self.lambda_diffs = lambda_diffs
         self.freq_diffs = freq_diffs
         self.damp_diffs = damp_diffs   
         self.MAC_diffs = MAC_diffs   
@@ -1949,8 +1955,13 @@ class StabilCalc(object):
         return np.logical_not(mask)
 
     def get_max_f(self):
-        #return float(np.amax(self.masked_frequencies))
-        return self.prep_data.sampling_rate/2
+        if self.prep_data is not None:
+            return self.prep_data.sampling_rate/2
+        elif isinstance(self.modal_data, PogerSSICovRef):
+            return self.modal_data.sampling_rate/2
+        else:
+            return float(np.amax(self.masked_frequencies))
+            
         
     def get_modal_values(self, i):
         # needed for gui
@@ -2028,7 +2039,8 @@ class StabilCalc(object):
         out_dict['self.start_time'] = self.start_time
         
         if self.state>=1:
-            out_dict['self.lambda_diffs'] = np.array(self.lambda_diffs)
+            if self.capabilities['ev']:
+                out_dict['self.lambda_diffs'] = np.array(self.lambda_diffs)
             out_dict['self.freq_diffs'] = np.array(self.freq_diffs)
             out_dict['self.damp_diffs'] = np.array(self.damp_diffs)
             
@@ -2102,7 +2114,8 @@ class StabilCalc(object):
         stabil_data = cls(modal_data, prep_data)
         
         if state>=1:
-            stabil_data.lambda_diffs = np.ma.array(in_dict['self.lambda_diffs'])
+            if stabil_data.capabilities['ev']:
+                stabil_data.lambda_diffs = np.ma.array(in_dict['self.lambda_diffs'])
             stabil_data.freq_diffs = np.ma.array(in_dict['self.freq_diffs'])
             stabil_data.damp_diffs = np.ma.array(in_dict['self.damp_diffs'])
             
@@ -3165,7 +3178,7 @@ class StabilPlot(object):
                                                      marker=marker,
                                                      s=size, label=label, visible=visibility)
         
-        self.ax.set_yticks([])
+        #self.ax.set_yticks([])
         
         mask_stable = self.stabil_calc.get_stabilization_mask('mask_pre')
         self.stabil_calc.masked_frequencies.mask = mask_stable

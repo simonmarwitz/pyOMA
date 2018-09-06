@@ -17,7 +17,7 @@ class ERA(object):
         self.setup_name = prep_data.setup_name
         self.start_time = prep_data.start_time
         #             0         1           2         
-        #self.state= [Toeplitz, State Mat., Modal Par.
+        #self.state= [SHankelMatrix, State Mat., Modal Par.
         self.state  =[False,    False,      False]
         
         self.num_block_columns = None
@@ -33,8 +33,13 @@ class ERA(object):
         self.modal_frequencies = None
         self.mode_shapes = None
 
-    # function by anil    
+    
     def CalculateFRF(self):
+        '''
+        function by anil  
+        FRF(Frequency response function) is convertion of signal from time to frequency domain. 
+        The following function performs this conversion.
+        '''
         measurement= self.prep_data.measurement       
         num_channels = measurement.shape[1]
         num_time_steps = self.prep_data.F.shape[0]
@@ -60,8 +65,12 @@ class ERA(object):
         
         self.IFRF=IRF.T
 
-    # function by anil
+    
     def build_hankel_matrix(self, num_block_columns):
+        '''
+        author: Anil
+        Constructs a shifted hankel matrix.
+        '''
        
         IRFT=self.IFRF 
         num_channels = self.prep_data.num_analised_channels 
@@ -102,16 +111,16 @@ class ERA(object):
         S1=np.diag(S)
         S_sqrt=np.sqrt(S1)
         p1= np.dot(U,S_sqrt)
-        p2=np.dot(S_sqrt,V_T)
+        #p2=np.dot(S_sqrt,V_T)
 
-        A=np.dot(np.linalg.pinv(p1), hankel_matrix, np.linalg.pinv(p2))
-        A=A.real
+        #A=np.dot(np.linalg.pinv(p1), hankel_matrix, np.linalg.pinv(p2))
+        #A=A.real
         C = p1[:num_channels,:]  
-        C=C.real
-        p1=p1.real
+        #C=C.real
+        #p1=p1.real
         
         self.Oi = p1
-        self.state_matrix = A
+        #self.state_matrix = A
         self.output_matrix = C
         self.max_model_order=max_model_order
         
@@ -226,13 +235,14 @@ class ERA(object):
             os.makedirs(dirname)
             
         #             0         1           2           
-        #self.state= [Toeplitz, State Mat., Modal Par.]
+        #self.state= [SHankelMatrix, State Mat., Modal Par.]
         out_dict={'self.state':self.state}
         out_dict['self.setup_name'] = self.setup_name
         out_dict['self.start_time']=self.start_time
         #out_dict['self.prep_data']=self.prep_data
-        if self.state[0]:# covariances
-            out_dict['self.toeplitz_matrix'] = self.toeplitz_matrix
+        if self.state[0]:# SHankelMatrix
+            #out_dict['self.toeplitz_matrix'] = self.toeplitz_matrix
+            out_dict['self.hankel_matrix'] = self.hankel_matrix
             out_dict['self.num_block_columns'] = self.num_block_columns
             out_dict['self.num_block_rows'] = self.num_block_rows
         if self.state[1]:# state models
@@ -253,13 +263,13 @@ class ERA(object):
         
         in_dict=np.load(fname)    
         #             0         1           2          
-        #self.state= [Toeplitz, State Mat., Modal Par.]
+        #self.state= [SHankelMatrix, State Mat., Modal Par.]
         if 'self.state' in in_dict:
             state= list(in_dict['self.state'])
         else:
             return
         
-        for this_state, state_string in zip(state, ['Covariance Matrices Built',
+        for this_state, state_string in zip(state, ['Shifted Hankel Matrices Built',
                                                     'State Matrices Computed',
                                                     'Modal Parameters Computed',
                                                     ]):
@@ -275,8 +285,8 @@ class ERA(object):
         #prep_data = in_dict['self.prep_data'].item()
         ssi_object = cls(prep_data)
         ssi_object.state = state
-        if state[0]:# covariances
-            ssi_object.toeplitz_matrix = in_dict['self.toeplitz_matrix']
+        if state[0]:# SHankelMatrix
+            ssi_object.hankel_matrix = in_dict['self.hankel_matrix']
             ssi_object.num_block_columns = int(in_dict['self.num_block_columns'])
             ssi_object.num_block_rows = int(in_dict['self.num_block_rows'])
         if state[1]:# state models
@@ -323,7 +333,8 @@ def main():
     '../data/noise_node_4.npz',
     '../data/noise_node_8.npz']
     
-    test_file = test_files[3]
+    #set the test file to be read i.e from 0th to 3rd file 
+    test_file = test_files[0]
 
     data = np.load(test_file)
     #print(data['f_nat_d'])
@@ -332,7 +343,7 @@ def main():
     f_nat_d = data['f_nat_d']
     damping = data['damping'] 
     modeshapes = data['modeshapes']
-    
+    print(f_nat_d)
     #sampling rate
     Fs = 1/data['tDelta']
 
