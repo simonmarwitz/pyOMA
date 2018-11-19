@@ -20,7 +20,7 @@ TODO:
 - optimize multi order qr-based estimation routine
 - iterate over conjugate indices instead of removing them --> SSI_Data MC
 - add mode-shape integration with variances
-- add mode-shape rescaling with channel-factors
+- use monte-carlo sampling in the last step of variance propagation (see: https://doi.org/10.1007/978-3-7091-0399-9_3)
 '''
     
 def vectorize(matrix):
@@ -182,14 +182,14 @@ class VarSSIRef(object):
         
         total_time_steps = self.prep_data.total_time_steps
         ref_channels = sorted(self.prep_data.ref_channels)
-        roving_channels = self.prep_data.roving_channels
+        #roving_channels = self.prep_data.roving_channels
         measurement = self.prep_data.measurement
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels =self.prep_data.num_ref_channels 
 
         
-        all_channels = ref_channels + roving_channels
-        all_channels.sort()
+        all_channels = list(range(num_analised_channels))#ref_channels + roving_channels
+        #all_channels.sort()
         
         if subspace_method == 'covariance':
             block_length = int(np.floor(total_time_steps/num_blocks))

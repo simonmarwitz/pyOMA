@@ -1239,6 +1239,13 @@ class PreprocessData(object):
         
         return corr_matrix, psd_mats#, s_vals_cf, s_vals_psd        
           
+    def get_s_vals_psd(self, n_lines=256, window='hamm'):
+        num_analised_channels = self.num_analised_channels
+        psd_mats, freqs = self.psd_welch(n_lines=n_lines, refs_only=False, window=window)
+        s_vals_psd = np.zeros((num_analised_channels, psd_mats.shape[2]))
+        for t in range(psd_mats.shape[2]):
+            s_vals_psd[:,t] = np.linalg.svd(psd_mats[:,:,t],True,False)
+        return s_vals_psd, freqs
     
     def compute_correlation_matrices(self, tau_max, num_blocks=False):
         '''

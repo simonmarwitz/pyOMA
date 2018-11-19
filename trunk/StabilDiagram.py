@@ -2015,7 +2015,6 @@ class StabilCalc(object):
             MC = self.modal_data.modal_contributions[i]
         else:
             MC = np.nan
-        #print(dmp, dmpd)
         return n,  f, stdf,  d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC
 
     def get_mode_shape(self, i):
