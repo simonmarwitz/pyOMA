@@ -1,7 +1,7 @@
 # GUI
-#from PyQt5 import QtGui, QtCore
-
-#http://pyqt.sourceforge.net/Docs/PyQt4/qcombobox.html
+# system i/o
+import sys
+import os
 
 from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
     QCheckBox, QButtonGroup, QLabel, QToolButton, QComboBox, QStyle,\
@@ -13,7 +13,9 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMessageHandler, QEventLoop, QSize
 # Matplotlib
 import matplotlib
-matplotlib.use("Qt5Agg",force=True) 
+# check if python is running in headless mode i.e. as a server script
+if 'DISPLAY' in os.environ:
+    matplotlib.use("Qt5Agg",force=True) 
 from matplotlib import rcParams
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backend_bases import FigureCanvasBase
@@ -25,8 +27,6 @@ import matplotlib.animation
 from matplotlib.markers import MarkerStyle
 import matplotlib.cm
 
-# system i/o
-import sys
 
 #make qt application not crash on errors
 def my_excepthook(type, value, tback):
@@ -45,7 +45,6 @@ import numpy as np
 from math import cos, pi, fmod
 #tools
 import itertools
-from numpy import disp
 from StabilDiagram import StabilCalc, DelayedDoubleSpinBox
 from PreprocessingTools import PreprocessData, GeometryProcessor
 
@@ -239,7 +238,7 @@ master-slaves   | geometry_data geometry_data geometry_data
                  callback_fun=None
                  ):
         #print(callback_fun)
-        assert merged_data is not None or (prep_data is not None and modal_data is not None and stabil_calc is not None) or isinstance(modal_data, PogerSSICovRef)
+        #assert merged_data is not None or (prep_data is not None and modal_data is not None and stabil_calc is not None) or isinstance(modal_data, PogerSSICovRef)
         
         if stabil_calc is not None:
             #print('stabil_calc = ', stabil_calc)
@@ -296,7 +295,7 @@ master-slaves   | geometry_data geometry_data geometry_data
             self.setup_name = modal_data.setup_name
             self.start_time = modal_data.start_time
             
-        else:
+        elif prep_data is not None:
             self.chan_dofs = prep_data.chan_dofs
             self.num_channels = prep_data.num_analised_channels
         
@@ -315,7 +314,15 @@ master-slaves   | geometry_data geometry_data geometry_data
             
             self.setup_name = modal_data.setup_name
             self.start_time = modal_data.start_time
-        
+        else:
+            self.chan_dofs = []
+            self.num_channels = 0
+            self.modal_frequencies = np.array([[]])
+            self.modal_damping = np.array([[]])
+            self.mode_shapes = np.array([[[]]])
+            self.select_modes = []
+            self.setup_name = ''
+            self.start_time = None
         #if not geometry_data:
         #geometry_data = prep_data.geometry_data          
         

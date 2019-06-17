@@ -23,7 +23,7 @@ from PreprocessingTools import PreprocessData
 global use_cython 
 try:
     import pyximport
-    pyximport.install()
+    pyximport.install(setup_args={"include_dirs":np.get_include()})
     from cython_code.cython_helpers import estimate_states#@UnresolvedImport
     use_cython=True
 except:
@@ -1198,7 +1198,7 @@ class SSIDataMC(object):
     def load_state(cls, fname, prep_data):
         print('Now loading previous results from  {}'.format(fname))
         
-        in_dict=np.load(fname)    
+        in_dict=np.load(fname, allow_pickle=True)    
         #             0         1           2             3
         #self.state= [Hankel, QR_decomp.,  State matr.,  Modal Par.]
         if 'self.state' in in_dict:

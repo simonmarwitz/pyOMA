@@ -796,7 +796,7 @@ class PreprocessData(object):
         
         print('Now loading previous results from  {}'.format(fname))
         
-        in_dict=np.load(fname)    
+        in_dict=np.load(fname, allow_pickle=True)    
 
         setup_name= str(in_dict['self.setup_name'].item())
         measurement = in_dict['self.measurement']
@@ -1246,6 +1246,8 @@ class PreprocessData(object):
         psd_mats, freqs = self.psd_welch(n_lines=n_lines, refs_only=False, window=window)
         s_vals_psd = np.zeros((num_analised_channels, psd_mats.shape[2]))
         for t in range(psd_mats.shape[2]):
+            # might use only real part to account for slightly asynchronous data 
+            # see [Au (2017): OMA, Chapter 7.5]
             s_vals_psd[:,t] = np.linalg.svd(psd_mats[:,:,t],True,False)
         return s_vals_psd, freqs
     
@@ -1410,6 +1412,8 @@ class PreprocessData(object):
             else:
                 self.sum_ft = np.zeros((self.num_analised_channels, len(self.ft_freq )))
                 for i in range(len(self.ft_freq )):
+                    #might use only real parts of psd o account for slightly asynchronous data 
+                    # see [Au (2017): OMA, Chapter 7.5]
                     u,s,vt = np.linalg.svd(ft[:,:,i])
                     self.sum_ft[:,i]=10*np.log(s)
                     #print(10*np.log(s))
@@ -1431,6 +1435,8 @@ class PreprocessData(object):
         svd_matrix = np.zeros((self.num_analised_channels, len(freq)))
         #print(freq)
         for i in range(len(freq)):
+            # might use only real part to account for slightly asynchronous data 
+            # see [Au (2017): OMA, Chapter 7.5]
             u,s,vt = np.linalg.svd(psd_matrix[:,:,i])
             if log_scale: s = 10*np.log10(s)
             svd_matrix[:,i]=s#10*np.log(s)
@@ -1586,7 +1592,7 @@ def compare_PSD_Corr():
     prep_data.filter_data(lowpass=10, highpass=0.1, overwrite=True)
     
     startA = time.time()
-    psd_mats_b, freqs_b = prep_data.psd_blackman_tukey(tau_max=2048, window = 'rect')
+    psd_mats_b, freqs_b = prep_data.psd_blackman_tukey(tau_max=2048, window = 'hamming')
     corr_matrix_b = prep_data.corr_matrix 
     print('Blackman-Tukey - Time elapsed: ', time.time() - startA)
     
@@ -1614,6 +1620,12 @@ if __name__ =='__main__':
     path = 'E:/OneDrive/BHU_NHRE/Python/2017_PreProcessGUI/'
     path = '/ismhome/staff/womo1998/Projects/2017_PreProcessGUI/'
     os.chdir(path)
+    
+    path = 'Messung_Test.asc'
+    measurement = np.loadtxt(path)
+    prep_data = PreprocessData(measurement, sampling_rate=128, ref_channels=[0, 1])
+    prep_data.plot_svd_spectrum(8192)
+    plot.show()
     #example_filter()
     #example_decimate()
     #example_welch()

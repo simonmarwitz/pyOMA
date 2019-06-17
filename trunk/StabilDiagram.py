@@ -30,7 +30,9 @@ from operator import itemgetter
 from random import shuffle
 
 import matplotlib
-matplotlib.use("Qt5Agg", force=True)
+# check if python is running in headless mode i.e. as a server script
+if 'DISPLAY' in os.environ:
+    matplotlib.use("Qt5Agg", force=True)
 from matplotlib import rcParams, patches
 from matplotlib import ticker
 
@@ -1283,7 +1285,7 @@ class StabilCalc(object):
                 (max_model_order, num_solutions), fill_value=0)
         
         if capabilities['ev']:
-            prev_lambda_row = self.masked_lambda[0,:]
+            prev_lambda_row = self.masked_lambda.data[0,:]
         prev_freq_row = self.masked_frequencies[0, :]
         prev_damp_row = self.modal_data.modal_damping[0, :]
         if capabilities['msh']:
@@ -1314,7 +1316,7 @@ class StabilCalc(object):
                 print('.',end='', flush=True)
             
             if capabilities['ev']:
-                curr_lambda_row = self.masked_lambda[(curr_order),:]
+                curr_lambda_row = self.masked_lambda.data[(curr_order),:]
             
             curr_freq_row = self.masked_frequencies[(curr_order), :]
 
@@ -1346,10 +1348,11 @@ class StabilCalc(object):
                 curr_mode_shapes = \
                     curr_mode_shapes_row[:, curr_non_zero_entries[0]]
             if capabilities['ev']:
+                
                 div_lambda = np.maximum(
-                    np.repeat(np.expand_dims(np.abs(prev_lambda), axis=1), 
+                    np.repeat(np.expand_dims(np.ma.abs(prev_lambda), axis=1), 
                               curr_lambda.shape[0], axis=1),
-                    np.repeat(np.expand_dims(np.abs(curr_lambda), axis=0), 
+                    np.repeat(np.expand_dims(np.ma.abs(curr_lambda), axis=0), 
                               prev_lambda.shape[0], axis=0))
             
             div_freq = np.maximum(
@@ -2097,7 +2100,7 @@ class StabilCalc(object):
     def load_state(cls, fname, modal_data, prep_data=None):
         print('Now loading previous results from  {}'.format(fname))
 
-        in_dict = np.load(fname)
+        in_dict = np.load(fname, allow_pickle=True)
         
         if 'self.state' in in_dict:
             state= float(in_dict['self.state'])
@@ -3240,7 +3243,7 @@ class StabilPlot(object):
         #      self.stabil_calc.modal_data.max_model_order)
         
         sum_ft = sum_ft - np.min(sum_ft)
-        sum_ft = sum_ft / (np.max(sum_ft)) * 0.5 * \
+        sum_ft = sum_ft / (np.max(sum_ft)) * 0.25 * \
             self.stabil_calc.modal_data.max_model_order
         for channel in range(sum_ft.shape[0]):
 #             self.psd_plot = self.ax2.semilogy(
@@ -3582,7 +3585,7 @@ class ModeShapePlot(object):
         #print(kwargs)
         super().__init__()
         #sys.path.append("/vegas/users/staff/womo1998/Projects/2016_Burscheid") 
-        #from main_Burscheid_2017 import print_mode_info
+        #from main_Schwabach_2019 import print_mode_info
         
         self.mode_shape_plot = PlotMSH.ModeShapePlot(
             stabil_calc=stabil_calc, 
