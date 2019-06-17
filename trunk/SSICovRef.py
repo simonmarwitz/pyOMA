@@ -395,8 +395,8 @@ class BRSSICovRef(ModalBase):
             ssi_object.num_block_rows = int(in_dict['self.num_block_rows'])
         if state[1]:# state models
             ssi_object.max_model_order = int(in_dict['self.max_model_order'])
-            ssi_object.state_matrix= in_dict['self.state_matrix']
-            ssi_object.output_matrix = in_dict['self.output_matrix']
+            ssi_object.U= in_dict['self.U']
+            ssi_object.S = in_dict['self.S']
         if state[2]:# modal params
             ssi_object.modal_frequencies = in_dict['self.modal_frequencies']
             ssi_object.modal_damping = in_dict['self.modal_damping']

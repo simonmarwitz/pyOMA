@@ -45,7 +45,6 @@ import numpy as np
 from math import cos, pi, fmod
 #tools
 import itertools
-from numpy import disp
 from StabilDiagram import StabilCalc, DelayedDoubleSpinBox
 from PreprocessingTools import PreprocessData, GeometryProcessor
 
@@ -239,7 +238,7 @@ master-slaves   | geometry_data geometry_data geometry_data
                  callback_fun=None
                  ):
         #print(callback_fun)
-        assert merged_data is not None or (prep_data is not None and modal_data is not None and stabil_calc is not None) or isinstance(modal_data, PogerSSICovRef)
+        #assert merged_data is not None or (prep_data is not None and modal_data is not None and stabil_calc is not None) or isinstance(modal_data, PogerSSICovRef)
         
         if stabil_calc is not None:
             #print('stabil_calc = ', stabil_calc)
@@ -296,7 +295,7 @@ master-slaves   | geometry_data geometry_data geometry_data
             self.setup_name = modal_data.setup_name
             self.start_time = modal_data.start_time
             
-        else:
+        elif prep_data is not None:
             self.chan_dofs = prep_data.chan_dofs
             self.num_channels = prep_data.num_analised_channels
         
@@ -315,7 +314,15 @@ master-slaves   | geometry_data geometry_data geometry_data
             
             self.setup_name = modal_data.setup_name
             self.start_time = modal_data.start_time
-        
+        else:
+            self.chan_dofs = []
+            self.num_channels = 0
+            self.modal_frequencies = np.array([[]])
+            self.modal_damping = np.array([[]])
+            self.mode_shapes = np.array([[[]]])
+            self.select_modes = []
+            self.setup_name = ''
+            self.start_time = None
         #if not geometry_data:
         #geometry_data = prep_data.geometry_data          
         

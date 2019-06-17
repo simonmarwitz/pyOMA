@@ -3585,7 +3585,7 @@ class ModeShapePlot(object):
         #print(kwargs)
         super().__init__()
         #sys.path.append("/vegas/users/staff/womo1998/Projects/2016_Burscheid") 
-        #from main_Burscheid_2017 import print_mode_info
+        #from main_Schwabach_2019 import print_mode_info
         
         self.mode_shape_plot = PlotMSH.ModeShapePlot(
             stabil_calc=stabil_calc, 
