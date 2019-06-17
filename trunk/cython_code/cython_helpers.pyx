@@ -1,8 +1,10 @@
-print("Using Cython Extensions")
+
 import cython
 import numpy as np
 cimport numpy as np
+import logging
 
+logging.debug("Using Cython Extensions")
 DTYPE = np.complex64
 
 ctypedef np.complex64_t DTYPE_t

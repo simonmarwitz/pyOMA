@@ -1,7 +1,7 @@
 # GUI
-#from PyQt5 import QtGui, QtCore
-
-#http://pyqt.sourceforge.net/Docs/PyQt4/qcombobox.html
+# system i/o
+import sys
+import os
 
 from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
     QCheckBox, QButtonGroup, QLabel, QToolButton, QComboBox, QStyle,\
@@ -13,7 +13,9 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMessageHandler, QEventLoop, QSize
 # Matplotlib
 import matplotlib
-matplotlib.use("Qt5Agg",force=True) 
+# check if python is running in headless mode i.e. as a server script
+if 'DISPLAY' in os.environ:
+    matplotlib.use("Qt5Agg",force=True) 
 from matplotlib import rcParams
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backend_bases import FigureCanvasBase
@@ -25,8 +27,6 @@ import matplotlib.animation
 from matplotlib.markers import MarkerStyle
 import matplotlib.cm
 
-# system i/o
-import sys
 
 #make qt application not crash on errors
 def my_excepthook(type, value, tback):

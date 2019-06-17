@@ -1241,7 +1241,7 @@ class PogerSSICovRef(ModalBase):
     def load_state(cls, fname, ):
         print('Now loading previous results from  {}'.format(fname))
         
-        in_dict=np.load(fname)    
+        in_dict=np.load(fname, allow_pickle=True)    
         #             0             1                2              3           4    
         #self.state= [Setups Added, Channels Paired, Subspace Mat., State Mat., Modal Par.]
         if 'self.state' in in_dict:

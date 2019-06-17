@@ -1568,7 +1568,7 @@ class VarSSIRef(object):
     def load_state(cls, fname, prep_data):
         print('Now loading previous results from  {}'.format(fname))
         
-        in_dict=np.load(fname)    
+        in_dict=np.load(fname, allow_pickle=True)    
 
         if 'self.state' in in_dict:
             state= list(in_dict['self.state'])
