@@ -91,7 +91,6 @@ class MergePoSER(object):
                             'chan_dofs': prep_data.chan_dofs,
                             'num_channels': prep_data.num_analised_channels,
                             'ref_channels': prep_data.ref_channels,
-                            'roving_channels': prep_data.roving_channels,
                             'modal_frequencies': [modal_data.modal_frequencies[index] for index in stabil_data.select_modes],
                             'modal_damping': [modal_data.modal_damping[index] for index in stabil_data.select_modes],
                             'mode_shapes': [modal_data.mode_shapes[:,index[1],index[0]] for index in stabil_data.select_modes]
@@ -102,7 +101,7 @@ class MergePoSER(object):
         
         self.state[0] = True
         
-    def merge(self, base_setup_num = 0, ):
+    def merge(self, base_setup_num = 0, mode_pairing=None):
         # generate new_chan_dofs
         # assign modes from each setup
         # for each mode:
@@ -156,7 +155,14 @@ class MergePoSER(object):
         # pair channels and modes of each instance with base instance
         
         channel_pairing = []
-        mode_pairing = []
+        
+        if mode_pairing is None:
+            pair_modes = True
+            mode_pairing = []
+        else:
+            pair_modes=False
+            print('The provided mode pairs will be applied without any further checks.')
+        
         total_dofs = 0
         total_dofs += num_channels_base    
         for setup in setups:
@@ -182,11 +188,11 @@ class MergePoSER(object):
             # calculate the mode pairing by minimal frequency difference
             # check that number of modes is equal in all instances (not necessarily)
             # assert len(self.selected_modes_indices) == len(instance.selected_modes_indices)
-                
-            frequencies_this=setup['modal_frequencies']
-                
-            mode_pairs = pair_modes(frequencies_base, frequencies_this)
-            mode_pairing.append(mode_pairs)
+            if pair_modes:
+                frequencies_this=setup['modal_frequencies']
+                    
+                mode_pairs = pair_modes(frequencies_base, frequencies_this)
+                mode_pairing.append(mode_pairs)
         
         # delete modes not common to all instance from mode pairing
         for mode_num in range(len(frequencies_base)-1,-1,-1):
@@ -208,7 +214,7 @@ class MergePoSER(object):
                             break
                     else:
                         break
-
+        
         lengths=[len(mode_pairs) for mode_pairs in mode_pairing]
             
         common_modes = min(lengths)  

@@ -959,15 +959,17 @@ class SSIDataMC(object):
             
             try:
                 P = scipy.linalg.solve_discrete_are(a=A.T, b=C.T, q=Q, r=R, s=S, balanced=True)
-            except:
-                try:
-                    Q = (Q + Q.T)*0.5
-                    R = (R + R.T)*0.5
-                    P = scipy.linalg.solve_discrete_are(a=A.T, b=C.T, q=Q, r=R, s=S, balanced=True)
-                except Exception as e:
-                    print('Can not estimate Kalman Gain at order {}. Skipping Modal Contributions!'.format(order))
-                    #print(e)
-                    continue
+            except Exception as e:
+                print('Correlations of residuals are not symmetric. Skiping Modal Contributions')
+                continue
+#                 try:
+#                     Q = (Q + Q.T)*0.5
+#                     R = (R + R.T)*0.5
+#                     P = scipy.linalg.solve_discrete_are(a=A.T, b=C.T, q=Q, r=R, s=S, balanced=True)
+#                 except Exception as e:
+#                     print('Can not estimate Kalman Gain at order {}. Skipping Modal Contributions!'.format(order))
+#                     #print(e)
+#                     continue
                 
                 
             APCS = A.dot(P).dot(C.T)+S

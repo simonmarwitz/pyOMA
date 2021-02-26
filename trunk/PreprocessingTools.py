@@ -388,7 +388,7 @@ class PreprocessData(object):
             velo_channels = []
         if accel_channels is None:
             #accel_channels = [c for c in self.ref_channels+self.roving_channels if c not in disp_channels or c not in velo_channels]
-            accel_channels = [c for c in range(self.num_analised_channels) if c not in disp_channels or c not in velo_channels]
+            accel_channels = [c for c in range(self.num_analised_channels) if c not in disp_channels and c not in velo_channels]
         
         for channel in range(self.num_analised_channels):
             if (channel in accel_channels) + (channel in velo_channels) + (channel in disp_channels) != 1:
@@ -433,6 +433,7 @@ class PreprocessData(object):
         
         self.corr_matrix = None
         self.psd_mats = None
+        self.freqs = None
         self.s_vals_cf = None
         self.s_vals_psd = None
         
@@ -807,7 +808,7 @@ class PreprocessData(object):
         if in_dict['self.channel_headers'].shape:
             channel_headers = list(in_dict['self.channel_headers'])
         else:
-            channel_headers =['' for chan in range(float(in_dict['self.num_analised_channels']))]
+            channel_headers =['' for chan in range(int(in_dict['self.num_analised_channels']))]
         start_time=in_dict['self.start_time'].item()
         
         accel_channels =  list(in_dict['self.accel_channels'])
@@ -852,7 +853,7 @@ class PreprocessData(object):
         preprocessor.pds_mats = spectral_values[1]
         preprocessor.s_vals_cf = spectral_values[2]
         preprocessor.s_vals_psd = spectral_values[3]
-        preprocessor.tau_max = spectral_values[4]
+        preprocessor.tau_max = int(spectral_values[4])
         
         assert preprocessor.num_ref_channels == int(in_dict['self.num_ref_channels'])
         #assert preprocessor.num_roving_channels == int(in_dict['self.num_roving_channels'])
@@ -862,7 +863,7 @@ class PreprocessData(object):
         return preprocessor
     
     def filter_data(self, lowpass=None, highpass=None, overwrite=False, order=4, ftype='butter',  RpRs = [None, None], plot_filter=False):
-        print('Filtering data in the band: {} .. {}.'.format(lowpass, highpass))
+        print('Filtering data in the band: {} .. {}.'.format(highpass, lowpass))
         
         ''' checks '''
         error = 0
@@ -922,9 +923,13 @@ class PreprocessData(object):
             
         return self.measurement_filt
             
-    def plot_data(self, channels=None, single_channels = False,f_max = None, NFFT = 512):
+    def plot_data(self, channels=None, single_channels = False,f_max = None, NFFT = 512, timescale='time'):
         
         t = np.linspace(start=0, stop=self.total_time_steps/self.sampling_rate, num=self.total_time_steps)
+        if timescale=='samples':
+            t = np.linspace(start=0, stop=self.total_time_steps, num=self.total_time_steps)
+        else:
+            assert timescale=='time'
         
         if channels is None:
             channels = list(range(self.num_analised_channels))
@@ -941,6 +946,12 @@ class PreprocessData(object):
             axes[i, 0].grid(True, axis='y',ls='dotted')
         axes[-1,0].set_xlabel('t [s]')
         axes[-1,0].set_ylabel('')
+        if not single_channels:
+            axes[0,0].set_xlabel('Time [\si{\second}]')
+            axes[0,0].set_ylabel('Magnitude [\si{\metre\per\second\squared}]')
+            axes[0,0].set_ylim([-0.15,0.15])
+            axes[0,0].set_xlim([0,1800])
+            
         
         if single_channels:
             psd_mats, freqs = self.psd_welch(NFFT,False)
@@ -954,10 +965,11 @@ class PreprocessData(object):
                 axes[-1,1].set_xlim((0,f_max))
         else:
             self.plot_svd_spectrum(NFFT, log_scale=True,ax=axes[1,0])
+            axes[1,0].set_ylim([-80,0])
             if f_max:
                 axes[1,0].set_xlim((0,f_max))
-        for ax in axes.flat:
-            ax.legend()
+        #for ax in axes.flat:
+        #    ax.legend()
         
         return fig
     
@@ -1035,7 +1047,7 @@ class PreprocessData(object):
         self.total_time_steps = meas_decimated.shape[0]
         self.measurement = meas_decimated 
     
-    def psd_welch(self, n_lines=256, refs_only=True, window='hamm'):
+    def psd_welch(self, n_lines=2048, refs_only=True, window='hamm'):
         '''
         DONE:
         
@@ -1157,7 +1169,7 @@ class PreprocessData(object):
                 
                 # applies window and calculates fft
                 fft = np.fft.rfft(this_correlation_function*win, n=2*tau_max-1)
-                print(this_correlation_function.shape, fft.shape)
+                #print(this_correlation_function.shape, fft.shape)
                 # corrections
                 fft = fft[:tau_max]
                 ampl_correction= (tau_max)/(win).sum()
@@ -1261,7 +1273,7 @@ class PreprocessData(object):
         i.e. blocks may not overlap and therefore for the higher lags, less samples
         are used for the estimation of the correlation        
         '''
-        print('Computing Correlation Matrices...')
+        print('Computing Correlation Matrices with tau_max {}...'.format(tau_max))
         total_time_steps = self.total_time_steps
         num_analised_channels = self.num_analised_channels
         num_ref_channels = self.num_ref_channels
@@ -1385,7 +1397,23 @@ class PreprocessData(object):
         
         global corr_matrices_mem
         corr_matrices_mem = corr_matrices_mem_
+    
+    def get_corr_0(self):
         
+        ref_channels = self.ref_channels        
+        all_channels = list(range(self.num_analised_channels))#
+        
+        measurement = self.measurement
+
+        refs = measurement[:,ref_channels]
+        
+        current_signals = measurement[:, all_channels]
+        
+        this_block = np.dot(current_signals.T, refs)/current_signals.shape[0]
+        
+        return this_block
+    
+    
     def get_rms(self):
         self.correct_offset()
         return np.sqrt(np.mean(np.square(self.measurement),axis=0))
@@ -1403,10 +1431,10 @@ class PreprocessData(object):
         for channel in range(self.num_analised_channels):            
             self.measurement[:,channel] += np.random.normal(0,amplitude[channel],self.total_time_steps)
         
-    def get_fft(self,svd=True):
+    def get_fft(self,svd=True, NFFT=2048):
         
         if self.ft_freq is None or self.sum_ft is None:
-            ft, self.ft_freq  = self.psd_welch(refs_only=False)
+            ft, self.ft_freq  = self.psd_welch(n_lines=NFFT, refs_only=False)
             if not svd:
                 self.sum_ft = np.abs(np.sum(ft, axis=0))
             else:
@@ -1444,12 +1472,13 @@ class PreprocessData(object):
 
         for i in range(self.num_analised_channels):
             ax.plot(freq, svd_matrix[i,:])
+            #if i>3: break
              
 
         ax.set_xlim((0,self.sampling_rate/2))
         #plot.grid(1)
-        ax.set_xlabel('Frequenz [\si{\hertz}]')
-        if log_scale: ax.set_ylabel('Singul\\"arwert Magnitude [\si{\decibel}]')
+        #ax.set_xlabel('Frequency [\si{\hertz}]')
+        if log_scale: ax.set_ylabel('Singular Value Magnitude [\si{\decibel}]')
         else: ax.set_ylabel('Singul\\"arwert Magnitude')
         #plot.yticks([0,-25,-50,-75,-100,-125,-150,-175,-200,-225,-250])
         #plot.ylim((-225,0))
@@ -1458,8 +1487,78 @@ class PreprocessData(object):
         #plot.grid(b=0)
         
         #plot.show()
+    def plot_correlation(self, tau_max=None, num_blocks=False, ax=None):
+        
+        assert tau_max or self.corr_matrix.shape
+        
+        if tau_max is not None:
+            if not self.corr_matrix:
+                self.compute_correlation_matrices(tau_max, num_blocks)
+            elif self.corr_matrix.shape[2]<=tau_max:
+                self.compute_correlation_matrices(tau_max, num_blocks)
+            corr_matrix = self.corr_matrix[:,:,:tau_max]
+        else:
+            corr_matrix = self.corr_matrix
+            tau_max = corr_matrix.shape[2]
+            
+        num_analised_channels = self.num_analised_channels
+        num_ref_channels = self.num_ref_channels
+        
+        if ax is None:
+            ax=plot.subplot(111)
+        
+        
+        
+        for ref_channel in range(num_ref_channels):
+            for channel in range(num_analised_channels):
+                ax.plot(corr_matrix[channel,ref_channel,:])
+        ax.set_xlim((0,tau_max))
+        ax.set_xlabel('$\tau_{\text{max}}$')
+        ax.set_ylabel('$R_{i,j}(\tau) [\si{\milli\metre\squared\per\second\tothe{4}}]')
+        
+    def plot_psd(self, tau_max = None, n_lines=None, method='blackman', ax=None, **kwargs):
+        
+        assert tau_max or self.psd_mats is not None or n_lines
+        assert method in ['blackman', 'welch']
+        
+        if tau_max is None and n_lines is not None:
+            tau_max = n_lines
+            
+        if tau_max is not None:
+            if not self.psd_mats.shape:
+                if method == 'blackman':
+                    self.psd_blackman_tukey(tau_max, **kwargs)
+                else:
+                    self.psd_welch(tau_max, **kwargs)
+            elif self.psd_mats.shape[2]<= tau_max:
+                if method == 'blackman':
+                    self.psd_blackman_tukey(tau_max, **kwargs)
+                else:
+                    self.psd_welch(tau_max, **kwargs)
+                        
+            psd_mats = self.psd_mats[:,:,tau_max]
+        else:
+            psd_mats = self.psd_mats
+        
+        freqs = self.freqs
 
-
+        num_analised_channels = self.num_analised_channels
+        num_ref_channels = self.num_ref_channels
+        
+        if ax is None:
+            ax=plot.subplot(111)
+            
+        for ref_channel in range(num_ref_channels):
+            for channel in range(num_analised_channels):
+                ax.plot(freqs,np.abs(psd_mats[channel,ref_channel,:]))
+        ax.set_xlim((0,freqs.max()))
+        if plot.rc('latex.usetex'):
+            ax.set_xlabel('$f [\si{\hertz}]$')
+            ax.set_ylabel('$S_{i,j}(f) [\si{\milli\metre\squared\per\second\tothe{4}}\per\hertz]$')
+        else:
+            ax.set_xlabel('f [Hz]')
+            ax.set_ylabel('S_{i,j}(f) [mm^2/s^4/Hz]')
+            
 def load_measurement_file(fname, **kwargs):
     # assign this function to the class before instantiating the object
     # PreprocessData.load_measurement_file = load_measurement_file

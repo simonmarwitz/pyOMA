@@ -415,5 +415,48 @@ def main():
         references (add them numbered in the order of appearance in the text)
     '''
     
+def main_oma_uq():
+    
+    
+    from PreprocessingTools import PreprocessData, GeometryProcessor
+    
+    # Modal Analysis PostProcessing Class e.g. Stabilization Diagram
+    from StabilDiagram import StabilCalc, StabilPlot, StabilGUI, start_stabil_gui
+    
+    # Modeshape Plot
+    from PlotMSH import ModeShapePlot, start_msh_gui
+    
+    jid='184d16a5f0b5'
+    
+    #creating the geometry for plotting the identified modeshapes 
+    geometry_data = GeometryProcessor.load_geometry(f'/dev/shm/womo1998/{jid}/grid.txt', f'/dev/shm/womo1998/{jid}/lines.txt')
+    
+    prep_data = PreprocessData.load_state(f'/dev/shm/womo1998/{jid}/prep_data.npz')
+    
+    arrs = np.load(f'/dev/shm/womo1998/{jid}/IRF_data.npz')
+    t_vals    =arrs['t_vals']
+    IRF_matrix=arrs['IRF_matrix']
+    F_matrix  =arrs['F_matrix']
+    ener_mat  =arrs['ener_mat']
+    amp_mat   =arrs['amp_mat']
+
+    from ERA import ERA
+
+
+    modal_data = ERA(prep_data)
+    modal_data.IFRF = IRF_matrix
+    modal_data.build_hankel_matrix(num_block_columns=250)
+    modal_data.compute_state_matrices(max_model_order=100)
+    modal_data.compute_modal_params()
+
+    
+    stabil_data = StabilCalc(modal_data)
+    stabil_plot = StabilPlot(stabil_data)
+    start_stabil_gui(stabil_plot, modal_data, geometry_data, prep_data)
+    
+    mode_shape_plot = ModeShapePlot(geometry_data, stabil_data, modal_data, prep_data)
+    start_msh_gui(mode_shape_plot)
+
+    
 if __name__ =='__main__':
-    main()
+    main_oma_uq()

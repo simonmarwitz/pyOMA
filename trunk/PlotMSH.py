@@ -2,6 +2,9 @@
 # system i/o
 import sys
 import os
+import warnings
+import logging
+logger = logging.getLogger('')
 
 from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
     QCheckBox, QButtonGroup, QLabel, QToolButton, QComboBox, QStyle,\
@@ -13,6 +16,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMessageHandler, QEventLoop, QSize
 # Matplotlib
 import matplotlib
+from _functools import reduce
 # check if python is running in headless mode i.e. as a server script
 if 'DISPLAY' in os.environ:
     matplotlib.use("Qt5Agg",force=True) 
@@ -116,6 +120,7 @@ def orthogonal_proj(zfront, zback):
 # copy of mpl_toolkits.mplot3d.proj3d.persp_transformation
 # for restoring the projection in isonometriv view
 def persp_transformation(zfront, zback):
+    #return orthogonal_proj(zfront, zback)
     a = (zfront + zback) / (zfront - zback)
     b = -2 * (zfront * zback) / (zfront - zback)
     return np.array([[1, 0, 0, 0],
@@ -298,22 +303,36 @@ master-slaves   | geometry_data geometry_data geometry_data
         elif prep_data is not None:
             self.chan_dofs = prep_data.chan_dofs
             self.num_channels = prep_data.num_analised_channels
-        
-            self.modal_frequencies = modal_data.modal_frequencies
-            self.modal_damping = modal_data.modal_damping
-            self.mode_shapes = modal_data.mode_shapes
             
-            if isinstance(modal_data, VarSSIRef):
-                self.std_frequencies = modal_data.std_frequencies
-                self.std_damping = modal_data.std_damping
+            if modal_data is not None:
+                
+                self.modal_frequencies = modal_data.modal_frequencies
+                self.modal_damping = modal_data.modal_damping
+                self.mode_shapes = modal_data.mode_shapes
+                
+                if isinstance(modal_data, VarSSIRef):
+                    self.std_frequencies = modal_data.std_frequencies
+                    self.std_damping = modal_data.std_damping
+                else:
+                    self.std_frequencies = None
+                    self.std_damping = None
             else:
+                self.modal_frequencies = np.array([[]])
+                self.modal_damping = np.array([[]])
+                self.mode_shapes = np.array([[[]]])
                 self.std_frequencies = None
                 self.std_damping = None
-            
-            self.select_modes = stabil_calc.select_modes
-            
-            self.setup_name = modal_data.setup_name
-            self.start_time = modal_data.start_time
+                
+            if stabil_calc is not None:
+                self.select_modes = stabil_calc.select_modes
+                
+                self.setup_name = modal_data.setup_name
+                self.start_time = modal_data.start_time
+            else:
+                self.select_modes = []
+                self.setup_name = ''
+                self.start_time = None
+                
         else:
             self.chan_dofs = []
             self.num_channels = 0
@@ -334,9 +353,6 @@ master-slaves   | geometry_data geometry_data geometry_data
         
         #markerstylesavailable in matplotlib
         markers = list(MarkerStyle.markers.keys())
-
-        assert isinstance(amplitude, (int, float))
-        self.amplitude = amplitude
         
         assert isinstance(real, bool)
         self.real = real  
@@ -408,7 +424,9 @@ master-slaves   | geometry_data geometry_data geometry_data
         
         self.subplot.grid(False)
         self.subplot.set_axis_off()
-
+        
+        self.mode_index = [0, 0]
+        
         #instantiate the x,y,z axis arrows
         self.draw_axis()
     
@@ -445,7 +463,8 @@ master-slaves   | geometry_data geometry_data geometry_data
         self.draw_lines()
         self.draw_chan_dofs()
         self.draw_master_slaves()
-        self.draw_msh()
+        if self.mode_index[1]:
+            self.draw_msh()
         
         #self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
         
@@ -456,9 +475,6 @@ master-slaves   | geometry_data geometry_data geometry_data
     def change_viewport(self, viewport=None):
         '''
         change the viewport
-        for non-ISO viewports the projection methods of matplotlib
-        will be monkeypatched, because otherwise it would not be an 
-        axonometric view (functions are defined at the top of document)
         works in combination with the appropriate buttons as senders or
         by passing one of ['X', 'Y', 'Z', 'ISO']
         
@@ -466,20 +482,25 @@ master-slaves   | geometry_data geometry_data geometry_data
             
         if viewport == 'X':
             azim, elev = 0, 0
-            proj3d.persp_transformation = orthogonal_proj
+            #proj3d.persp_transformation = orthogonal_proj
+            self.subplot.set_proj_type('ortho')
         elif viewport == 'Y':
             azim, elev = 270, 0
-            proj3d.persp_transformation = orthogonal_proj
+            #proj3d.persp_transformation = orthogonal_proj
+            self.subplot.set_proj_type('ortho')
         elif viewport == 'Z':
             azim, elev = 0, 90
-            proj3d.persp_transformation = orthogonal_proj
+            #proj3d.persp_transformation = orthogonal_proj
+            self.subplot.set_proj_type('ortho')
         elif viewport == 'ISO':
             azim, elev = -60, 30
-            proj3d.persp_transformation = persp_transformation
+            #proj3d.persp_transformation = persp_transformation
+            self.subplot.set_proj_type('persp')
         else:
             print('viewport not recognized: ', viewport)
             azim, elev = -60, 30
-            proj3d.persp_transformation = persp_transformation
+            #proj3d.persp_transformation = persp_transformation
+            self.subplot.set_proj_type('persp')
         self.subplot.view_init(elev, azim)
         self.canvas.draw()
 
@@ -535,7 +556,11 @@ master-slaves   | geometry_data geometry_data geometry_data
         #print('self.callback_fun', self.callback_fun)
         if self.callback_fun is not None:
             #print('call')
-            self.callback_fun(self,mode_index)
+            try:
+                self.callback_fun(self,mode_index)
+            except Exception as e:
+                print(e)
+                pass
         
         return mode_index[1], mode_index[0], frequency, damping, MPC, MP, MPD #order, mode_num,....
 
@@ -559,7 +584,9 @@ master-slaves   | geometry_data geometry_data geometry_data
         if amplitude == self.amplitude:return
 
         self.amplitude = amplitude
-        self.draw_msh()
+        
+        if self.mode_shapes.shape[2]:
+            self.draw_msh()
 
     #@pyqtSlot(bool)
     def change_part(self, b):
@@ -799,12 +826,21 @@ master-slaves   | geometry_data geometry_data geometry_data
         self.canvas.draw_idle()
         
     def calc_xyz(self,az, elev, r=1):
+        if np.abs(az)>2*np.pi:
+            print('You forgot to convert to radians ',az)
+        if np.abs(elev)>2*np.pi:
+            print('You forgot to convert to radians ', elev)
         x=r*np.cos(elev)*np.cos(az) # for elevation angle defined from XY-plane up
         #x=r*np.sin(elev)*np.cos(az) # for elevation angle defined from Z-axis down
         y=r*np.cos(elev)*np.sin(az) # for elevation angle defined from XY-plane up
         #y=r*np.sin(elev)*np.sin(az)# for elevation angle defined from Z-axis down
         z=r*np.sin(elev)# for elevation angle defined from XY-plane up
         #z=r*np.cos(elev)# for elevation angle defined from Z-axis down
+        
+        #correct numerical noise
+        for a in (x,y,z):
+            if np.allclose(a,0): a*=0
+        
         return x,y,z
     
     #@pyqtSlot(int, int, tuple, int)
@@ -820,8 +856,10 @@ master-slaves   | geometry_data geometry_data geometry_data
 
         x_s, y_s, z_s = self.geometry_data.nodes[node]
         
-        x_m, y_m, z_m = self.calc_xyz(az, elev)
-
+        x_m, y_m, z_m = self.calc_xyz(az/180*np.pi, elev/180*np.pi,r=self.scale)
+        
+        #print(chan_name, node, x_m,y_m,z_m)
+        
 
         # point the arrow towards the resulting direction
         arrow = Arrow3D([x_s, x_s + x_m], [y_s, y_s + y_m],
@@ -1131,7 +1169,10 @@ master-slaves   | geometry_data geometry_data geometry_data
                 x = node[0]+disp_node[0]* np.cos(self.seq_num / 25 * 2 * np.pi  + phase_node[0])
                 y = node[1]+disp_node[1]* np.cos(self.seq_num / 25 * 2 * np.pi  + phase_node[1])
                 z = node[2]+disp_node[2]* np.cos(self.seq_num / 25 * 2 * np.pi  + phase_node[2])
-                
+                #print('in refresh nodes', x,y,z)
+                #if 'PIV' in key:
+                #    print(key, disp_node, phase_node)
+                    
                 patch[0].set_offsets([x,y])
                 patch[0].set_3d_properties(z, 'z')
                 
@@ -1291,7 +1332,22 @@ master-slaves   | geometry_data geometry_data geometry_data
         slave definitions
         draws the displaced nodes and beams
         '''
-
+        
+        def to_phase_mag(disp):
+            if self.real:
+                phase = np.angle(disp, True) 
+                mag = np.abs(disp)
+                if phase < 0 : 
+                    phase += 180
+                    mag = -mag
+                if phase > 90 and phase < 270:
+                    mag = - mag
+                phase = 0
+            else:
+                phase = np.angle(disp)
+                mag = np.abs(disp)
+            return phase, mag
+        
         mode_shape = self.mode_shapes[:,self.mode_index[1], self.mode_index[0]]
         #print(mode_shape)
         mode_shape = self.rescale_mode_shape(mode_shape)
@@ -1301,71 +1357,169 @@ master-slaves   | geometry_data geometry_data geometry_data
         
         self.phi_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
         
-        for chan, disp in enumerate(mode_shape):
-            if isinstance(disp, np.complex):
-                if self.real:
-                    phase = np.angle(disp, True) 
-                    disp = np.abs(disp)
-                    if phase < 0 : 
-                        phase += 180
-                        disp = -disp                    
-                    if phase > 90 and phase < 270:
-                        disp = - disp
-                    phase = 0
-                else:
-                    phase = np.angle(disp)
-                    disp = np.abs(disp)
-            else:
-                phase = 0   
-            found = False 
+        chan_found = [False for chan in range(len(mode_shape))]
+        
+        for node in self.geometry_data.nodes.keys():
+            this_chan_dofs = []
             for chan_dof in self.chan_dofs:
-                chan_, node, az, elev, chan_name = chan_dof[0:4]+chan_dof[-1:]
-                if node is None:
-                    continue
-                if not node in self.geometry_data.nodes.keys():
-                    continue
-                if chan_ == chan:
+                chan, node_, az, elev, chan_name = chan_dof[0:4]+chan_dof[-1:]
+                if node_ == node:
+                    disp = mode_shape[chan]
+                        
+                    x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180, r=1)# radius 1 is needed for the coordinate transformation to work
                     
-                    x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
-                    #print(chan_, chan, node, x,y,disp,np.degrees(phase))
-                    #print(x,y,z)
-                    # TODO: Account for skewed measurement angles
-                    # assumes vectors have components in one direction (x,y,z) only
+                    this_chan_dofs.append([chan,x,y,z,disp])
                     
+                    chan_found[chan] = True
                     
-                    
-                    
-                    
-                    if not np.allclose(x,0):
-                        #print(x, phase)
-                        if self.disp_nodes[node][0] > 0:
-                            RuntimeWarning('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
-                        self.phi_nodes[node][0] = phase
-                        self.disp_nodes[node][0] = x * disp * ampli #/ norm
-                    if not np.allclose(y,0):
-                        #print(y,phase)
-                        if self.disp_nodes[node][1] > 0:
-                            RuntimeWarning('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
-                        self.phi_nodes[node][1] = phase
-                        self.disp_nodes[node][1] = y * disp * ampli #/ norm
-                    if not np.allclose(z,0):
-                        #print(z,phase)
-                        if self.disp_nodes[node][2] > 0:
-                            RuntimeWarning('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
-                        self.phi_nodes[node][2] = phase
-                        self.disp_nodes[node][2] = z * disp * ampli #/ norm
-                    
-                    found=True
+            if len(this_chan_dofs)==0: continue # no sensors in this node
             
+            elif len(this_chan_dofs)==1: # only one sensor in this node
+                chan,x,y,z,disp = this_chan_dofs[0]
+                
+                phase, mag = to_phase_mag(disp)
+                        
+                self.phi_nodes[node][0] = phase
+                self.disp_nodes[node][0] = x * mag * ampli
+                
+                self.phi_nodes[node][1] = phase
+                self.disp_nodes[node][1] = y * mag * ampli
+                
+                self.phi_nodes[node][2] = phase
+                self.disp_nodes[node][2] = z * mag * ampli
+                
+            else: # two or more sensors in this node
+                
+                # check if sensors are in direction of the coordinate 
+                # system or if they need to be transformed
+                sum_x= 0
+                sum_y= 0
+                sum_z= 0
+                for chan,x,y,z,disp in this_chan_dofs:
+                    #print(chan,x,y,z)
+                    if x!=0: sum_x += 1
+                    if y!=0: sum_y += 1
+                    if z!=0: sum_z += 1
+                #print(sum_x, sum_y, sum_z)
+                if sum_x<=1 and sum_y<=1 and sum_z<=1: # sensors are in coordinate direction
+                    
+                    for chan,x,y,z,disp in this_chan_dofs:
+                        
+                        phase, mag = to_phase_mag(disp)
+                        
+                        if x!=0:
+                            self.phi_nodes[node][0] = phase
+                            self.disp_nodes[node][0] = x * mag * ampli
+                        elif y!=0:
+                            self.phi_nodes[node][1] = phase
+                            self.disp_nodes[node][1] = y * mag * ampli
+                        elif z!=0:
+                            self.phi_nodes[node][2] = phase
+                            self.disp_nodes[node][2] = z * mag * ampli
+                else:
+                    num_sensors = max(len(this_chan_dofs),3)
+                    # at least three sensors are needed for the coordinate transformation
+                    # if only two sensors are present, they will be complemented by 
+                    # a zero displacement assumption in perpendicular direction 
+                    normal_matrix = np.zeros((num_sensors,3))
+                    disp_vec = np.zeros(num_sensors, dtype=complex)
+                    for i,(chan,x,y,z,disp) in enumerate(this_chan_dofs):
+                        normal_matrix[i,:]=[x,y,z]
+                        disp_vec[i] =disp
+
+                    if i ==1: # only two sensors were present
+                        #print('Not enough sensors for a full 3D transformation at node {}, '
+                        #      'will complement vectors with a zero displacement assumption in orthogonal direction.'.format(node))
+                        c=np.cross(normal_matrix[0,:],normal_matrix[1,:]) # vector c is perpendicular to the first two vectors
+                        c/=np.linalg.norm(c) # if angle between first two vectors is different from 90° vector c has to be normalized
+                        #print(node, c)
+                        normal_matrix[2,:]=c
+                    
+                    
+                    '''
+                    ⎡ n_1,x  n_1,y  n_1,z ⎤ ⎡ q_res_x ⎤   ⎡ d_1 ⎤
+                    ⎢ n_2,x  n_2,y  n_2,z ⎥ ⎢ q_res_y ⎥ = ⎢ d_2 ⎥
+                    ⎣ n_3,x  n_3,y  n_3,z ⎦ ⎣ q_res_z ⎦   ⎣ d_3 ⎦
+                    '''
+                    # solve the well- or over-determined system of equations
+                    q_res = np.linalg.lstsq(normal_matrix, disp_vec)[0]
+                    
+                    for i in range(3):
+                        disp = q_res[i]
+                        #print(disp)
+                        phase, mag = to_phase_mag(disp)
+                            
+                        self.phi_nodes[node][i] = phase
+                        self.disp_nodes[node][i] =  mag * ampli
+
+#         for chan, disp in enumerate(mode_shape):
+#             if isinstance(disp, np.complex):
+#                 if self.real:
+#                     phase = np.angle(disp, True) 
+#                     disp = np.abs(disp)
+#                     if phase < 0 : 
+#                         phase += 180
+#                         disp = -disp                    
+#                     if phase > 90 and phase < 270:
+#                         disp = - disp
+#                     phase = 0
+#                 else:
+#                     phase = np.angle(disp)
+#                     disp = np.abs(disp)
+#             else:
+#                 phase = 0   
+#             found = False 
+#             for chan_dof in self.chan_dofs:
+#                 chan_, node, az, elev, chan_name = chan_dof[0:4]+chan_dof[-1:]
+#                 if node is None:
+#                     continue
+#                 if not node in self.geometry_data.nodes.keys():
+#                     continue
+#                 if chan_ == chan:
+#                     x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
+#                     if 'PIV' in chan_name:
+#                         print(chan_name,x,y,z)
+#                         print(node, self.disp_nodes[node],self.phi_nodes[node])
+#                     #print(chan_, chan, node, x,y,disp,np.degrees(phase))
+#                     #print(x,y,z)
+#                     
+#                     # TODO: Account for skewed measurement angles
+#                     # assumes vectors have components in one direction (x,y,z) only
+#                     
+#                     
+#                     
+#                     
+#                     
+#                     if not np.allclose(x,0):
+#                         #print(x, phase)
+#                         if self.disp_nodes[node][0] != 0:
+#                             print('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
+#                             
+#                         self.phi_nodes[node][0] = phase
+#                         self.disp_nodes[node][0] = x * disp * ampli #/ norm
+#                     if not np.allclose(y,0):
+#                         #print(y,phase)
+#                         if self.disp_nodes[node][1] != 0:
+#                             print('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
+#                         self.phi_nodes[node][1] = phase
+#                         self.disp_nodes[node][1] = y * disp * ampli #/ norm
+#                     if not np.allclose(z,0):
+#                         #print(z,phase)
+#                         if self.disp_nodes[node][2] != 0:
+#                             print('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
+#                         self.phi_nodes[node][2] = phase
+#                         self.disp_nodes[node][2] = z * disp * ampli #/ norm
+#                     
+#                     found=True
+            
+        for chan, found in enumerate(chan_found):
             if not found:
                 print('Could not find channel - DOF assignment for '
                       'channel {}!'.format(chan))
-                continue
-
-            
-            #print(chan_, node, az, elev, chan_name)
-            #print(self.disp_nodes[node])
-            #print(self.phi_nodes[node])
+        #print(self.disp_nodes)
+        # TODO: change master_slave assignment to skewed coordinate 
+        # TODO: change master_slaves to az, elev
+        
         for i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl in self.geometry_data.master_slaves:
                         
             if (x_m>0+y_m>0+z_m>0)>1:
@@ -1382,60 +1536,52 @@ master-slaves   | geometry_data geometry_data geometry_data
             if not np.allclose(x,0):
                 #print(x, phase)
                 if self.disp_nodes[i_sl][0] > 0:
-                    RuntimeWarning('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
+                    print('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
                 self.phi_nodes[i_sl][0] = phase
                 self.disp_nodes[i_sl][0] += master_disp * x_sl
             if not np.allclose(y,0):
                 #print(y,phase)
                 if self.disp_nodes[i_sl][1] > 0:
-                    RuntimeWarning('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
+                    print('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
                 self.phi_nodes[i_sl][1] = phase
                 self.disp_nodes[i_sl][1] += master_disp * y_sl
             if not np.allclose(z,0):
                 #print(z,phase)
                 if self.disp_nodes[i_sl][2] > 0:
-                    RuntimeWarning('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
+                    print('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
                 self.phi_nodes[i_sl][2] = phase
                 self.disp_nodes[i_sl][2] += master_disp * z_sl
 
-        #for node in self.disp_nodes.keys():
-            #disp_node = self.disp_nodes[node]
-            #phi_node = self.phi_nodes[node]
-            #angle = np.arctan2(disp_node[0],disp_node[1])*180/np.pi
-            #if angle <0: angle+=180
-            #print(disp_node, phi_node)
-            #print(node, angle)
-            
-            if self.draw_trace:
-                if self.trace_objects:
-                    for i in range(len(self.trace_objects)-1,-1,-1):
-                        try:
-                            self.trace_objects[i].remove()
-                        except Exception as e:
-                            pass
-                            #print("Error",e)
-                            
-                        del self.trace_objects[i]
-                        
-                moving_nodes = set()
-                for chan_dof in self.chan_dofs:#
-                    chan_, node, az, elev, chan_name  = chan_dof[0:4]+ [chan_dof[-1]]
-                    if node is None:
-                        continue
-                    if not node in self.geometry_data.nodes.keys():
-                        continue
-                    moving_nodes.add(node)
-                
-                clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))#@UndefinedVariable
-                for node in moving_nodes:
-                    self.trace_objects.append(self.subplot.plot(xs=self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
-                         * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][0]),
-                         ys=self.geometry_data.nodes[node][1] + self.disp_nodes[node][1]
-                         * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][1]),
-                         zs=self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
-                         * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][2]), 
-                         #marker = ',', s=1, edgecolor='none', 
-                         color = next(clist)))
+#             if self.draw_trace:
+#                 if self.trace_objects:
+#                     for i in range(len(self.trace_objects)-1,-1,-1):
+#                         try:
+#                             self.trace_objects[i].remove()
+#                         except Exception as e:
+#                             pass
+#                             #print("Error",e)
+#                             
+#                         del self.trace_objects[i]
+#                         
+#                 moving_nodes = set()
+#                 for chan_dof in self.chan_dofs:#
+#                     chan_, node, az, elev, chan_name  = chan_dof[0:4]+ [chan_dof[-1]]
+#                     if node is None:
+#                         continue
+#                     if not node in self.geometry_data.nodes.keys():
+#                         continue
+#                     moving_nodes.add(node)
+#                 
+#                 clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0, 1, len(moving_nodes)))))#@UndefinedVariable
+#                 for node in moving_nodes:
+#                     self.trace_objects.append(self.subplot.plot(xs=self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
+#                          * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][0]),
+#                          ys=self.geometry_data.nodes[node][1] + self.disp_nodes[node][1]
+#                          * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][1]),
+#                          zs=self.geometry_data.nodes[node][2] + self.disp_nodes[node][2]
+#                          * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][2]), 
+#                          #marker = ',', s=1, edgecolor='none', 
+#                          color = next(clist)))
         #print(self.disp_nodes, self.phi_nodes)       
         self.refresh_nodes()
         self.refresh_lines()
@@ -1474,9 +1620,18 @@ master-slaves   | geometry_data geometry_data geometry_data
         '''
         
         self.save_ani = False
+        '''
+        !!!
+        
+        The NUMBERING of the FILES follows the order in which the modes were selected in the stabilization diagramm
+        
+        !!!
+        '''
         if self.save_ani:
-            self.cwd = os.getcwd()
-
+            self.cwd = '/vegas/users/staff/womo1998/Projects/2019_Schwabach/tex/figures/ani_high/'#os.getcwd()
+            #for i in range(len(self.select_modes)):
+            #    os.makedirs(os.path.join(self.cwd,str(i)), exist_ok=True)
+                
         self.draw_trace=True
         def init_lines():
             #print('init')
@@ -1609,6 +1764,7 @@ master-slaves   | geometry_data geometry_data geometry_data
                     
             if self.save_ani:        
                 self.fig.savefig(self.cwd + '/{}/ani_{}.pdf'.format(self.select_modes.index(self.mode_index), num))
+                print(self.cwd + '/{}/ani_{}.pdf'.format(self.select_modes.index(self.mode_index), num))
             return self.lines_objects + \
             self.nd_lines_objects + \
             list(self.cn_lines_objects.values())
@@ -1690,7 +1846,7 @@ master-slaves   | geometry_data geometry_data geometry_data
             '''
             subfunction to calculate displacements based on magnitude and phase angle
             '''
-            self.callback(str(num/self.prep_data.sampling_rate))
+            self.callback(f'{num/self.prep_data.sampling_rate:.4f}')
             disp_nodes={ i : [0,0,0] for i in self.geometry_data.nodes.keys() } 
             for chan_dof in self.chan_dofs:
                 chan_, node, az, elev, = chan_dof[0:4]
@@ -1854,7 +2010,7 @@ class ModeShapeGUI(QMainWindow):
 
     def __init__(self,
                  mode_shape_plot,      
-                 ):
+                 reduced_gui=False):
 
         QMainWindow.__init__(self)
         assert isinstance(mode_shape_plot, ModeShapePlot)
@@ -1862,11 +2018,11 @@ class ModeShapeGUI(QMainWindow):
         self.animated = False
         self.setWindowTitle('Plot Modeshapes')
         self.create_menu()
-        self.create_main_frame(mode_shape_plot)
+        self.create_main_frame(mode_shape_plot, reduced_gui)
         self.setGeometry(300, 300, 1000, 600)
         self.show()
             
-    def create_main_frame(self, mode_shape_plot):
+    def create_main_frame(self, mode_shape_plot, reduced_gui=False):
         '''
         set up all the widgets and other elements to draw the GUI
         '''
@@ -1886,7 +2042,6 @@ class ModeShapeGUI(QMainWindow):
         view_layout = QHBoxLayout()
         
         view_layout.addStretch()
-        
         self.axis_checkbox = QCheckBox('Show Axis Arrows')
         self.axis_checkbox.setTristate(False)
         self.axis_checkbox.setCheckState(Qt.Checked if mode_shape_plot.show_axis else Qt.Unchecked)
@@ -1908,8 +2063,8 @@ class ModeShapeGUI(QMainWindow):
         ms_checkbox.setTristate(False)
         chandof_checkbox = QCheckBox('Show Channel-DOF Assignm.')
         chandof_checkbox.setTristate(False)
-        
-        
+            
+            
         self.draw_button_group = QButtonGroup()
         self.draw_button_group.setExclusive(False)
         self.draw_button_group.addButton(line_checkbox, 0)
@@ -1923,7 +2078,7 @@ class ModeShapeGUI(QMainWindow):
             ms_checkbox.setCheckState(Qt.Checked)
         elif mode_shape_plot.show_chan_dofs:
             chandof_checkbox.setCheckState(Qt.Checked)
-        
+            
         view_layout.addWidget(self.axis_checkbox)
         view_layout.addWidget(self.nodes_checkbox)
         view_layout.addWidget(line_checkbox)
@@ -1940,24 +2095,24 @@ class ModeShapeGUI(QMainWindow):
         
             
         # Buttons for creating/editing geometry and loading solutions
-        grid_button = QPushButton('Edit Grid')
-        grid_button.released.connect(self.stop_ani)
+        #grid_button = QPushButton('Edit Grid')
+        #grid_button.released.connect(self.stop_ani)
         #grid_button.released.connect(self.geometry_creator.load_nodes)
 
-        beam_button = QPushButton('Edit Beams')
-        beam_button.released.connect(self.stop_ani)
+        #beam_button = QPushButton('Edit Beams')
+        #beam_button.released.connect(self.stop_ani)
         #beam_button.released.connect(self.geometry_creator.load_lines)
 
-        ms_button = QPushButton('Edit Master Slaves')
-        ms_button.released.connect(self.stop_ani)
+        #ms_button = QPushButton('Edit Master Slaves')
+        #ms_button.released.connect(self.stop_ani)
         #ms_button.released.connect(self.geometry_creator.load_master_slave)
 
-        cd_button = QPushButton('Edit Channel-DOFS-Assignment')
-        cd_button.released.connect(self.stop_ani)
+        #cd_button = QPushButton('Edit Channel-DOFS-Assignment')
+        #cd_button.released.connect(self.stop_ani)
         #cd_button.released.connect(self.geometry_creator.load_chan_dof)
 
-        ssi_button = QPushButton('Load Modal Data')
-        ssi_button.released.connect(self.stop_ani)
+        #ssi_button = QPushButton('Load Modal Data')
+        #ssi_button.released.connect(self.stop_ani)
         #ssi_button.released.connect(self.reload_ssi_solutions)
         
         # GUI controls for selecting modes and changing various 
@@ -1972,8 +2127,11 @@ class ModeShapeGUI(QMainWindow):
         self.mode_combo = QComboBox()
         frequencies = ['{}: {}'.format(i+1,f) for i,f in enumerate(self.mode_shape_plot.get_frequencies())]
         #print(frequencies)
-        self.mode_combo.addItems(frequencies)
-        self.mode_combo.currentIndexChanged[str].connect(self.change_mode)
+        if frequencies:
+            self.mode_combo.addItems(frequencies)
+            self.mode_combo.currentIndexChanged[str].connect(self.change_mode)
+        else:
+            self.mode_combo.setEnabled(False) 
         
         
         
@@ -2043,18 +2201,18 @@ class ModeShapeGUI(QMainWindow):
         
         #put everything in layouts
         controls_layout = QGridLayout()
-        controls_layout.addWidget(grid_button, 0, 0)
-        controls_layout.addWidget(beam_button, 1, 0)
-        controls_layout.addWidget(ms_button, 2, 0)
-        controls_layout.addWidget(cd_button, 3, 0)
-        controls_layout.addWidget(ssi_button, 4, 0)
+#         controls_layout.addWidget(grid_button, 0, 0)
+#         controls_layout.addWidget(beam_button, 1, 0)
+#         controls_layout.addWidget(ms_button, 2, 0)
+#         controls_layout.addWidget(cd_button, 3, 0)
+#         controls_layout.addWidget(ssi_button, 4, 0)
         
         
 
-        sep = QFrame()
-        sep.setFrameShape(QFrame.VLine)
-
-        controls_layout.addWidget(sep, 0, 1, 5, 1)
+#         sep = QFrame()
+#         sep.setFrameShape(QFrame.VLine)
+# 
+#         controls_layout.addWidget(sep, 0, 1, 5, 1)
         
         controls_layout.addWidget(QLabel('Change Viewport:'),0,2,1,2)
         hbox=QHBoxLayout()
@@ -2172,11 +2330,11 @@ class ModeShapeGUI(QMainWindow):
         
         controls_layout.addWidget(tab_widget, 0, 8, 5, 1)
         
-        sep = QFrame()
-        sep.setFrameShape(QFrame.VLine)
-        controls_layout.addWidget(sep, 0, 9, 5, 1)
-
-        controls_layout.addWidget(self.info_box, 0, 10, 5, 2)
+        if not reduced_gui:
+            sep = QFrame()
+            sep.setFrameShape(QFrame.VLine)
+            controls_layout.addWidget(sep, 0, 9, 5, 1)        
+            controls_layout.addWidget(self.info_box, 0, 10, 5, 2)
 
         vbox = QVBoxLayout()
         
@@ -2189,7 +2347,7 @@ class ModeShapeGUI(QMainWindow):
         vbox.addWidget(self.canvas,10,Qt.AlignCenter)
 
         
-        
+
         vbox.addWidget(sep1)    
         vbox.addLayout(view_layout)
         vbox.addLayout(axis_limits_layout)   
@@ -2199,7 +2357,7 @@ class ModeShapeGUI(QMainWindow):
         main_frame.setLayout(vbox)
         self.setCentralWidget(main_frame)
 
-        self.showMaximized()
+        self.show()
         #self.reset_view()
         self.mode_combo.setCurrentIndex(1)
         imag_checkbox.setChecked(True)
@@ -2299,7 +2457,7 @@ class ModeShapeGUI(QMainWindow):
         else:
             val1, val0 = float(widgets[2].text()), float(widgets[1].text())
             rang = val1-val0
-            if sender.text() == '+':                
+            if sender.text() == '+':
                 rang *=0.8
             elif sender.text() == '-':
                 rang*=1.25
@@ -2380,7 +2538,12 @@ class ModeShapeGUI(QMainWindow):
         if fname:
             self.mode_shape_plot.save_plot(fname)
             self.statusBar().showMessage('Saved to %s' % fname, 2000)
-
+            
+    def plot_this(self, index):
+        #self.mode_shape_plot.stop_ani()
+        self.mode_shape_plot.change_mode(mode_index=index)
+        #self.animate()
+        
     #@pyqtSlot(str)
     def change_mode(self, mode):
         '''
@@ -3503,7 +3666,6 @@ class Arrow3D(FancyArrowPatch):
 #                     row_list.append(
 #                         self.coordinates_list.item(row, column).text())
 #                 writer.writerow(row_list)
-
 
 def start_msh_gui(mode_shape_plot):
     
