@@ -20,16 +20,7 @@ from collections import deque
 from PreprocessingTools import PreprocessData
 #import pyximport 
 #pyximport.install()
-global use_cython 
-try:
-    import pyximport
-    pyximport.install(setup_args={"include_dirs":np.get_include()})
-    from cython_code.cython_helpers import estimate_states#@UnresolvedImport
-    use_cython=True
-except:
-    print('Not using Cython extensions. Python based state estimation possibly errorneous/untested')
-    #global use_cython
-    use_cython = False
+
 
 #import cython_code.cython_helpers
 
@@ -1264,4 +1255,14 @@ def main():
     pass
 
 if __name__ =='__main__':
+    global use_cython 
+    try:
+        import pyximport
+        pyximport.install(setup_args={"include_dirs":np.get_include()})
+        from cython_code.cython_helpers import estimate_states#@UnresolvedImport
+        use_cython=True
+    except:
+        print('Not using Cython extensions. Python based state estimation possibly errorneous/untested')
+        #global use_cython
+        use_cython = False
     main()

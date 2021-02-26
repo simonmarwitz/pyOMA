@@ -1,0 +1,838 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>PlotMSH module &mdash; pyOMA  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="PostProcessingTools module" href="PostProcessingTools.html" />
+    <link rel="prev" title="Post-processing" href="postprocessing.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> pyOMA
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="preprocessing.html">Pre-processing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="oma.html">Operational Modal Analysis</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="postprocessing.html">Post-processing</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">PlotMSH module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="PostProcessingTools.html">PostProcessingTools module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="StabilDiagram.html">StabilDiagram module</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">pyOMA</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="postprocessing.html">Post-processing</a> &raquo;</li>
+        
+      <li>PlotMSH module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/classes/PlotMSH.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-PlotMSH">
+<span id="plotmsh-module"></span><h1>PlotMSH module<a class="headerlink" href="#module-PlotMSH" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt id="PlotMSH.Arrow3D">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">PlotMSH.</span></code><code class="sig-name descname"><span class="pre">Arrow3D</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ys</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zs</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#Arrow3D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.Arrow3D" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">matplotlib.patches.FancyArrowPatch</span></code></p>
+<p>credit goes to (don’t know the original author):
+<a class="reference external" href="http://pastebin.com/dWvFxb1Q">http://pastebin.com/dWvFxb1Q</a>
+draw an arrow in 3D space</p>
+<dl class="py method">
+<dt id="PlotMSH.Arrow3D.draw">
+<code class="sig-name descname"><span class="pre">draw</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">renderer</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#Arrow3D.draw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.Arrow3D.draw" title="Permalink to this definition">¶</a></dt>
+<dd><p>get the projection from the 3D point to 2D point to draw the arrow</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="PlotMSH.ModeShapeGUI">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">PlotMSH.</span></code><code class="sig-name descname"><span class="pre">ModeShapeGUI</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mode_shape_plot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduced_gui</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">PyQt5.QtWidgets.QMainWindow</span></code></p>
+<p>This class is used for displaying modal values and modeshapes obtained
+by the SSICovRef class by Mihai-Andrei Udrea 2013
+(Bauhaus-Universität Weimar, Institut für Strukturmechanik). An
+interactive GUI based on PyQt5 is used to create such plots.</p>
+<p>Abilities include:</p>
+<p>Drawing:
+- creation of 3d plots using matplotlib’s mplot3 from the</p>
+<blockquote>
+<div><p>matplotlib toolkit</p>
+</div></blockquote>
+<ul class="simple">
+<li><dl class="simple">
+<dt>adjusting axis limits for each of the three axis</dt><dd><p>i.e. zoom view, shift view (along single and multiple axis’)</p>
+</dd>
+</dl>
+</li>
+<li><p>change the viewport e.g. x, y, z and isometric view</p></li>
+<li><dl class="simple">
+<dt>rotating and zooming through mouse interaction is currently</dt><dd><p>supported by matplotlib, whereas panning is not</p>
+</dd>
+</dl>
+</li>
+<li><p>animate the currently displayed deformed structure</p></li>
+<li><p>save the still frame</p></li>
+</ul>
+<p>Geometry definition:
+- draw single and multiple nodes (deformed and undeformed)
+- draw single and multiple lines (deformed and undeformed)
+- draw single and multiple master-slave assignments onto the nodes</p>
+<blockquote>
+<div><p>(undeformed only)</p>
+</div></blockquote>
+<ul class="simple">
+<li><dl class="simple">
+<dt>draw single and multiple channel-degree of freedom assignments</dt><dd><p>onto the nodes (undeformed only</p>
+</dd>
+</dl>
+</li>
+<li><p>initiate creation/editing/loading/saving of such geometric information</p></li>
+</ul>
+<p>SSI Solutions:
+- load a SSI_solutions file
+- extract and display the following from the SSI_solutions file (<a href="#id1"><span class="problematic" id="id2">*</span></a>.slv):</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>available orders</p></li>
+<li><p>available modes for selected order</p></li>
+<li><dl class="simple">
+<dt>modal values for selected mode and order</dt><dd><p>frequency, damping, eigenvalue</p>
+</dd>
+</dl>
+</li>
+<li><p>mode shapes for selected mode and order</p></li>
+</ul>
+</div></blockquote>
+<ul class="simple">
+<li><p>currently modeshapes are normalized to unit modal displacement by default</p></li>
+</ul>
+<p>currently __not__ supported:
+- 3D surface plots, as they are not properly supported by the</p>
+<blockquote>
+<div><p>underlying matplotlib api</p>
+</div></blockquote>
+<ul class="simple">
+<li><dl class="simple">
+<dt>combination of several modeshapes or sensor setups</dt><dd><p>(this could be done easily in an external script)</p>
+</dd>
+</dl>
+</li>
+<li><p>saving of the animation as a movie file</p></li>
+<li><p>drawing multiple modeshapes into one plot</p></li>
+<li><p>plot modeshape in a single call from a script i.e. use static methods</p></li>
+</ul>
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.animate">
+<code class="sig-name descname"><span class="pre">animate</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.animate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.animate" title="Permalink to this definition">¶</a></dt>
+<dd><p>create necessary objects to animate the currently displayed
+deformed structure</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="PlotMSH.ModeShapeGUI.beams_requested">
+<code class="sig-name descname"><span class="pre">beams_requested</span></code><a class="headerlink" href="#PlotMSH.ModeShapeGUI.beams_requested" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="PlotMSH.ModeShapeGUI.chan_dofs_requested">
+<code class="sig-name descname"><span class="pre">chan_dofs_requested</span></code><a class="headerlink" href="#PlotMSH.ModeShapeGUI.chan_dofs_requested" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.change_animation_speed">
+<code class="sig-name descname"><span class="pre">change_animation_speed</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">speed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.change_animation_speed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.change_animation_speed" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.change_mode">
+<code class="sig-name descname"><span class="pre">change_mode</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mode</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.change_mode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.change_mode" title="Permalink to this definition">¶</a></dt>
+<dd><p>if user selects a new mode,
+extract the mode number from the passed string (contains frequency…)
+write modal values to the infobox
+and plot the mode shape</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.change_view">
+<code class="sig-name descname"><span class="pre">change_view</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.change_view"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.change_view" title="Permalink to this definition">¶</a></dt>
+<dd><p>shift the view along specified axis by +-20 % (hardcoded)
+works in combination with the appropriate buttons as senders
+or by passing one of  [‘+X’, ‘-X’, ‘+Y’, ‘-Y’, ‘+Z’, ‘-Z’]</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.change_viewport">
+<code class="sig-name descname"><span class="pre">change_viewport</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">viewport</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.change_viewport"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.change_viewport" title="Permalink to this definition">¶</a></dt>
+<dd><p>change the viewport
+for non-ISO viewports the projection methods of matplotlib
+will be monkeypatched, because otherwise it would not be an
+axonometric view (functions are defined at the top of document)
+works in combination with the appropriate buttons as senders or
+by passing one of [‘X’, ‘Y’, ‘Z’, ‘ISO’]</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.closeEvent">
+<code class="sig-name descname"><span class="pre">closeEvent</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">QCloseEvent</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.closeEvent"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.closeEvent" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.create_main_frame">
+<code class="sig-name descname"><span class="pre">create_main_frame</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mode_shape_plot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduced_gui</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.create_main_frame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.create_main_frame" title="Permalink to this definition">¶</a></dt>
+<dd><p>set up all the widgets and other elements to draw the GUI</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.create_menu">
+<code class="sig-name descname"><span class="pre">create_menu</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.create_menu"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.create_menu" title="Permalink to this definition">¶</a></dt>
+<dd><p>create the menubar and add actions to it</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.filter_and_animate_data">
+<code class="sig-name descname"><span class="pre">filter_and_animate_data</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.filter_and_animate_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.filter_and_animate_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>create necessary objects to animate the currently displayed
+deformed structure</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="PlotMSH.ModeShapeGUI.grid_requested">
+<code class="sig-name descname"><span class="pre">grid_requested</span></code><a class="headerlink" href="#PlotMSH.ModeShapeGUI.grid_requested" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.plot_this">
+<code class="sig-name descname"><span class="pre">plot_this</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.plot_this"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.plot_this" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.prepare_filter">
+<code class="sig-name descname"><span class="pre">prepare_filter</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.prepare_filter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.prepare_filter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.reset_view">
+<code class="sig-name descname"><span class="pre">reset_view</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.reset_view"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.reset_view" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.save_plot">
+<code class="sig-name descname"><span class="pre">save_plot</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.save_plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.save_plot" title="Permalink to this definition">¶</a></dt>
+<dd><p>save the curently displayed frame as a <a href="#id3"><span class="problematic" id="id4">*</span></a>.png graphics file</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.set_ani_time">
+<code class="sig-name descname"><span class="pre">set_ani_time</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.set_ani_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.set_ani_time" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="PlotMSH.ModeShapeGUI.slaves_requested">
+<code class="sig-name descname"><span class="pre">slaves_requested</span></code><a class="headerlink" href="#PlotMSH.ModeShapeGUI.slaves_requested" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.stop_ani">
+<code class="sig-name descname"><span class="pre">stop_ani</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.stop_ani"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.stop_ani" title="Permalink to this definition">¶</a></dt>
+<dd><p>convenience method to stop the animation and restore the still plot</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.toggle_draw">
+<code class="sig-name descname"><span class="pre">toggle_draw</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.toggle_draw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.toggle_draw" title="Permalink to this definition">¶</a></dt>
+<dd><p>helper function to receive the signal from the draw_button_group
+i is the number of the button that had it’s state changed
+based on i and the checkstate the appropriate functions will be called</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapeGUI.update_lims">
+<code class="sig-name descname"><span class="pre">update_lims</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">event</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapeGUI.update_lims"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapeGUI.update_lims" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="PlotMSH.ModeShapePlot">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">PlotMSH.</span></code><code class="sig-name descname"><span class="pre">ModeShapePlot</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">geometry_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stabil_calc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">modal_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prep_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merged_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">selected_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0,</span> <span class="pre">0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">amplitude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nodecolor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'blue'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nodemarker</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'o'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nodesize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beamcolor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'blue'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beamstyle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'-'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linewidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">callback_fun</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<blockquote>
+<div><p>This class is used for displaying modal values and modeshapes obtained
+by the SSICovRef class by Mihai-Andrei Udrea 2013
+(Bauhaus-Universität Weimar, Institut für Strukturmechanik). An
+interactive GUI based on PyQt5 is used to create such plots.</p>
+<p>Abilities include:</p>
+<p>Drawing:
+- creation of 3d plots using matplotlib’s mplot3 from the</p>
+<blockquote>
+<div><p>matplotlib toolkit</p>
+</div></blockquote>
+<ul class="simple">
+<li><dl class="simple">
+<dt>adjusting axis limits for each of the three axis</dt><dd><p>i.e. zoom view, shift view (along single and multiple axis’)</p>
+</dd>
+</dl>
+</li>
+<li><p>change the viewport e.g. x, y, z and isometric view</p></li>
+<li><dl class="simple">
+<dt>rotating and zooming through mouse interaction is currently</dt><dd><p>supported by matplotlib, whereas panning is not</p>
+</dd>
+</dl>
+</li>
+<li><p>animate the currently displayed deformed structure</p></li>
+<li><p>save the still frame</p></li>
+</ul>
+<p>currently __not__ supported:
+- 3D surface plots, as they are not properly supported by the</p>
+<blockquote>
+<div><p>underlying matplotlib api</p>
+</div></blockquote>
+<ul>
+<li><dl class="simple">
+<dt>combination of several modeshapes or sensor setups</dt><dd><p>(this could be done easily in an external script)</p>
+</dd>
+</dl>
+</li>
+<li><p>saving of the animation as a movie file</p></li>
+<li><p>drawing multiple modeshapes into one plot</p></li>
+<li><p>plot modeshape in a single call from a script i.e. use static methods</p>
+<blockquote>
+<div><div class="line-block">
+<div class="line">Merging Routine</div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+<p>Variable in     | single-setup  poger/preger  poser merging
+PlotMSH         |
+________________|____________________________________________
+modal_freq.     | modal_data    modal_data    merged_data
+modal_damping   | modal_data    modal_data    merged_data
+modeshapes      | modal_data    modal_data    merged_data</p>
+<blockquote>
+<div><div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div></blockquote>
+<dl>
+<dt>num_channels    | prep_data     modal_data    merged_data</dt><dd><div class="line-block">
+<div class="line"><br /></div>
+</div>
+</dd>
+<dt>chan_dofs       | prep_data     modal_data    merged_data</dt><dd><div class="line-block">
+<div class="line"><br /></div>
+</div>
+</dd>
+<dt>select_modes    | stabil_data   stabil_data   merged_data</dt><dd><div class="line-block">
+<div class="line"><br /></div>
+</div>
+</dd>
+</dl>
+<p>nodes           | geometry_data geometry_data geometry_data
+lines           | geometry_data geometry_data geometry_data
+master-slaves   | geometry_data geometry_data geometry_data</p>
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.add_chan_dof">
+<code class="sig-name descname"><span class="pre">add_chan_dof</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">az</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elev</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chan_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.add_chan_dof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.add_chan_dof" title="Permalink to this definition">¶</a></dt>
+<dd><p>draw an arrow indicating the DOF
+arrow lengths do not scale with the total dimension of the plot
+add the channel number to the arrow
+store the two objects in a table
+remove any objects that might be in the table at the desired place
+i.e. avoid duplicate arrows/texts</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.add_cn_line">
+<code class="sig-name descname"><span class="pre">add_cn_line</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.add_cn_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.add_cn_line" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.add_line">
+<code class="sig-name descname"><span class="pre">add_line</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">line</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.add_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.add_line" title="Permalink to this definition">¶</a></dt>
+<dd><p>receive a line coordinates from a signal
+add the start node and end node to the internal line table
+draw a line between the tow nodes
+store the line object in a table
+remove any objects that might be in the table at the desired place
+i.e. avoid duplicate lines</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.add_master_slave">
+<code class="sig-name descname"><span class="pre">add_master_slave</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i_m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i_sl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_sl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_sl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_sl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.add_master_slave"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.add_master_slave" title="Permalink to this definition">¶</a></dt>
+<dd><p>receive master-slave definitions from a signal
+add these definitions to the internal master-slave table
+draw an arrow indicating the DOF at each node of master and slave</p>
+<blockquote>
+<div><p>as a specialty arrows at equal positions and direction will
+be offset to avoid overlapping</p>
+</div></blockquote>
+<p>arrow length’s do not scale with the total dimensions of the plot
+store the two arrow objects in a table
+remove any objects that might be in the table at the desired place
+i.e. avoid duplicate arrows</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.add_nd_line">
+<code class="sig-name descname"><span class="pre">add_nd_line</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">line</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.add_nd_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.add_nd_line" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.add_node">
+<code class="sig-name descname"><span class="pre">add_node</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.add_node"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.add_node" title="Permalink to this definition">¶</a></dt>
+<dd><p>receive a node from a signal
+add zero-value displacements for this node to the internal displacements table
+draw a single point at coordinates
+draw the number of the node
+store the two plot objects in a table
+remove any objects that might be in the table at the desired place
+to avoid duplicate nodes</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.animate">
+<code class="sig-name descname"><span class="pre">animate</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.animate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.animate" title="Permalink to this definition">¶</a></dt>
+<dd><p>create necessary objects to animate the currently displayed
+deformed structure</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="PlotMSH.ModeShapePlot.beams_requested">
+<code class="sig-name descname"><span class="pre">beams_requested</span></code><a class="headerlink" href="#PlotMSH.ModeShapePlot.beams_requested" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.calc_xyz">
+<code class="sig-name descname"><span class="pre">calc_xyz</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">az</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elev</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.calc_xyz"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.calc_xyz" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="PlotMSH.ModeShapePlot.chan_dofs_requested">
+<code class="sig-name descname"><span class="pre">chan_dofs_requested</span></code><a class="headerlink" href="#PlotMSH.ModeShapePlot.chan_dofs_requested" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.change_amplitude">
+<code class="sig-name descname"><span class="pre">change_amplitude</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">amplitude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.change_amplitude"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.change_amplitude" title="Permalink to this definition">¶</a></dt>
+<dd><p>changes the amplitude
+amplitude either gets passed or will be read from the widget
+redraw the modeshapes based on this amplitude</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.change_mode">
+<code class="sig-name descname"><span class="pre">change_mode</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frequency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode_index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.change_mode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.change_mode" title="Permalink to this definition">¶</a></dt>
+<dd><p>if user selects a new mode,
+extract the mode number from the passed string (contains frequency…)
+write modal values to the infobox
+and plot the mode shape</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.change_part">
+<code class="sig-name descname"><span class="pre">change_part</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.change_part"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.change_part" title="Permalink to this definition">¶</a></dt>
+<dd><p>change, which part of the complex number modeshapes should be
+drawn, set the pointer variable based on which widget sent the signal
+redraw the modeshapes</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.change_viewport">
+<code class="sig-name descname"><span class="pre">change_viewport</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">viewport</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.change_viewport"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.change_viewport" title="Permalink to this definition">¶</a></dt>
+<dd><p>change the viewport
+works in combination with the appropriate buttons as senders or
+by passing one of [‘X’, ‘Y’, ‘Z’, ‘ISO’]</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.draw_axis">
+<code class="sig-name descname"><span class="pre">draw_axis</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.draw_axis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.draw_axis" title="Permalink to this definition">¶</a></dt>
+<dd><p>draw the axis arrows
+length is based on the current datalimits
+removes the current arrows if the exist</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.draw_chan_dofs">
+<code class="sig-name descname"><span class="pre">draw_chan_dofs</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.draw_chan_dofs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.draw_chan_dofs" title="Permalink to this definition">¶</a></dt>
+<dd><p>draw arrows and numbers for all channel-DOF assignments stored
+in the internal channel - DOF assignment table</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.draw_lines">
+<code class="sig-name descname"><span class="pre">draw_lines</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.draw_lines"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.draw_lines" title="Permalink to this definition">¶</a></dt>
+<dd><p>draw all the beams in self.geometry_data.lines
+self.geometry_data.lines=[line1, line2,….]</p>
+<blockquote>
+<div><p>line = [node_start, node_end]
+node numbering refers to elements in self.nodes</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.draw_master_slaves">
+<code class="sig-name descname"><span class="pre">draw_master_slaves</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.draw_master_slaves"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.draw_master_slaves" title="Permalink to this definition">¶</a></dt>
+<dd><p>draw arrows for all master-slave definitions stored in the
+internal master-slave definition table</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.draw_msh">
+<code class="sig-name descname"><span class="pre">draw_msh</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.draw_msh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.draw_msh" title="Permalink to this definition">¶</a></dt>
+<dd><p>assigns displacement values to the
+nodes based on the channel - DOF assignments and the master -
+slave definitions
+draws the displaced nodes and beams</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.draw_nodes">
+<code class="sig-name descname"><span class="pre">draw_nodes</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.draw_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.draw_nodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>‘
+draw gridpoints from self.geometry_data.nodes
+the currently stored displacement values are used for moving the nodes</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.filter_and_animate_data">
+<code class="sig-name descname"><span class="pre">filter_and_animate_data</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.filter_and_animate_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.filter_and_animate_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>create necessary objects to animate the currently displayed
+deformed structure</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.get_frequencies">
+<code class="sig-name descname"><span class="pre">get_frequencies</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.get_frequencies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.get_frequencies" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="PlotMSH.ModeShapePlot.grid_requested">
+<code class="sig-name descname"><span class="pre">grid_requested</span></code><a class="headerlink" href="#PlotMSH.ModeShapePlot.grid_requested" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.refresh_axis">
+<code class="sig-name descname"><span class="pre">refresh_axis</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visible</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.refresh_axis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.refresh_axis" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.refresh_chan_dofs">
+<code class="sig-name descname"><span class="pre">refresh_chan_dofs</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visible</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.refresh_chan_dofs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.refresh_chan_dofs" title="Permalink to this definition">¶</a></dt>
+<dd><p>will not be shown in displaced mode (modeshape)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.refresh_lines">
+<code class="sig-name descname"><span class="pre">refresh_lines</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visible</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.refresh_lines"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.refresh_lines" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.refresh_master_slaves">
+<code class="sig-name descname"><span class="pre">refresh_master_slaves</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visible</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.refresh_master_slaves"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.refresh_master_slaves" title="Permalink to this definition">¶</a></dt>
+<dd><p>will not be shown in displaced mode (modeshape)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.refresh_nd_lines">
+<code class="sig-name descname"><span class="pre">refresh_nd_lines</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visible</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.refresh_nd_lines"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.refresh_nd_lines" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.refresh_nodes">
+<code class="sig-name descname"><span class="pre">refresh_nodes</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visible</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.refresh_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.refresh_nodes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.rescale_mode_shape">
+<code class="sig-name descname"><span class="pre">rescale_mode_shape</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">modeshape</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.rescale_mode_shape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.rescale_mode_shape" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.reset_view">
+<code class="sig-name descname"><span class="pre">reset_view</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.reset_view"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.reset_view" title="Permalink to this definition">¶</a></dt>
+<dd><p>restore viewport,
+restore axis’ limits,
+reset displacements values for all nodes,</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.save_plot">
+<code class="sig-name descname"><span class="pre">save_plot</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.save_plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.save_plot" title="Permalink to this definition">¶</a></dt>
+<dd><p>save the curently displayed frame as a <a href="#id5"><span class="problematic" id="id6">*</span></a>.png graphics file</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="PlotMSH.ModeShapePlot.slaves_requested">
+<code class="sig-name descname"><span class="pre">slaves_requested</span></code><a class="headerlink" href="#PlotMSH.ModeShapePlot.slaves_requested" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.stop_ani">
+<code class="sig-name descname"><span class="pre">stop_ani</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.stop_ani"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.stop_ani" title="Permalink to this definition">¶</a></dt>
+<dd><p>convenience method to stop the animation and restore the still plot</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.take_chan_dof">
+<code class="sig-name descname"><span class="pre">take_chan_dof</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dof</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.take_chan_dof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.take_chan_dof" title="Permalink to this definition">¶</a></dt>
+<dd><p>remove the arrow and text objects associated with the channel -
+DOF assignement received by a signal
+remove the channel - DOF assignement from the internal table, too</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.take_line">
+<code class="sig-name descname"><span class="pre">take_line</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">line</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.take_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.take_line" title="Permalink to this definition">¶</a></dt>
+<dd><p>remove a line between to node received by a signal
+if the plot objects are already in there displaced state
+the comparison between the actual coordinates and these
+objects have to account for this by comparing to an interval
+of coordinates
+remove the line nodes from the internal table, too</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.take_master_slave">
+<code class="sig-name descname"><span class="pre">take_master_slave</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i_m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i_sl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_sl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_sl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_sl</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.take_master_slave"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.take_master_slave" title="Permalink to this definition">¶</a></dt>
+<dd><p>remove the two arrows associated with the master-slave definition
+received by a signal
+remove the master-slave definition from the internal table, too</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="PlotMSH.ModeShapePlot.take_node">
+<code class="sig-name descname"><span class="pre">take_node</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#ModeShapePlot.take_node"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.ModeShapePlot.take_node" title="Permalink to this definition">¶</a></dt>
+<dd><p>take a node at coordinates received by a signal
+take any objects connected to this node first (there should not be any)
+remove the patch objects from the plot
+remove the coordinates from the node and displacement tables</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="PlotMSH.draw_axes">
+<code class="sig-prename descclassname"><span class="pre">PlotMSH.</span></code><code class="sig-name descname"><span class="pre">draw_axes</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">renderer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#draw_axes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.draw_axes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="PlotMSH.my_excepthook">
+<code class="sig-prename descclassname"><span class="pre">PlotMSH.</span></code><code class="sig-name descname"><span class="pre">my_excepthook</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tback</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#my_excepthook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.my_excepthook" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="PlotMSH.nearly_equal">
+<code class="sig-prename descclassname"><span class="pre">PlotMSH.</span></code><code class="sig-name descname"><span class="pre">nearly_equal</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_fig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#nearly_equal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.nearly_equal" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="PlotMSH.orthogonal_proj">
+<code class="sig-prename descclassname"><span class="pre">PlotMSH.</span></code><code class="sig-name descname"><span class="pre">orthogonal_proj</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zfront</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zback</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#orthogonal_proj"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.orthogonal_proj" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="PlotMSH.persp_transformation">
+<code class="sig-prename descclassname"><span class="pre">PlotMSH.</span></code><code class="sig-name descname"><span class="pre">persp_transformation</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zfront</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zback</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#persp_transformation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.persp_transformation" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="PlotMSH.resizeEvent_">
+<code class="sig-prename descclassname"><span class="pre">PlotMSH.</span></code><code class="sig-name descname"><span class="pre">resizeEvent_</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#resizeEvent_"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.resizeEvent_" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="PlotMSH.start_msh_gui">
+<code class="sig-prename descclassname"><span class="pre">PlotMSH.</span></code><code class="sig-name descname"><span class="pre">start_msh_gui</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mode_shape_plot</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PlotMSH.html#start_msh_gui"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PlotMSH.start_msh_gui" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="PostProcessingTools.html" class="btn btn-neutral float-right" title="PostProcessingTools module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="postprocessing.html" class="btn btn-neutral float-left" title="Post-processing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, Simon Marwitz, Volkmar Zabel, Andrei Udrea.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

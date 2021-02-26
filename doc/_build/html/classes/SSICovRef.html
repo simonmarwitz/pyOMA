@@ -1,0 +1,494 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>SSICovRef module &mdash; pyOMA  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="SSIData module" href="SSIData.html" />
+    <link rel="prev" title="Operational Modal Analysis" href="oma.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> pyOMA
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="preprocessing.html">Pre-processing</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="oma.html">Operational Modal Analysis</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">SSICovRef module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SSIData.html">SSIData module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="VarSSIRef.html">VarSSIRef module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ERA.html">ERA module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="PLSCF.html">PLSCF module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="PRCE.html">PRCE module</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="postprocessing.html">Post-processing</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">pyOMA</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="oma.html">Operational Modal Analysis</a> &raquo;</li>
+        
+      <li>SSICovRef module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/classes/SSICovRef.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-SSICovRef">
+<span id="ssicovref-module"></span><h1>SSICovRef module<a class="headerlink" href="#module-SSICovRef" title="Permalink to this headline">¶</a></h1>
+<p>Based on previous works by Andrei Udrea 2014 and Volkmar Zabel 2015
+Modified and Extended by Simon Marwitz 2015-2018</p>
+<dl class="py class">
+<dt id="SSICovRef.BRSSICovRef">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">SSICovRef.</span></code><code class="sig-name descname"><span class="pre">BRSSICovRef</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#BRSSICovRef"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.BRSSICovRef" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#SSICovRef.ModalBase" title="SSICovRef.ModalBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">SSICovRef.ModalBase</span></code></a></p>
+<dl class="py method">
+<dt id="SSICovRef.BRSSICovRef.build_toeplitz_cov">
+<code class="sig-name descname"><span class="pre">build_toeplitz_cov</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_block_columns</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_block_rows</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shift</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#BRSSICovRef.build_toeplitz_cov"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.BRSSICovRef.build_toeplitz_cov" title="Permalink to this definition">¶</a></dt>
+<dd><dl>
+<dt>Builds a Block-Toeplitz Matrix of Covariances with varying time lags</dt><dd><div class="line-block">
+<div class="line">&lt;- num_block_columns*num_ref_channels-&gt; <a href="#id1"><span class="problematic" id="id2">|</span></a>_</div>
+<div class="line-block">
+<div class="line">R_i      R_i-1      …      R_1    <a href="#id3"><span class="problematic" id="id4">|</span></a>^</div>
+<div class="line">R_i+1    R_i        …      R_2    <a href="#id5"><span class="problematic" id="id6">|</span></a>num_block_rows*num_analised_channels</div>
+<div class="line">…      …        …      …    <a href="#id7"><span class="problematic" id="id8">|</span></a>v</div>
+<div class="line">R_2i-1   …        …      R_i    <a href="#id9"><span class="problematic" id="id10">|</span></a>_</div>
+</div>
+</div>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.BRSSICovRef.compute_modal_params">
+<code class="sig-name descname"><span class="pre">compute_modal_params</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_modes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">algo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'svd'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#BRSSICovRef.compute_modal_params"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.BRSSICovRef.compute_modal_params" title="Permalink to this definition">¶</a></dt>
+<dd><p>computes the modal parameters as indicated in Peeters 1999 and Döhler 2012
+only algorithm svd is optimized for multi-order computation
+max_modes i.e. crystal clear only works with algorithm svd</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.BRSSICovRef.compute_state_matrices">
+<code class="sig-name descname"><span class="pre">compute_state_matrices</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_model_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#BRSSICovRef.compute_state_matrices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.BRSSICovRef.compute_state_matrices" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.BRSSICovRef.init_from_config">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">init_from_config</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">conf_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prep_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#BRSSICovRef.init_from_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.BRSSICovRef.init_from_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.BRSSICovRef.load_state">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">load_state</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prep_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#BRSSICovRef.load_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.BRSSICovRef.load_state" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.BRSSICovRef.save_state">
+<code class="sig-name descname"><span class="pre">save_state</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#BRSSICovRef.save_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.BRSSICovRef.save_state" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.BRSSICovRef.single_order_modal">
+<code class="sig-name descname"><span class="pre">single_order_modal</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">algo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'svd'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_modes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corr_synth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#BRSSICovRef.single_order_modal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.BRSSICovRef.single_order_modal" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.BRSSICovRef.synthesize_spectrum">
+<code class="sig-name descname"><span class="pre">synthesize_spectrum</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">G</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#BRSSICovRef.synthesize_spectrum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.BRSSICovRef.synthesize_spectrum" title="Permalink to this definition">¶</a></dt>
+<dd><p>L = N*dt (duration = number_of_samples*sampling_period)
+P = N*df (maximal frequency = number of samples * frequency inverval)</p>
+<p>dt * df = 1/N
+L * P = N</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="SSICovRef.ModalBase">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">SSICovRef.</span></code><code class="sig-name descname"><span class="pre">ModalBase</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prep_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#ModalBase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.ModalBase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Base Class from which all other modal analysis classes should be inherited
+- provides commonly used functions s.t. these don’t have to be copied to each class
+- object type checks in post-processing functions can check for</p>
+<blockquote>
+<div><p>modal base instead of each possible modal analysis class</p>
+</div></blockquote>
+<ul class="simple">
+<li></li>
+</ul>
+<dl class="py method">
+<dt id="SSICovRef.ModalBase.integrate_quantities">
+<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">integrate_quantities</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">accel_channels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">velo_channels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#ModalBase.integrate_quantities"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.ModalBase.integrate_quantities" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.ModalBase.remove_conjugates">
+<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">remove_conjugates</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eigval</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eigvec_r</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eigvec_l</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inds_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#ModalBase.remove_conjugates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.ModalBase.remove_conjugates" title="Permalink to this definition">¶</a></dt>
+<dd><blockquote>
+<div><p>finds conjugates: lambda_i = overline{lambda_j} for i</p>
+</div></blockquote>
+<p>eq j</p>
+<blockquote>
+<div><p>unstable poles i.e. negatively damped poles [ln(<a href="#id19"><span class="problematic" id="id20">|\lambda|</span></a>)&lt;0]: <a href="#id21"><span class="problematic" id="id22">|\lambda_i|</span></a>&gt; 1
+overdamped poles [atan(Im/Re)=0] i.e. real poles: Im(lambda_i)==0
+imaginary poles i.e. nyquist frequency: Re(lambda_i)==0</p>
+<p>keeps the second occurance of a conjugate pair (usually the one with the negative imaginary part)</p>
+<p>eigvec_l.shape = [order+1, order+1]
+eigval.shape = [order+1,1]</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.ModalBase.rescale_mode_shape">
+<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">rescale_mode_shape</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">modeshape</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#ModalBase.rescale_mode_shape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.ModalBase.rescale_mode_shape" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="SSICovRef.PogerSSICovRef">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">SSICovRef.</span></code><code class="sig-name descname"><span class="pre">PogerSSICovRef</span></code><a class="reference internal" href="../_modules/SSICovRef.html#PogerSSICovRef"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.PogerSSICovRef" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#SSICovRef.ModalBase" title="SSICovRef.ModalBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">SSICovRef.ModalBase</span></code></a></p>
+<p>“In the PoGER approach, first a nonparametric system model is identified
+for each setup separately. In the time domain, this nonparametric model
+consists of the correlations between all measured outputs.
+In a second step, the output correlations obtained from the different
+setups are stacked on top of each other. Extracting the modal parameters
+from the resulting correlation function yields global values for the
+eigenfrequencies and damping ratios. The identified partial mode shapes
+are stacked on top of each other in a global mode shape. However, due
+to the non-stationary ambient excitation level and the non-stationary
+ambient excitation color, it is necessary to re-scale the partial mode
+shapes in a least-squares sense, for instance to the reference DOFs of the
+first partial mode shape, just as in the PoSER approach”</p>
+<p>from:
+Döhler, M.; Reynders, E.; Magalhaes, F.; Mevel, L.; Roeck, G. D. &amp; Cunha, A.
+Pre-and post-identification merging for multi-setup OMA with covariance-driven SSI
+28th International Modal Analysis Conference, 2010 , 57-70</p>
+<p>Analysis steps:
+- Create your geometry definitions
+- Create configuration files and channel-dof-assignments for each setup
+- Pre-process each setup using PreProcessData
+- Pre-compute correlations functions using PreProcessData.compute_correlation_functions</p>
+<blockquote>
+<div><p>(note: tau_max &gt;= num_block_columns + num_block_rows &gt;= 2 * num_block_columns + 1)</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>add the PreProcessData objects of each setup using add_setup</p></li>
+<li><dl class="simple">
+<dt>call pair_channels(), build_merged_subspace_matrix(),</dt><dd><p>compute_state_matrices(), compute_modal_params()</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p>Notes on the reference channels:
+There are two different uses of reference channels:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><dl class="simple">
+<dt>Reference channels for reducing the computational effort /</dt><dd><p>improving results if noisy channels are present</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Reference channels for mode shape rescaling when multiple</dt><dd><p>setups should be merged</p>
+</dd>
+</dl>
+</li>
+</ol>
+</div></blockquote>
+<p>In PoGER merging the first group of reference channels are required
+for  joint identification. In this case, reference-based correlation
+functions are “stacked on top of each other” and then assembled into
+a joint Hankel matrix. Here, only the reference channels, that are
+present in all setups can be used. Based on each setups’
+channel-dof-assignments and selected reference channels, the
+PogerSSICovRef class automatically determines the reference channels
+for:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>joint identification and</p></li>
+<li><p>mode shape rescaling / merging.</p></li>
+</ul>
+</div></blockquote>
+<p>Thus, by changing the reference channel definition in each setup,
+the used reference channels in joint identification can be influenced.
+The reference channels for modeshape rescaling are automatically
+generated, regardless of the the definition in the setup. Rescaling
+is always done with respect to the first setup, so a “good” setup should
+always be added first.</p>
+<dl class="py method">
+<dt id="SSICovRef.PogerSSICovRef.add_setup">
+<code class="sig-name descname"><span class="pre">add_setup</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prep_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#PogerSSICovRef.add_setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.PogerSSICovRef.add_setup" title="Permalink to this definition">¶</a></dt>
+<dd><p>todo:
+check that ref_channels are equal in each setup (by number and by DOF)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.PogerSSICovRef.build_merged_subspace_matrix">
+<code class="sig-name descname"><span class="pre">build_merged_subspace_matrix</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_block_columns</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_block_rows</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#PogerSSICovRef.build_merged_subspace_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.PogerSSICovRef.build_merged_subspace_matrix" title="Permalink to this definition">¶</a></dt>
+<dd><dl>
+<dt>Builds a Block-HankelMatrix of Covariances with varying time lags</dt><dd><div class="line-block">
+<div class="line">&lt;- num_block_columns*num_ref_channels-&gt;|_</div>
+<div class="line-block">
+<div class="line">R_1      R_2      …      R_i     <a href="#id11"><span class="problematic" id="id12">|</span></a>^</div>
+<div class="line">R_2      R_3      …      R_2     <a href="#id13"><span class="problematic" id="id14">|</span></a>num_block_rows*(num_num_ref_channels*num_setups)</div>
+<div class="line">…      …      …      …     <a href="#id15"><span class="problematic" id="id16">|</span></a>v</div>
+<div class="line">R_i      …      …      R_2i-1  <a href="#id17"><span class="problematic" id="id18">|</span></a>_</div>
+</div>
+</div>
+<dl>
+<dt>R_1 =   | R_1^1          |</dt><dd><div class="line-block">
+<div class="line">R_1^2          |</div>
+<div class="line">…            |</div>
+<div class="line">R_1^num_setups |</div>
+</div>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.PogerSSICovRef.compute_modal_params">
+<code class="sig-name descname"><span class="pre">compute_modal_params</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_model_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#PogerSSICovRef.compute_modal_params"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.PogerSSICovRef.compute_modal_params" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.PogerSSICovRef.compute_state_matrices">
+<code class="sig-name descname"><span class="pre">compute_state_matrices</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_model_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#PogerSSICovRef.compute_state_matrices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.PogerSSICovRef.compute_state_matrices" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.PogerSSICovRef.load_state">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">load_state</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#PogerSSICovRef.load_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.PogerSSICovRef.load_state" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.PogerSSICovRef.pair_channels">
+<code class="sig-name descname"><span class="pre">pair_channels</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#PogerSSICovRef.pair_channels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.PogerSSICovRef.pair_channels" title="Permalink to this definition">¶</a></dt>
+<dd><p>pairs channels from all given setups for the poger merging methods</p>
+<p>ssi_reference channels are common to all setups
+rescale reference channels are common to at least two setups</p>
+<p>finds common dofs from all setups and their respective channels
+generates new channel_dof_assignments with ascending channel numbers
+rescale reference channels are assumed to be equal to ssi_reference channels</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.PogerSSICovRef.rescale_by_references">
+<code class="sig-name descname"><span class="pre">rescale_by_references</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mode_shape</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#PogerSSICovRef.rescale_by_references"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.PogerSSICovRef.rescale_by_references" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is PoGer Rescaling</p>
+<dl class="simple">
+<dt>walks over setups,</dt><dd><p>extracts setup’s part from the modeshape, and
+compute rescaling factor from this setup’s reference channels with respect to the first setup
+rescales this setup’s roving channels and assembles final modeshape vector</p>
+</dd>
+</dl>
+<p>reference channel_pairs and final channel-dof-assignments have been determined by function pair_channels
+note: reference channels for SSI need not necessarily be reference channels for rescaling and vice versa</p>
+<p>TODO:
+- rescale all setups jointly using a least-squares approach</p>
+<p><a href="#id25"><span class="problematic" id="id26">S_</span></a>phi * Alpha = [n*1, 0 .. 0]</p>
+<p>phi^{ref}_i : Reference-sensor part of modeshape estimated from setup i = 0 .. n
+j_{max} = argmax(Pi_i <a href="#id23"><span class="problematic" id="id24">|\phi^{ref}_i|</span></a>) : maximal modal component in all setups -&gt; will be approximately scaled to 1, must belong to the same sensor in each setup</p>
+<dl class="simple">
+<dt><a href="#id27"><span class="problematic" id="id28">S_</span></a>phi = [ phi^{ref}_{0,j_{max}},  phi^{ref}_{1,j_{max}}, ..,            ..,               phi^{ref}_{n,j_{max}} </dt><dd><p>phi^{ref}_0,            -phi^{ref}_1,          0,             ..,               0                      phi^{ref}_0,            0,                      -phi^{ref}_2, ..,               0                      .                        .                       .              .                 .                      .                        .                       .              .                 .                      phi^{ref}_0,            0,                      0,             ..,               -phi^{ref}_n          0,                       phi^{ref}_1,           -phi^{ref}_2, ..,               0                      .                        .                       .              .                 .                      .                        .                       .              .                 .                      0,                       phi^{ref}_1,           0,             ..,               -phi^{ref}_n          .                        .                       .              .                 .                      .                        .                       .              .                 .                      0,                       0,                      phi^{ref}_2,  ..,               -phi^{ref}_n          .                        .                       .              .                 .                      .                        .                       .              .                 .                      0,                       0,                      0,             phi^{ref}_{n-1}, -phi^{ref}_n            ]</p>
+</dd>
+</dl>
+<p>if references are the same in all setups</p>
+<p>dimensions = 1 + (n_setups ! )* n_ref_channels x n_setups</p>
+<p>not quite exact, since different setups may share different references</p>
+<p>-&gt; list based assembly of the <a href="#id29"><span class="problematic" id="id30">S_</span></a>phi matrix</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="SSICovRef.PogerSSICovRef.save_state">
+<code class="sig-name descname"><span class="pre">save_state</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/SSICovRef.html#PogerSSICovRef.save_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#SSICovRef.PogerSSICovRef.save_state" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="SSIData.html" class="btn btn-neutral float-right" title="SSIData module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="oma.html" class="btn btn-neutral float-left" title="Operational Modal Analysis" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, Simon Marwitz, Volkmar Zabel, Andrei Udrea.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
