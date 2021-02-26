@@ -1,7 +1,7 @@
 eclipse.preferences.version=1
-encoding//trunk/ERA.py=utf-8
-encoding//trunk/PreprocessingTools.py=utf-8
-encoding//trunk/SSICovRef.py=utf-8
-encoding//trunk/SSIData.py=utf-8
-encoding//trunk/StabilDiagram.py=utf-8
-encoding//trunk/VarSSIRef.py=utf-8
+encoding//classes/ERA.py=utf-8
+encoding//classes/PreprocessingTools.py=utf-8
+encoding//classes/SSICovRef.py=utf-8
+encoding//classes/SSIData.py=utf-8
+encoding//classes/StabilDiagram.py=utf-8
+encoding//classes/VarSSIRef.py=utf-8
