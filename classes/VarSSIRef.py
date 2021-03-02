@@ -25,21 +25,30 @@ TODO:
     
 def vectorize(matrix):
     '''
-        | 1  2  3 |
-    A=  | 4  5  6 |
-        | 7  8  9 |
+    ..math::
+    
+        A=\\begin{bmatrix}
+             1 & 2 & 3 \\
+             4 & 5 & 6 \\
+             7 & 8 & 9 \\
+        \\end{bmatrix}
         
     returns vertically stacked columns of matrix A
-        
-    | 1 |
-    | 4 |
-    | 7 |
-    | 2 |
-    | 5 |
-    | 8 |
-    | 3 |
-    | 6 |
-    | 9 |
+    
+    ..math::
+    
+        \\begin{bmatrix}
+         1 \\
+         4 \\
+         7 \\
+         2 \\
+         5 \\
+         8 \\
+         3 \\
+         6 \\
+         9 \\
+        \\end{bmatrix}
+
     '''
     return np.reshape(matrix,(np.product(matrix.shape),1),'F')
 

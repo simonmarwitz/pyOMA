@@ -32,6 +32,7 @@
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
     
     <script type="text/javascript" src="../_static/js/theme.js"></script>
 
@@ -357,10 +358,13 @@ valueChanged signal works as in QDoubleSpinBox</p>
 <em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">calculateMAC</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/StabilDiagram.html#StabilCalc.calculateMAC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#StabilDiagram.StabilCalc.calculateMAC" title="Permalink to this definition">¶</a></dt>
 <dd><p>expects modeshapes in columns of v1 and/or v2
 outputs mac:
-[MAC(v1[:,0],v2[:,0]),   MAC(v1[:,0],v2[:,1],</p>
-<blockquote>
-<div><p>MAC(v1[:,1],v2[:,0]),   MAC(v1[:,1],v2[:,1]]</p>
-</div></blockquote>
+..math:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>egin{bmatrix}
+MAC(v1[:,0],v2[:,0]) &amp;   MAC(v1[:,0],v2[:,1]\
+MAC(v1[:,1],v2[:,0]) &amp;   MAC(v1[:,1],v2[:,1]
+\end{bmatrix}
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
@@ -429,6 +433,65 @@ outputs mac:
 <dt id="StabilDiagram.StabilCluster">
 <em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">StabilDiagram.</span></code><code class="sig-name descname"><span class="pre">StabilCluster</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">modal_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prep_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/StabilDiagram.html#StabilCluster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#StabilDiagram.StabilCluster" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#StabilDiagram.StabilCalc" title="StabilDiagram.StabilCalc"><code class="xref py py-class docutils literal notranslate"><span class="pre">StabilDiagram.StabilCalc</span></code></a></p>
+<p>The automatic modal analysis done in three stages clustering.
+1st stage: values sorted according to their soft and hard criteria by a 2-means partitioning algorithm
+2nd stage: hierarchical clustering with automatic or user defined intercluster distance
+the automatic distance is based on the ‘df’, ‘dd’ and ‘MAC’ values from the centroids obtained in the first stage
+<span class="math notranslate nohighlight">\(d = weight*df + 1 - weight*MAC + weight*dd\)</span>
+3rd stage: 2-means partitioning of the physical and spurious poles.</p>
+<ol class="upperalpha simple" start="5">
+<li><p>Neu et al.</p></li>
+</ol>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>Identify mode candidates from a large number of system orders.</dt><dd><p>-&gt; OMA Algorithm with n_max sufficiently high, i.e. number of mathematical modes should exceed the number pf physical modes at n &lt;= n_max</p>
+</dd>
+</dl>
+</li>
+<li><p>Remove as many mathematical modes as possible.</p></li>
+</ol>
+<ol class="loweralpha simple">
+<li><p>Remove certainly mathematical modes using hard validation criteria.
+Re(lambda_n)&gt;= 0 or Im(lambda_n)==0-&gt; remove conjugates in OMA algorithm</p></li>
+<li><p>Split modes into consistent and non-consistent sets using k-means clustering.
+p_i = [d_lambda, d_f, d_zeta, 1-MAC, dMPD]
+power transformation eq 11
+h_Ti = ln(p_i)
+normalize:
+h_Ni = (h_Ti - mean(h_Ti)) / std(h_Ti)
+initialize centroids with (+std(h_Ni), -std(h_Ni))</p></li>
+</ol>
+<ol class="arabic simple" start="3">
+<li><p>Divide the remaining modes into homogeneous sets using hierarchical clustering.</p></li>
+</ol>
+<ol class="loweralpha simple">
+<li><dl class="simple">
+<dt>Derive cutoff distance from the probability distribution of the consistent modes.</dt><dd><p>np.percentile(a,95)</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Cluster the mode candidates based on a complex distance measure.</dt><dd><p>average linkage / single linkage</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Remove all but one mode from a single system order in one cluster.</dt><dd><p>walk over each cluster and ensure each model order exists only once in the cluster, else remove the mode with a higher distance to the cluster center</p>
+</dd>
+</dl>
+</li>
+</ol>
+<ol class="arabic simple" start="4">
+<li><p>Remove the small sets, which typically consist of mathematical modes.</p></li>
+</ol>
+<ol class="loweralpha simple">
+<li><p>Reject sets that are smaller than a threshold derived from the largest set size.
+no recommendations given in paper (threshold 50 %)</p></li>
+<li><p>Use outlier rejection to remove natural frequency and damping outliers.
+skip</p></li>
+<li><p>Select a single mode representative from the remaining modes in each cluster.
+“multivariate” median</p></li>
+</ol>
 <dl class="py method">
 <dt id="StabilDiagram.StabilCluster.automatic_classification">
 <code class="sig-name descname"><span class="pre">automatic_classification</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_stabil</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/StabilDiagram.html#StabilCluster.automatic_classification"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#StabilDiagram.StabilCluster.automatic_classification" title="Permalink to this definition">¶</a></dt>
@@ -475,72 +538,6 @@ outputs mac:
 <code class="sig-name descname"><span class="pre">return_results</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/StabilDiagram.html#StabilCluster.return_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#StabilDiagram.StabilCluster.return_results" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="py attribute">
-<dt id="StabilDiagram.StabilCluster.use_stabil">
-<code class="sig-name descname"><span class="pre">use_stabil</span></code><a class="headerlink" href="#StabilDiagram.StabilCluster.use_stabil" title="Permalink to this definition">¶</a></dt>
-<dd><p>The automatic modal analysis done in three stages clustering.
-1st stage: values sorted according to their soft and hard criteria by a 2-means partitioning algorithm
-2nd stage: hierarchical clustering with automatic or user defined intercluster distance</p>
-<blockquote>
-<div><div class="line-block">
-<div class="line">d = weight*df + 1 - weight*MAC + weight*dd |</div>
-</div>
-</div></blockquote>
-<p>3rd stage: 2-means partitioning of the physical and spurious poles.</p>
-<ol class="upperalpha simple" start="5">
-<li><p>Neu et al.</p></li>
-</ol>
-<ol class="arabic simple">
-<li><dl class="simple">
-<dt>Identify mode candidates from a large number of system orders.</dt><dd><p>-&gt; OMA Algorithm with n_max sufficiently high, i.e. number of mathematical modes should exceed the number pf physical modes at n &lt;= n_max</p>
-</dd>
-</dl>
-</li>
-</ol>
-<p>2. Remove as many mathematical modes as possible.
-(a) Remove certainly mathematical modes using hard validation criteria.</p>
-<blockquote>
-<div><p>Re(lambda_n)&gt;= 0 or Im(lambda_n)==0-&gt; remove conjugates in OMA algorithm</p>
-</div></blockquote>
-<ol class="loweralpha simple" start="2">
-<li><p>Split modes into consistent and non-consistent sets using k-means clustering.
-p_i = [d_lambda, d_f, d_zeta, 1-MAC, dMPD]
-power transformation eq 11
-h_Ti = ln(p_i)
-normalize:
-h_Ni = (h_Ti - mean(h_Ti)) / std(h_Ti)
-initialize centroids with (+std(h_Ni), -std(h_Ni))</p></li>
-</ol>
-<p>3. Divide the remaining modes into homogeneous sets using hierarchical clustering.
-(a) Derive cutoff distance from the probability distribution of the consistent modes.</p>
-<blockquote>
-<div><p>np.percentile(a,95)</p>
-</div></blockquote>
-<ol class="loweralpha simple" start="2">
-<li><dl class="simple">
-<dt>Cluster the mode candidates based on a complex distance measure.</dt><dd><p>average linkage / single linkage</p>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>Remove all but one mode from a single system order in one cluster.</dt><dd><p>walk over each cluster and ensure each model order exists only once in the cluster, else remove the mode with a higher distance to the cluster center</p>
-</dd>
-</dl>
-</li>
-</ol>
-<p>4. Remove the small sets, which typically consist of mathematical modes.
-(a) Reject sets that are smaller than a threshold derived from the largest set size.</p>
-<blockquote>
-<div><p>no recommendations given in paper (threshold 50 %)</p>
-</div></blockquote>
-<ol class="loweralpha simple" start="2">
-<li><p>Use outlier rejection to remove natural frequency and damping outliers.
-skip</p></li>
-<li><p>Select a single mode representative from the remaining modes in each cluster.
-“multivariate” median</p></li>
-</ol>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">
@@ -566,19 +563,17 @@ skip</p></li>
 <dt id="StabilDiagram.StabilGUI.create_histo_plot">
 <code class="sig-name descname"><span class="pre">create_histo_plot</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_obj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ranges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">select_ranges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[None]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">select_callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[None]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/StabilDiagram.html#StabilGUI.create_histo_plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#StabilDiagram.StabilGUI.create_histo_plot" title="Permalink to this definition">¶</a></dt>
 <dd><p>should work like following:</p>
-<dl class="simple">
-<dt>button press    if None        -&gt; visible = True, create</dt><dd><p>if visible     -&gt; visible = False, hide
-if not visible -&gt; visible = True, show</p>
-</dd>
-<dt>update stabil   if None        -&gt; skip</dt><dd><p>if visible     -&gt; visible = visible, update
-if not visible -&gt; visible = visible, update</p>
-</dd>
-</dl>
-<p>close button                   -&gt; visible = False, hide</p>
-<dl class="simple">
-<dt>but doesn’t, since the function can not distinguish between</dt><dd><p>“button press” and “update stabil”</p>
-</dd>
-</dl>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>button press    if None        → visible = True, create
+                if visible     → visible = False, hide
+                if not visible → visible = True, show
+update stabil   if None        → skip
+                if visible     → visible = visible, update
+                if not visible → visible = visible, update
+close button                   → visible = False, hide
+</pre></div>
+</div>
+<p>but doesn’t, since the function can not distinguish between
+“button press” and “update stabil”</p>
 </dd></dl>
 
 <dl class="py method">

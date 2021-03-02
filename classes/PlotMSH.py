@@ -180,43 +180,46 @@ class ModeShapePlot(object):
     Abilities include:
 
     Drawing:
-    - creation of 3d plots using matplotlib's mplot3 from the 
-        matplotlib toolkit
-    - adjusting axis limits for each of the three axis
-        i.e. zoom view, shift view (along single and multiple axis')
-    - change the viewport e.g. x, y, z and isometric view
-    - rotating and zooming through mouse interaction is currently 
-        supported by matplotlib, whereas panning is not
-    - animate the currently displayed deformed structure
-    - save the still frame
+    * creation of 3d plots using matplotlib's mplot3 from the 
+    matplotlib toolkit
+    * adjusting axis limits for each of the three axis
+    i.e. zoom view, shift view (along single and multiple axis')
+    * change the viewport e.g. x, y, z and isometric view
+    * rotating and zooming through mouse interaction is currently 
+    supported by matplotlib, whereas panning is not
+    * animate the currently displayed deformed structure
+    * save the still frame
 
     currently __not__ supported:
-    - 3D surface plots, as they are not properly supported by the 
-        underlying matplotlib api
-    - combination of several modeshapes or sensor setups 
-        (this could be done easily in an external script)
-    - saving of the animation as a movie file
-    - drawing multiple modeshapes into one plot
-    - plot modeshape in a single call from a script i.e. use static methods
+    * 3D surface plots, as they are not properly supported by the 
+    underlying matplotlib api
+    * combination of several modeshapes or sensor setups 
+    (this could be done easily in an external script)
+    * saving of the animation as a movie file
+    * drawing multiple modeshapes into one plot
+    * plot modeshape in a single call from a script i.e. use static methods
     
-                | Merging Routine
-Variable in     | single-setup  poger/preger  poser merging
-PlotMSH         |
-________________|____________________________________________
-modal_freq.     | modal_data    modal_data    merged_data
-modal_damping   | modal_data    modal_data    merged_data
-modeshapes      | modal_data    modal_data    merged_data
-                |
-num_channels    | prep_data     modal_data    merged_data
-                |
-chan_dofs       | prep_data     modal_data    merged_data
-                |    
-select_modes    | stabil_data   stabil_data   merged_data
-                |
-nodes           | geometry_data geometry_data geometry_data
-lines           | geometry_data geometry_data geometry_data
-master-slaves   | geometry_data geometry_data geometry_data 
+    ================ =============================================
+    Variable in       Merging Routine
+    PlotMSH           single-setup  poger/preger  poser merging
+    ================ =============================================
+    modal_freq.       modal_data    modal_data    merged_data
+    modal_damping     modal_data    modal_data    merged_data
+    modeshapes        modal_data    modal_data    merged_data
+                     
+    num_channels      prep_data     modal_data    merged_data
+                     
+    chan_dofs         prep_data     modal_data    merged_data
+                         
+    select_modes      stabil_data   stabil_data   merged_data
+                     
+    nodes             geometry_data geometry_data geometry_data
+    lines             geometry_data geometry_data geometry_data
+    master-slaves     geometry_data geometry_data geometry_data 
+    ================ =============================================
+                     
     '''
+    
     # define this class's signals and the types of data they emit
     grid_requested = pyqtSignal(str, bool)
     beams_requested = pyqtSignal(str, bool)
@@ -603,7 +606,7 @@ master-slaves   | geometry_data geometry_data geometry_data
 
     def save_plot(self, path=None):
         '''
-        save the curently displayed frame as a *.png graphics file
+        save the curently displayed frame as a \*.png graphics file
         '''
 
         if path:
@@ -740,15 +743,21 @@ master-slaves   | geometry_data geometry_data geometry_data
     def add_master_slave(self, i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl, i):
         '''
         receive master-slave definitions from a signal
+        
         add these definitions to the internal master-slave table
+        
         draw an arrow indicating the DOF at each node of master and slave
-            as a specialty arrows at equal positions and direction will 
-            be offset to avoid overlapping
+        as a specialty arrows at equal positions and direction will 
+        be offset to avoid overlapping
+        
         arrow length's do not scale with the total dimensions of the plot
+        
         store the two arrow objects in a table
+        
         remove any objects that might be in the table at the desired place
         i.e. avoid duplicate arrows
         '''
+        
         def offset_arrows(verts3d_new, all_arrows_list):
             '''
             avoid overlapping arrows as they are hard to distinguish
@@ -1185,8 +1194,8 @@ master-slaves   | geometry_data geometry_data geometry_data
         '''
         draw all the beams in self.geometry_data.lines
         self.geometry_data.lines=[line1, line2,....]
-            line = [node_start, node_end]
-            node numbering refers to elements in self.nodes
+        line = [node_start, node_end]
+        node numbering refers to elements in self.nodes
         '''
         for i, line in enumerate(self.geometry_data.lines):            
             self.add_line(line, i)
@@ -1959,49 +1968,47 @@ class ModeShapeGUI(QMainWindow):
     by the SSICovRef class by Mihai-Andrei Udrea 2013 
     (Bauhaus-Universität Weimar, Institut für Strukturmechanik). An
     interactive GUI based on PyQt5 is used to create such plots.
-
+    
     Abilities include:
-
+    
     Drawing:
-    - creation of 3d plots using matplotlib's mplot3 from the 
-        matplotlib toolkit
-    - adjusting axis limits for each of the three axis
+     * creation of 3d plots using matplotlib's mplot3 from the matplotlib toolkit
+     * adjusting axis limits for each of the three axis
         i.e. zoom view, shift view (along single and multiple axis')
-    - change the viewport e.g. x, y, z and isometric view
-    - rotating and zooming through mouse interaction is currently 
+     * change the viewport e.g. x, y, z and isometric view
+     * rotating and zooming through mouse interaction is currently 
         supported by matplotlib, whereas panning is not
-    - animate the currently displayed deformed structure
-    - save the still frame
-
-
+     * animate the currently displayed deformed structure
+     * save the still frame
+    
     Geometry definition:
-    - draw single and multiple nodes (deformed and undeformed)
-    - draw single and multiple lines (deformed and undeformed)
-    - draw single and multiple master-slave assignments onto the nodes 
-        (undeformed only)
-    - draw single and multiple channel-degree of freedom assignments 
+     * draw single and multiple nodes (deformed and undeformed)
+     * draw single and multiple lines (deformed and undeformed)
+     * draw single and multiple master-slave assignments onto the nodes (undeformed only)
+     * draw single and multiple channel-degree of freedom assignments 
         onto the nodes (undeformed only
-    - initiate creation/editing/loading/saving of such geometric information
-
+     * initiate creation/editing/loading/saving of such geometric information
+    
     SSI Solutions:
-    - load a SSI_solutions file
-    - extract and display the following from the SSI_solutions file (*.slv):
-        - available orders
-        - available modes for selected order
-        - modal values for selected mode and order
+     * load a SSI_solutions file
+     * extract and display the following from the SSI_solutions file (\*.slv):
+        * available orders
+        * available modes for selected order
+        * modal values for selected mode and order
             frequency, damping, eigenvalue
-        - mode shapes for selected mode and order
-    - currently modeshapes are normalized to unit modal displacement by default
-
+        * mode shapes for selected mode and order
+     * currently modeshapes are normalized to unit modal displacement by default
+    
     currently __not__ supported:
-    - 3D surface plots, as they are not properly supported by the 
+     * 3D surface plots, as they are not properly supported by the 
         underlying matplotlib api
-    - combination of several modeshapes or sensor setups 
+     * combination of several modeshapes or sensor setups 
         (this could be done easily in an external script)
-    - saving of the animation as a movie file
-    - drawing multiple modeshapes into one plot
-    - plot modeshape in a single call from a script i.e. use static methods
+     * saving of the animation as a movie file
+     * drawing multiple modeshapes into one plot
+     * plot modeshape in a single call from a script i.e. use static methods
     '''
+    
     # define this class's signals and the types of data they emit
     grid_requested = pyqtSignal(str, bool)
     beams_requested = pyqtSignal(str, bool)
@@ -2508,9 +2515,10 @@ class ModeShapeGUI(QMainWindow):
     #@pyqtSlot()
     def save_plot(self, path=None):
         '''
-        save the curently displayed frame as a *.png graphics file
+        save the curently displayed frame as a \*.png graphics file
         '''
-                # copied and modified from matplotlib.backends.backend_qt4.NavigationToolbar2QT
+        
+        # copied and modified from matplotlib.backends.backend_qt4.NavigationToolbar2QT
         canvas=self.canvas
         
         filetypes = canvas.get_supported_filetypes_grouped()

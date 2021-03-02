@@ -4,18 +4,15 @@
 Based on previous works by Volkmar Zabel 2015
 Modified and Extended by Simon Marwitz 2015
 TODO:
-- correct linear,.... offsets as well
-- implement filter functions
-- implement loading of different filetypes ascii, lvm, ...
-- currently loading geometry, etc. files will overwrite existing assignments
-    implement "load and append"
-- implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)
-- implement integration
-- implement windowing functions
-
-
+ * correct linear,.... offsets as well
+ * implement filter functions
+ * implement loading of different filetypes ascii, lvm, ...
+ * currently loading geometry, etc. files will overwrite existing assignments implement "load and append"
+ * implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)
+ * implement integration
+ * implement windowing functions
 '''
-#Test for git commit
+
 import numpy as np
 from scipy import signal
 import scipy.signal.ltisys
@@ -42,15 +39,15 @@ class GeometryProcessor(object):
     '''
         conventions:
 
-        - chan_dofs=[(chan, node, (x_amplif,y_amplif,z_amplif)),...]
+        * chan_dofs=[(chan, node, (x_amplif,y_amplif,z_amplif)),...]
 
-        - channels = 0 ... #, starting at channel 0, should be a complete sequence
+        * channels = 0 ... #, starting at channel 0, should be a complete sequence
 
-        - nodes = 1 ... #, starting at node 1, can be a sequence with missing entries
+        * nodes = 1 ... #, starting at node 1, can be a sequence with missing entries
 
-        - lines = [(node_start, node_end),...], unordered
+        * lines = [(node_start, node_end),...], unordered
 
-        - master_slaves = [(node_master, x_master, y_master, z_master, 
+        * master_slaves = [(node_master, x_master, y_master, z_master, 
                             node_slave, x_slave, y_slave, z_slave),...], unordered
 
         (Load it into VisualizeGui for browsing the dict's structure!)
@@ -308,18 +305,18 @@ class GeometryProcessor(object):
 class PreprocessData(object):
     '''
     A simple Data PreProcessor
-    - load ascii datafiles
-    - specify sampling rate, reference channels and roving channels
-    - specify geometry, channel-dof-assignments
-    - specify channel quantities such as acceleration, velocity, etc 
-    - remove channels, cut time histories
-    - remove (constant) offsets from time history data
-    - decimate time histories
+    * load ascii datafiles
+    * specify sampling rate, reference channels and roving channels
+    * specify geometry, channel-dof-assignments
+    * specify channel quantities such as acceleration, velocity, etc 
+    * remove channels, cut time histories
+    * remove (constant) offsets from time history data
+    * decimate time histories
     future:
-    - apply several filters
-    - calculate fft, psd, covariance, coherence, frf
-    - integrate
-    - apply windowing functions
+    * apply several filters
+    * calculate fft, psd, covariance, coherence, frf
+    * integrate
+    * apply windowing functions
     '''
     def __init__(self, measurement, sampling_rate, total_time_steps=None, 
                  #num_channels=None,
@@ -627,6 +624,7 @@ class PreprocessData(object):
         '''
         chan_dofs[i] = (chan_num, node_name, az, elev, chan_name)
                     = (int,       str,       float,float, str)
+                    
         azimuth angle starting from x axis towards y axis
         elevation defined from x-y plane up
         x: 0.0, 0.0
@@ -1051,9 +1049,9 @@ class PreprocessData(object):
         '''
         DONE:
         
-        - modify to compute one-sided PSD only, to save computation time
-        - make possible to pass arguments to signal.csd
-        - compute cross-psd of all  channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
+        * modify to compute one-sided PSD only, to save computation time
+        * make possible to pass arguments to signal.csd
+        * compute cross-psd of all  channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
         
         '''
         
@@ -1092,7 +1090,7 @@ class PreprocessData(object):
         
         '''
         DONE:
-        - compute cross-correlations of all channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
+        * compute cross-correlations of all channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
         '''
         
         num_analised_channels = self.num_analised_channels
@@ -1119,13 +1117,13 @@ class PreprocessData(object):
         
         '''
         TO DO:
-        - use rfft
-        - why was 2*... removed from the amplitude correction?
-        - compare with psd_welch
-        - check energy in time domain and frequency domain with parsevals theorem 
-        - compute cross-psd of all  channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
-        - compute only one-sided psd (i.e. length only tau_max - 1 or similar)
-        - read about the window choices in the reference that is mentioned in the comment and try to implement other windows that ensure non-negative fourier transform
+        * use rfft
+        * why was 2*... removed from the amplitude correction?
+        * compare with psd_welch
+        * check energy in time domain and frequency domain with parsevals theorem 
+        * compute cross-psd of all  channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
+        * compute only one-sided psd (i.e. length only tau_max - 1 or similar)
+        * read about the window choices in the reference that is mentioned in the comment and try to implement other windows that ensure non-negative fourier transform
         
         '''
         

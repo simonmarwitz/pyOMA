@@ -123,12 +123,16 @@ class SSIData(object):
     def build_block_hankel(self, num_block_rows=None, multiprocess=True):
         '''
         Builds a Block-Hankel Matrix of the measured time series with varying time lags
-            | <- num_time samples - num_block_rows->     |_
-            |     y_0      y_1      ...      y_(j-1)     |^
-            |     y_1      y_2      ...      y_j         |num_block_rows (=i)*num_analised_channels
-            |     ...      ...      ...      ...         |v
-            |     y_(2i-1)   y_(2i)  ...     y_(2i+j-2)  |_
+        
+        ::
+        
+             <- num_time samples - num_block_rows->       _
+            [     y_0      y_1      ...      y_(j-1)     ]^
+            [     y_1      y_2      ...      y_j         ]num_block_rows (=i)*num_analised_channels
+            [     ...      ...      ...      ...         ]v
+            [     y_(2i-1)   y_(2i)  ...     y_(2i+j-2)  ]_
         '''
+        
         #print(multiprocess)
         assert isinstance(num_block_rows, int)
         
@@ -625,12 +629,16 @@ class SSIDataMC(object):
     def build_block_hankel(self, num_block_rows=None):
         '''
         Builds a Block-Hankel Matrix of the measured time series with varying time lags
-            | <- num_time samples - num_block_rows->     |_
-            |     y_0      y_1      ...      y_(j-1)     |^
-            |     y_1      y_2      ...      y_j         |num_block_rows (=i)*num_analised_channels
-            |     ...      ...      ...      ...         |v
-            |     y_(2i-1)   y_(2i)  ...     y_(2i+j-2)  |_
+        
+        ::
+        
+              <- num_time samples - num_block_rows->      _
+            [     y_0      y_1      ...      y_(j-1)     ]^
+            [     y_1      y_2      ...      y_j         ]num_block_rows (=i)*num_analised_channels
+            [     ...      ...      ...      ...         ]v
+            [     y_(2i-1)   y_(2i)  ...     y_(2i+j-2)  ]_
         '''
+        
         if num_block_rows is None:
             num_block_rows = self.num_block_rows
             

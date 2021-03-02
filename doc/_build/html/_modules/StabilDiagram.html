@@ -82,8 +82,13 @@
               
             
             
-              <!-- Local TOC -->
-              <div class="local-toc"></div>
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/preprocessing.html">Pre-processing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/oma.html">Operational Modal Analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/postprocessing.html">Post-processing</a></li>
+</ul>
+
             
           
         </div>
@@ -606,18 +611,20 @@
 
 <div class="viewcode-block" id="StabilGUI.create_histo_plot"><a class="viewcode-back" href="../classes/StabilDiagram.html#StabilDiagram.StabilGUI.create_histo_plot">[docs]</a>    <span class="k">def</span> <span class="nf">create_histo_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">array</span><span class="p">,</span> <span class="n">plot_obj</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">ranges</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">select_ranges</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span> <span class="n">select_callback</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">]):</span>
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        should work like following:</span>
+<span class="sd">        should work like following:: </span>
 <span class="sd">        </span>
-<span class="sd">        button press    if None        -&gt; visible = True, create</span>
-<span class="sd">                        if visible     -&gt; visible = False, hide</span>
-<span class="sd">                        if not visible -&gt; visible = True, show</span>
-<span class="sd">        update stabil   if None        -&gt; skip</span>
-<span class="sd">                        if visible     -&gt; visible = visible, update</span>
-<span class="sd">                        if not visible -&gt; visible = visible, update</span>
-<span class="sd">        close button                   -&gt; visible = False, hide</span>
+<span class="sd">            button press    if None        → visible = True, create</span>
+<span class="sd">                            if visible     → visible = False, hide</span>
+<span class="sd">                            if not visible → visible = True, show</span>
+<span class="sd">            update stabil   if None        → skip</span>
+<span class="sd">                            if visible     → visible = visible, update</span>
+<span class="sd">                            if not visible → visible = visible, update</span>
+<span class="sd">            close button                   → visible = False, hide</span>
+<span class="sd">            </span>
 <span class="sd">        </span>
 <span class="sd">        but doesn&#39;t, since the function can not distinguish between </span>
-<span class="sd">            &quot;button press&quot; and &quot;update stabil&quot;</span>
+<span class="sd">        &quot;button press&quot; and &quot;update stabil&quot;</span>
+<span class="sd">        </span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="n">old_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">array</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
         <span class="n">array</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">nomask</span>
@@ -1612,8 +1619,13 @@
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        expects modeshapes in columns of v1 and/or v2</span>
 <span class="sd">        outputs mac:</span>
-<span class="sd">        [MAC(v1[:,0],v2[:,0]),   MAC(v1[:,0],v2[:,1],</span>
-<span class="sd">         MAC(v1[:,1],v2[:,0]),   MAC(v1[:,1],v2[:,1]]</span>
+<span class="sd">        ..math::</span>
+<span class="sd">            </span>
+<span class="sd">            \begin{bmatrix}</span>
+<span class="sd">            MAC(v1[:,0],v2[:,0]) &amp;   MAC(v1[:,0],v2[:,1]\\</span>
+<span class="sd">            MAC(v1[:,1],v2[:,0]) &amp;   MAC(v1[:,1],v2[:,1]</span>
+<span class="sd">            \end{bmatrix}</span>
+<span class="sd">            </span>
 <span class="sd">        &#39;&#39;&#39;</span>
 
         <span class="n">v1_norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ij,ij-&gt;j&#39;</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v1</span><span class="o">.</span><span class="n">conj</span><span class="p">())</span>
@@ -2359,7 +2371,49 @@
 
 
 <div class="viewcode-block" id="StabilCluster"><a class="viewcode-back" href="../classes/StabilDiagram.html#StabilDiagram.StabilCluster">[docs]</a><span class="k">class</span> <span class="nc">StabilCluster</span><span class="p">(</span><span class="n">StabilCalc</span><span class="p">):</span>
-
+    <span class="sd">&quot;&quot;&quot; The automatic modal analysis done in three stages clustering. </span>
+<span class="sd">    1st stage: values sorted according to their soft and hard criteria by a 2-means partitioning algorithm</span>
+<span class="sd">    2nd stage: hierarchical clustering with automatic or user defined intercluster distance </span>
+<span class="sd">    the automatic distance is based on the &#39;df&#39;, &#39;dd&#39; and &#39;MAC&#39; values from the centroids obtained in the first stage</span>
+<span class="sd">    :math:`d = weight*df + 1 - weight*MAC + weight*dd` </span>
+<span class="sd">    3rd stage: 2-means partitioning of the physical and spurious poles. </span>
+<span class="sd">    </span>
+<span class="sd">    E. Neu et al.</span>
+<span class="sd">    </span>
+<span class="sd">    1. Identify mode candidates from a large number of system orders.</span>
+<span class="sd">        -&gt; OMA Algorithm with n_max sufficiently high, i.e. number of mathematical modes should exceed the number pf physical modes at n &lt;= n_max</span>
+<span class="sd">        </span>
+<span class="sd">    2. Remove as many mathematical modes as possible.        </span>
+<span class="sd">    </span>
+<span class="sd">    (a) Remove certainly mathematical modes using hard validation criteria.</span>
+<span class="sd">        Re(\lambda_n)&gt;= 0 or Im(\lambda_n)==0-&gt; remove conjugates in OMA algorithm</span>
+<span class="sd">    (b) Split modes into consistent and non-consistent sets using k-means clustering.</span>
+<span class="sd">        p_i = [d_lambda, d_f, d_zeta, 1-MAC, dMPD]</span>
+<span class="sd">        power transformation eq 11</span>
+<span class="sd">        h_Ti = ln(p_i)</span>
+<span class="sd">        normalize: </span>
+<span class="sd">        h_Ni = (h_Ti - mean(h_Ti)) / std(h_Ti)</span>
+<span class="sd">        initialize centroids with (+std(h_Ni), -std(h_Ni))</span>
+<span class="sd">        </span>
+<span class="sd">    3. Divide the remaining modes into homogeneous sets using hierarchical clustering.</span>
+<span class="sd">    </span>
+<span class="sd">    (a) Derive cutoff distance from the probability distribution of the consistent modes.</span>
+<span class="sd">            np.percentile(a,95)</span>
+<span class="sd">    (b) Cluster the mode candidates based on a complex distance measure.</span>
+<span class="sd">            average linkage / single linkage </span>
+<span class="sd">    (c) Remove all but one mode from a single system order in one cluster.</span>
+<span class="sd">            walk over each cluster and ensure each model order exists only once in the cluster, else remove the mode with a higher distance to the cluster center</span>
+<span class="sd">            </span>
+<span class="sd">    4. Remove the small sets, which typically consist of mathematical modes.</span>
+<span class="sd">    </span>
+<span class="sd">    (a) Reject sets that are smaller than a threshold derived from the largest set size.</span>
+<span class="sd">        no recommendations given in paper (threshold 50 %)</span>
+<span class="sd">    (b) Use outlier rejection to remove natural frequency and damping outliers.</span>
+<span class="sd">        skip</span>
+<span class="sd">    (c) Select a single mode representative from the remaining modes in each cluster.</span>
+<span class="sd">        &quot;multivariate&quot; median</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">modal_data</span><span class="p">,</span> <span class="n">prep_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        stab_* in %</span>
@@ -2377,50 +2431,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">use_stabil</span> <span class="o">=</span> <span class="kc">False</span>
 
-        <span class="sd">&quot;&quot;&quot; The automatic modal analysis done in three stages clustering. </span>
-<span class="sd">        1st stage: values sorted according to their soft and hard criteria by a 2-means partitioning algorithm</span>
-<span class="sd">        2nd stage: hierarchical clustering with automatic or user defined intercluster distance </span>
-<span class="sd">                   the automatic distance is based on the &#39;df&#39;, &#39;dd&#39; and &#39;MAC&#39; values from the centroids obtained in the first stage</span>
-<span class="sd">                   ---------------------------------------------</span>
-<span class="sd">                   | d = weight*df + 1 - weight*MAC + weight*dd |</span>
-<span class="sd">                   ---------------------------------------------</span>
-<span class="sd">        3rd stage: 2-means partitioning of the physical and spurious poles. </span>
-<span class="sd">        </span>
-<span class="sd">        </span>
-<span class="sd">        E. Neu et al.</span>
-<span class="sd">        </span>
-<span class="sd">        1. Identify mode candidates from a large number of system orders.</span>
-<span class="sd">            -&gt; OMA Algorithm with n_max sufficiently high, i.e. number of mathematical modes should exceed the number pf physical modes at n &lt;= n_max</span>
-<span class="sd">            </span>
-<span class="sd">        2. Remove as many mathematical modes as possible.        </span>
-<span class="sd">        (a) Remove certainly mathematical modes using hard validation criteria.</span>
-<span class="sd">            Re(\lambda_n)&gt;= 0 or Im(\lambda_n)==0-&gt; remove conjugates in OMA algorithm</span>
-<span class="sd">        (b) Split modes into consistent and non-consistent sets using k-means clustering.</span>
-<span class="sd">            p_i = [d_lambda, d_f, d_zeta, 1-MAC, dMPD]</span>
-<span class="sd">            power transformation eq 11</span>
-<span class="sd">            h_Ti = ln(p_i)</span>
-<span class="sd">            normalize: </span>
-<span class="sd">            h_Ni = (h_Ti - mean(h_Ti)) / std(h_Ti)</span>
-<span class="sd">            initialize centroids with (+std(h_Ni), -std(h_Ni))</span>
-<span class="sd">            </span>
-<span class="sd">        </span>
-<span class="sd">        3. Divide the remaining modes into homogeneous sets using hierarchical clustering.</span>
-<span class="sd">        (a) Derive cutoff distance from the probability distribution of the consistent modes.</span>
-<span class="sd">                np.percentile(a,95)</span>
-<span class="sd">        (b) Cluster the mode candidates based on a complex distance measure.</span>
-<span class="sd">                average linkage / single linkage </span>
-<span class="sd">        (c) Remove all but one mode from a single system order in one cluster.</span>
-<span class="sd">                walk over each cluster and ensure each model order exists only once in the cluster, else remove the mode with a higher distance to the cluster center</span>
-<span class="sd">                </span>
-<span class="sd">        4. Remove the small sets, which typically consist of mathematical modes.</span>
-<span class="sd">        (a) Reject sets that are smaller than a threshold derived from the largest set size.</span>
-<span class="sd">            no recommendations given in paper (threshold 50 %)</span>
-<span class="sd">        (b) Use outlier rejection to remove natural frequency and damping outliers.</span>
-<span class="sd">            skip</span>
-<span class="sd">        (c) Select a single mode representative from the remaining modes in each cluster.</span>
-<span class="sd">            &quot;multivariate&quot; median</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="StabilCluster.decompress_flat_mask"><a class="viewcode-back" href="../classes/StabilDiagram.html#StabilDiagram.StabilCluster.decompress_flat_mask">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">decompress_flat_mask</span><span class="p">(</span><span class="n">compress_mask</span><span class="p">,</span> <span class="n">flat_mask</span><span class="p">):</span>
         <span class="c1"># takes a flat mask generated on compressed data and restore it to its</span>

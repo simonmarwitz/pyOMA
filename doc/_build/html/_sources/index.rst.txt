@@ -18,10 +18,16 @@ It is written in python 3.7 and hosted on a git repository on /vegas/projects/mo
 Prerequisites
 =============
 
+Learn python 3 with packages: numpy, scipy, matplotlib, (PyQt5, jupyter-notebook)
+Learn about documenting code with Sphinx (Cheatsheet here: https://matplotlib.org/sampledoc/cheatsheet.html)
+Learn about versioning with GIT: https://www.youtube.com/watch?v=8JJ101D3knE
+(Learn GUI programming with PyQt5)
+
+
  * Python with scientific Python packages → Intelpython 
  * QT-Designer for GUI development
- * Eclipse with PyDev and Git, or any other development environment
- * Checkout the code with git from /vegas/projects/modal_analysis_python 
+ * Install Eclipse with PyDev and Git, or any other development environment
+ * Clone the code with git from ssh://ism_username1234@stratos.bauing.uni-weimar.de/vegas/projects/pyOMA/repository.git/
 
 All of the above is available on the VEGAS cluster @ ISM (for working remotely)
 

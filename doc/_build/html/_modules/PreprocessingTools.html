@@ -82,8 +82,13 @@
               
             
             
-              <!-- Local TOC -->
-              <div class="local-toc"></div>
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/preprocessing.html">Pre-processing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/oma.html">Operational Modal Analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/postprocessing.html">Post-processing</a></li>
+</ul>
+
             
           
         </div>
@@ -154,18 +159,15 @@
 <span class="sd">Based on previous works by Volkmar Zabel 2015</span>
 <span class="sd">Modified and Extended by Simon Marwitz 2015</span>
 <span class="sd">TODO:</span>
-<span class="sd">- correct linear,.... offsets as well</span>
-<span class="sd">- implement filter functions</span>
-<span class="sd">- implement loading of different filetypes ascii, lvm, ...</span>
-<span class="sd">- currently loading geometry, etc. files will overwrite existing assignments</span>
-<span class="sd">    implement &quot;load and append&quot;</span>
-<span class="sd">- implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)</span>
-<span class="sd">- implement integration</span>
-<span class="sd">- implement windowing functions</span>
-
-
+<span class="sd"> * correct linear,.... offsets as well</span>
+<span class="sd"> * implement filter functions</span>
+<span class="sd"> * implement loading of different filetypes ascii, lvm, ...</span>
+<span class="sd"> * currently loading geometry, etc. files will overwrite existing assignments implement &quot;load and append&quot;</span>
+<span class="sd"> * implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)</span>
+<span class="sd"> * implement integration</span>
+<span class="sd"> * implement windowing functions</span>
 <span class="sd">&#39;&#39;&#39;</span>
-<span class="c1">#Test for git commit</span>
+
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">signal</span>
 <span class="kn">import</span> <span class="nn">scipy.signal.ltisys</span>
@@ -192,15 +194,15 @@
     <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        conventions:</span>
 
-<span class="sd">        - chan_dofs=[(chan, node, (x_amplif,y_amplif,z_amplif)),...]</span>
+<span class="sd">        * chan_dofs=[(chan, node, (x_amplif,y_amplif,z_amplif)),...]</span>
 
-<span class="sd">        - channels = 0 ... #, starting at channel 0, should be a complete sequence</span>
+<span class="sd">        * channels = 0 ... #, starting at channel 0, should be a complete sequence</span>
 
-<span class="sd">        - nodes = 1 ... #, starting at node 1, can be a sequence with missing entries</span>
+<span class="sd">        * nodes = 1 ... #, starting at node 1, can be a sequence with missing entries</span>
 
-<span class="sd">        - lines = [(node_start, node_end),...], unordered</span>
+<span class="sd">        * lines = [(node_start, node_end),...], unordered</span>
 
-<span class="sd">        - master_slaves = [(node_master, x_master, y_master, z_master, </span>
+<span class="sd">        * master_slaves = [(node_master, x_master, y_master, z_master, </span>
 <span class="sd">                            node_slave, x_slave, y_slave, z_slave),...], unordered</span>
 
 <span class="sd">        (Load it into VisualizeGui for browsing the dict&#39;s structure!)</span>
@@ -458,18 +460,18 @@
 <div class="viewcode-block" id="PreprocessData"><a class="viewcode-back" href="../classes/PreprocessingTools.html#PreprocessingTools.PreprocessData">[docs]</a><span class="k">class</span> <span class="nc">PreprocessData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    A simple Data PreProcessor</span>
-<span class="sd">    - load ascii datafiles</span>
-<span class="sd">    - specify sampling rate, reference channels and roving channels</span>
-<span class="sd">    - specify geometry, channel-dof-assignments</span>
-<span class="sd">    - specify channel quantities such as acceleration, velocity, etc </span>
-<span class="sd">    - remove channels, cut time histories</span>
-<span class="sd">    - remove (constant) offsets from time history data</span>
-<span class="sd">    - decimate time histories</span>
+<span class="sd">    * load ascii datafiles</span>
+<span class="sd">    * specify sampling rate, reference channels and roving channels</span>
+<span class="sd">    * specify geometry, channel-dof-assignments</span>
+<span class="sd">    * specify channel quantities such as acceleration, velocity, etc </span>
+<span class="sd">    * remove channels, cut time histories</span>
+<span class="sd">    * remove (constant) offsets from time history data</span>
+<span class="sd">    * decimate time histories</span>
 <span class="sd">    future:</span>
-<span class="sd">    - apply several filters</span>
-<span class="sd">    - calculate fft, psd, covariance, coherence, frf</span>
-<span class="sd">    - integrate</span>
-<span class="sd">    - apply windowing functions</span>
+<span class="sd">    * apply several filters</span>
+<span class="sd">    * calculate fft, psd, covariance, coherence, frf</span>
+<span class="sd">    * integrate</span>
+<span class="sd">    * apply windowing functions</span>
 <span class="sd">    &#39;&#39;&#39;</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">measurement</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">,</span> <span class="n">total_time_steps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
                  <span class="c1">#num_channels=None,</span>
@@ -777,6 +779,7 @@
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        chan_dofs[i] = (chan_num, node_name, az, elev, chan_name)</span>
 <span class="sd">                    = (int,       str,       float,float, str)</span>
+<span class="sd">                    </span>
 <span class="sd">        azimuth angle starting from x axis towards y axis</span>
 <span class="sd">        elevation defined from x-y plane up</span>
 <span class="sd">        x: 0.0, 0.0</span>
@@ -1201,9 +1204,9 @@
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        DONE:</span>
 <span class="sd">        </span>
-<span class="sd">        - modify to compute one-sided PSD only, to save computation time</span>
-<span class="sd">        - make possible to pass arguments to signal.csd</span>
-<span class="sd">        - compute cross-psd of all  channels only with reference channels (i.e. replace &#39;numdof&#39; with num_analised_channels or ref_channels, respectively)</span>
+<span class="sd">        * modify to compute one-sided PSD only, to save computation time</span>
+<span class="sd">        * make possible to pass arguments to signal.csd</span>
+<span class="sd">        * compute cross-psd of all  channels only with reference channels (i.e. replace &#39;numdof&#39; with num_analised_channels or ref_channels, respectively)</span>
 <span class="sd">        </span>
 <span class="sd">        &#39;&#39;&#39;</span>
         
@@ -1242,7 +1245,7 @@
         
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        DONE:</span>
-<span class="sd">        - compute cross-correlations of all channels only with reference channels (i.e. replace &#39;numdof&#39; with num_analised_channels or ref_channels, respectively)</span>
+<span class="sd">        * compute cross-correlations of all channels only with reference channels (i.e. replace &#39;numdof&#39; with num_analised_channels or ref_channels, respectively)</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         
         <span class="n">num_analised_channels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_analised_channels</span>
@@ -1269,13 +1272,13 @@
         
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        TO DO:</span>
-<span class="sd">        - use rfft</span>
-<span class="sd">        - why was 2*... removed from the amplitude correction?</span>
-<span class="sd">        - compare with psd_welch</span>
-<span class="sd">        - check energy in time domain and frequency domain with parsevals theorem </span>
-<span class="sd">        - compute cross-psd of all  channels only with reference channels (i.e. replace &#39;numdof&#39; with num_analised_channels or ref_channels, respectively)</span>
-<span class="sd">        - compute only one-sided psd (i.e. length only tau_max - 1 or similar)</span>
-<span class="sd">        - read about the window choices in the reference that is mentioned in the comment and try to implement other windows that ensure non-negative fourier transform</span>
+<span class="sd">        * use rfft</span>
+<span class="sd">        * why was 2*... removed from the amplitude correction?</span>
+<span class="sd">        * compare with psd_welch</span>
+<span class="sd">        * check energy in time domain and frequency domain with parsevals theorem </span>
+<span class="sd">        * compute cross-psd of all  channels only with reference channels (i.e. replace &#39;numdof&#39; with num_analised_channels or ref_channels, respectively)</span>
+<span class="sd">        * compute only one-sided psd (i.e. length only tau_max - 1 or similar)</span>
+<span class="sd">        * read about the window choices in the reference that is mentioned in the comment and try to implement other windows that ensure non-negative fourier transform</span>
 <span class="sd">        </span>
 <span class="sd">        &#39;&#39;&#39;</span>
         

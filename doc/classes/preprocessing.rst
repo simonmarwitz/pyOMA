@@ -1,5 +1,5 @@
 Pre-processing
-=======
+==============
 
 .. toctree::
    :maxdepth: 4

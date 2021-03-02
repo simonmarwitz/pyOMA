@@ -21,10 +21,9 @@ from numpy.linalg.linalg import LinAlgError
 class ModalBase(object):
     '''
     Base Class from which all other modal analysis classes should be inherited
-    - provides commonly used functions s.t. these don't have to be copied to each class
-    - object type checks in post-processing functions can check for 
-        modal base instead of each possible modal analysis class
-    - 
+    * provides commonly used functions s.t. these don't have to be copied to each class
+    * object type checks in post-processing functions can check for 
+    modal base instead of each possible modal analysis class
     '''
     
     def __init__(self,prep_data=None):
@@ -46,11 +45,11 @@ class ModalBase(object):
     @staticmethod
     def remove_conjugates(eigval, eigvec_r, eigvec_l=None, inds_only=False):
         '''
-        finds conjugates: \lambda_i = \overline{\lambda_j} for i \neq j
+        finds conjugates: :math:`\\lambda_i = \\overline{\\lambda_j} for i \\neq j`
         
-        unstable poles i.e. negatively damped poles [ln(|\lambda|)<0]: |\lambda_i|> 1
-        overdamped poles [atan(Im/Re)=0] i.e. real poles: Im(\lambda_i)==0  
-        imaginary poles i.e. nyquist frequency: Re(\lambda_i)==0
+        unstable poles i.e. negatively damped poles :math:`[ln(|\lambda|)<0]: |\lambda_i|> 1`
+        overdamped poles :math:`[atan(Im/Re)=0]` i.e. real poles: :math:`Im(\lambda_i)==0`  
+        imaginary poles i.e. nyquist frequency: :math:`Re(\lambda_i)==0`
         
         keeps the second occurance of a conjugate pair (usually the one with the negative imaginary part)
         
@@ -154,11 +153,13 @@ class BRSSICovRef(ModalBase):
         
         '''
         Builds a Block-Toeplitz Matrix of Covariances with varying time lags
-            | <- num_block_columns*num_ref_channels-> |_
-            |     R_i      R_i-1      ...      R_1    |^
-            |     R_i+1    R_i        ...      R_2    |num_block_rows*num_analised_channels
-            |     ...      ...        ...      ...    |v
-            |     R_2i-1   ...        ...      R_i    |_
+        ::
+        
+              <-num_block_columns*num_ref_channels ->  _
+            [     R_i      R_i-1      ...      R_1    ]^
+            [     R_i+1    R_i        ...      R_2    ]num_block_rows*num_analised_channels
+            [     ...      ...        ...      ...    ]v
+            [     R_2i-1   ...        ...      R_i    ]_
         '''
         assert isinstance(num_block_columns, int)
         if num_block_rows is None:
@@ -658,9 +659,7 @@ class BRSSICovRef(ModalBase):
 
     
 class PogerSSICovRef(ModalBase):
-    
     '''
-    
     "In the PoGER approach, first a nonparametric system model is identified 
     for each setup separately. In the time domain, this nonparametric model 
     consists of the correlations between all measured outputs.
@@ -680,31 +679,33 @@ class PogerSSICovRef(ModalBase):
     28th International Modal Analysis Conference, 2010 , 57-70
     
     Analysis steps:
-    - Create your geometry definitions
-    - Create configuration files and channel-dof-assignments for each setup
-    - Pre-process each setup using PreProcessData
-    - Pre-compute correlations functions using PreProcessData.compute_correlation_functions 
-        (note: tau_max >= num_block_columns + num_block_rows >= 2 * num_block_columns + 1)
-    - add the PreProcessData objects of each setup using add_setup
-    - call pair_channels(), build_merged_subspace_matrix(), 
-        compute_state_matrices(), compute_modal_params()
+    * Create your geometry definitions
+    * Create configuration files and channel-dof-assignments for each setup
+    * Pre-process each setup using PreProcessData
+    * Pre-compute correlations functions using PreProcessData.compute_correlation_functions 
+    (note: tau_max >= num_block_columns + num_block_rows >= 2 * num_block_columns + 1)
+    * add the PreProcessData objects of each setup using add_setup
+    * call pair_channels(), build_merged_subspace_matrix(), 
+    compute_state_matrices(), compute_modal_params()
     
     Notes on the reference channels:
     There are two different uses of reference channels:
-        1. Reference channels for reducing the computational effort / 
-            improving results if noisy channels are present
-        2. Reference channels for mode shape rescaling when multiple 
-            setups should be merged
+    1. Reference channels for reducing the computational effort / 
+    improving results if noisy channels are present
+    2. Reference channels for mode shape rescaling when multiple 
+    setups should be merged
+    
     In PoGER merging the first group of reference channels are required 
     for  joint identification. In this case, reference-based correlation
     functions are "stacked on top of each other" and then assembled into
     a joint Hankel matrix. Here, only the reference channels, that are 
-    present in all setups can be used. Based on each setups' 
-    channel-dof-assignments and selected reference channels, the 
-    PogerSSICovRef class automatically determines the reference channels
-    for:
-        - joint identification and
-        - mode shape rescaling / merging. 
+    present in all setups can be used. 
+    
+    Based on each setups' channel-dof-assignments and selected reference 
+    channels, the PogerSSICovRef class automatically determines the 
+    reference channels for:
+    * joint identification and
+    * mode shape rescaling / merging. 
     Thus, by changing the reference channel definition in each setup, 
     the used reference channels in joint identification can be influenced. 
     The reference channels for modeshape rescaling are automatically
@@ -1059,18 +1060,22 @@ class PogerSSICovRef(ModalBase):
     def build_merged_subspace_matrix(self, num_block_columns, num_block_rows=None):
         '''
         Builds a Block-HankelMatrix of Covariances with varying time lags
-            | <- num_block_columns*num_ref_channels->|_
-            |     R_1      R_2      ...      R_i     |^
-            |     R_2      R_3      ...      R_2     |num_block_rows*(num_num_ref_channels*num_setups)
-            |     ...      ...      ...      ...     |v
-            |     R_i      ...      ...      R_2i-1  |_
+        
+        ::
+        
+              <- num_block_columns*num_ref_channels-> _
+            [     R_1      R_2      ...      R_i     ]^
+            [     R_2      R_3      ...      R_2     ]num_block_rows*(num_num_ref_channels*num_setups)
+            [     ...      ...      ...      ...     ]v
+            [     R_i      ...      ...      R_2i-1  ]_
             
-            
-            R_1 =   | R_1^1          |
-                    | R_1^2          |
-                    | ...            |
-                    | R_1^num_setups |
+            R_1 =   [ R_1^1          ]
+                    [ R_1^2          ]
+                    [ ...            ]
+                    [ R_1^num_setups ]
+        
         '''
+        
         assert isinstance(num_block_columns, int)
         
         
@@ -1257,47 +1262,51 @@ class PogerSSICovRef(ModalBase):
     def rescale_by_references(self, mode_shape):
         '''
         This is PoGer Rescaling
-
+        
         walks over setups, 
-            extracts setup's part from the modeshape, and 
-            compute rescaling factor from this setup's reference channels with respect to the first setup
-            rescales this setup's roving channels and assembles final modeshape vector
+         * extracts setup's part from the modeshape, and 
+         * compute rescaling factor from this setup's reference channels with respect to the first setup
+         * rescales this setup's roving channels and assembles final modeshape vector
+        
         reference channel_pairs and final channel-dof-assignments have been determined by function pair_channels
         note: reference channels for SSI need not necessarily be reference channels for rescaling and vice versa
         
         TODO:
-        - rescale all setups jointly using a least-squares approach
+        * rescale all setups jointly using a least-squares approach
         
-        S_\phi * \Alpha = [n*1, 0 .. 0]
+        :math:`S_\phi * \Alpha = [n*1, 0 .. 0]`
         
-        \phi^{ref}_i : Reference-sensor part of modeshape estimated from setup i = 0 .. n
-        j_{max} = argmax(\Pi_i |\phi^{ref}_i|) : maximal modal component in all setups -> will be approximately scaled to 1, must belong to the same sensor in each setup
+        :math:`\phi^{ref}_i` : Reference-sensor part of modeshape estimated from setup :math:`i = 0 .. n`
+        :matH:`j_{max} = argmax(\Pi_i |\phi^{ref}_i|)` : maximal modal component in all setups → will be approximately scaled to 1, must belong to the same sensor in each setup
         
-        S_\phi = [ \phi^{ref}_{0,j_{max}},  \phi^{ref}_{1,j_{max}}, ..,            ..,               \phi^{ref}_{n,j_{max}} \\
-                   \phi^{ref}_0,            -\phi^{ref}_1,          0,             ..,               0                      \\
-                   \phi^{ref}_0,            0,                      -\phi^{ref}_2, ..,               0                      \\
-                   .                        .                       .              .                 .                      \\
-                   .                        .                       .              .                 .                      \\
-                   \phi^{ref}_0,            0,                      0,             ..,               -\phi^{ref}_n          \\
-                   0,                       \phi^{ref}_1,           -\phi^{ref}_2, ..,               0                      \\
-                   .                        .                       .              .                 .                      \\
-                   .                        .                       .              .                 .                      \\
-                   0,                       \phi^{ref}_1,           0,             ..,               -\phi^{ref}_n          \\
-                   .                        .                       .              .                 .                      \\
-                   .                        .                       .              .                 .                      \\
-                   0,                       0,                      \phi^{ref}_2,  ..,               -\phi^{ref}_n          \\
-                   .                        .                       .              .                 .                      \\
-                   .                        .                       .              .                 .                      \\
-                   0,                       0,                      0,             \phi^{ref}_{n-1}, -\phi^{ref}_n            ]
-                   
+        ..math::
+        
+            S_\phi =  \begin{bmatrix}
+            \phi^{ref}_{0,j_{max}}&  \phi^{ref}_{1,j_{max}}& ..&            ..&               \phi^{ref}_{n,j_{max}} \\
+            \phi^{ref}_0&            -\phi^{ref}_1&          0&             ..&               0                      \\
+            \phi^{ref}_0&            0&                      -\phi^{ref}_2& ..&               0                      \\
+            .                        &.                       &.             & .             & .                      \\
+            .                        &.                       &.             & .             & .                      \\
+            \phi^{ref}_0&            0&                      0&             ..&               -\phi^{ref}_n          \\
+            0&                       \phi^{ref}_1&           -\phi^{ref}_2& ..&               0                      \\
+            .                        &.                      & .             & .             & .                      \\
+            .                        &.                      & .             & .             & .                      \\
+            0&                       \phi^{ref}_1&           0&             ..&               -\phi^{ref}_n          \\
+            .                        &.                      & .             & .             & .                      \\
+            .                        &.                      & .             & .             & .                      \\
+            0&                       0&                      \phi^{ref}_2&  ..&               -\phi^{ref}_n          \\
+            .                        &.                      & .             & .             & .                      \\
+            .                        &.                      & .             & .            &  .                      \\
+            0&                       0&                      0&             \phi^{ref}_{n-1}& -\phi^{ref}_n            
+            \end{bmatrix}
         
         if references are the same in all setups
         
-        dimensions = 1 + (n_setups ! )* n_ref_channels x n_setups 
+        dimensions :math:`= 1 + (n_setups ! )* n_ref_channels x n_setups` 
         
         not quite exact, since different setups may share different references
         
-        -> list based assembly of the S_\phi matrix
+        → list based assembly of the :math:`S_\phi` matrix
         
         '''
         

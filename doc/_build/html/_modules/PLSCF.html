@@ -82,8 +82,13 @@
               
             
             
-              <!-- Local TOC -->
-              <div class="local-toc"></div>
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/preprocessing.html">Pre-processing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/oma.html">Operational Modal Analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/postprocessing.html">Post-processing</a></li>
+</ul>
+
             
           
         </div>
@@ -162,7 +167,7 @@
 <span class="kn">import</span> <span class="nn">ctypes</span> <span class="k">as</span> <span class="nn">c</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">deque</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">scipy.signal</span> <span class="kn">import</span> <span class="n">signaltools</span>
+<span class="kn">import</span> <span class="nn">scipy.signal</span>
 <span class="kn">from</span> <span class="nn">scipy.signal.windows</span> <span class="kn">import</span> <span class="n">get_window</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 <span class="c1">#from scipy.lib.six import string_types</span>
@@ -326,7 +331,7 @@
                 <span class="c1">#blocklength = int(len(this_ref) * 0.025) </span>
                 <span class="c1">#print(&#39;blocklength = &#39;, blocklength)</span>
                             
-                <span class="n">tmp_freq</span><span class="p">,</span> <span class="n">tmp_cross_spec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CrossSpectrum</span><span class="p">(</span><span class="n">this_ref</span><span class="p">,</span> <span class="n">this_response</span><span class="p">,</span> \
+                <span class="n">tmp_freq</span><span class="p">,</span> <span class="n">tmp_cross_spec</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">signal</span><span class="o">.</span><span class="n">csd</span><span class="p">(</span><span class="n">this_ref</span><span class="p">,</span> <span class="n">this_response</span><span class="p">,</span> \
                         <span class="n">fs</span><span class="o">=</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;boxcar&#39;</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nperseg</span><span class="p">,</span> \
                         <span class="n">noverlap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">detrend</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">zeropad</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">return_onesided</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> \
                         <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">)</span>
@@ -352,7 +357,7 @@
                 <span class="p">(</span><span class="n">R_xy</span><span class="p">,</span> <span class="n">factor_a</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Exp_Win</span><span class="p">(</span><span class="n">R_xy</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">)</span>
                 <span class="c1">#print(&#39;factor_a = &#39;, factor_a)</span>
                 
-                <span class="n">frequency_vector</span><span class="p">,</span> <span class="n">this_half_spec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FFT_Average</span><span class="p">(</span><span class="n">R_xy</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;boxcar&#39;</span><span class="p">,</span> \
+                <span class="n">frequency_vector</span><span class="p">,</span> <span class="n">this_half_spec</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">signal</span><span class="o">.</span><span class="n">welch</span><span class="p">(</span><span class="n">R_xy</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;boxcar&#39;</span><span class="p">,</span> \
                     <span class="n">nperseg</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">R_xy</span><span class="p">),</span> <span class="n">noverlap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_onesided</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>        
                 <span class="n">omega_vector</span> <span class="o">=</span> <span class="n">frequency_vector</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
                 
@@ -409,453 +414,8 @@
         
         <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="kc">True</span></div>
 
-        
     
-    <span class="c1">###############################################################################</span>
-    <span class="c1">####### One-sided cross spectra based on Welch&#39;s method #######################</span>
-    <span class="c1">###############################################################################</span>
-    
-<div class="viewcode-block" id="PLSCF.CrossSpectrum"><a class="viewcode-back" href="../classes/PLSCF.html#PLSCF.PLSCF.CrossSpectrum">[docs]</a>    <span class="k">def</span> <span class="nf">CrossSpectrum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;boxcar&#39;</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">noverlap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
-    <span class="n">detrend</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">zeropad</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">return_onesided</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
-        
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Estimate cross power spectral density using Welch&#39;s method.</span>
-<span class="sd">        Welch&#39;s method [1]_ computes an estimate of the power spectral density</span>
-<span class="sd">        by dividing the data into overlapping segments, computing a modified</span>
-<span class="sd">        periodogram for each segment and averaging the periodograms.</span>
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        x : array_like</span>
-<span class="sd">        y : array_like</span>
-<span class="sd">        Time series of measurement values</span>
-<span class="sd">        fs : float, optional</span>
-<span class="sd">        Sampling frequency of the `x` and `y` time series in units of Hz. Defaults</span>
-<span class="sd">        to 1.0.</span>
-<span class="sd">        window : str or tuple or array_like, optional</span>
-<span class="sd">        Desired window to use. See `get_window` for a list of windows and</span>
-<span class="sd">        required parameters. If `window` is array_like it will be used</span>
-<span class="sd">        directly as the window and its length will be used for nperseg.</span>
-<span class="sd">        Defaults to &#39;hanning&#39;.</span>
-<span class="sd">        nperseg : int, optional</span>
-<span class="sd">        Length of each segment. Defaults to 256.</span>
-<span class="sd">        noverlap: int, optional</span>
-<span class="sd">        Number of points to overlap between segments. If None,</span>
-<span class="sd">        ``noverlap = nperseg / 2``. Defaults to None.</span>
-<span class="sd">        nfft : int, optional</span>
-<span class="sd">        Length of the FFT used, if a zero padded FFT is desired. If None,</span>
-<span class="sd">        the FFT length is `nperseg`. Defaults to None.</span>
-<span class="sd">        detrend : str or function, optional</span>
-<span class="sd">        Specifies how to detrend each segment. If `detrend` is a string,</span>
-<span class="sd">        it is passed as the ``type`` argument to `detrend`. If it is a</span>
-<span class="sd">        function, it takes a segment and returns a detrended segment.</span>
-<span class="sd">        Defaults to &#39;constant&#39;.</span>
-<span class="sd">        return_onesided : bool, optional</span>
-<span class="sd">        If True, return a one-sided spectrum. If False return</span>
-<span class="sd">        a two-sided spectrum. Note that for complex data, a two-sided</span>
-<span class="sd">        spectrum is always returned.</span>
-<span class="sd">        scaling : { &#39;density&#39;, &#39;spectrum&#39; }, optional</span>
-<span class="sd">        Selects between computing the power spectral density (&#39;density&#39;)</span>
-<span class="sd">        where Pxx has units of V**2/Hz if x is measured in V and computing</span>
-<span class="sd">        the power spectrum (&#39;spectrum&#39;) where Pxx has units of V**2 if x is</span>
-<span class="sd">        measured in V. Defaults to &#39;density&#39;.</span>
-<span class="sd">        axis : int, optional</span>
-<span class="sd">        Axis along which the periodogram is computed; the default is over</span>
-<span class="sd">        the last axis (i.e. ``axis=-1``).</span>
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        f : ndarray</span>
-<span class="sd">        Array of sample frequencies.</span>
-<span class="sd">        Pxy : ndarray</span>
-<span class="sd">        Cross power spectral density or cross power spectrum of x.</span>
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        periodogram: Simple, optionally modified periodogram</span>
-<span class="sd">        lombscargle: Lomb-Scargle periodogram for unevenly sampled data</span>
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        An appropriate amount of overlap will depend on the choice of window</span>
-<span class="sd">        and on your requirements. For the default &#39;hanning&#39; window an</span>
-<span class="sd">        overlap of 50% is a reasonable trade off between accurately estimating</span>
-<span class="sd">        the signal power, while not over counting any of the data. Narrower</span>
-<span class="sd">        windows may require a larger overlap.</span>
-<span class="sd">        If `noverlap` is 0, this method is equivalent to Bartlett&#39;s method [2]_.</span>
-<span class="sd">        .. versionadded:: 0.12.0</span>
-<span class="sd">        References</span>
-<span class="sd">        ----------</span>
-<span class="sd">        .. [1] P. Welch, &quot;The use of the fast Fourier transform for the</span>
-<span class="sd">        estimation of power spectra: A method based on time averaging</span>
-<span class="sd">        over short, modified periodograms&quot;, IEEE Trans. Audio</span>
-<span class="sd">        Electroacoust. vol. 15, pp. 70-73, 1967.</span>
-<span class="sd">        .. [2] M.S. Bartlett, &quot;Periodogram Analysis and Continuous Spectra&quot;,</span>
-<span class="sd">        Biometrika, vol. 37, pp. 1-16, 1950.</span>
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; from scipy import signal</span>
-<span class="sd">        &gt;&gt;&gt; import matplotlib.pyplot as plt</span>
-<span class="sd">        Generate a test signal, a 2 Vrms sine wave at 1234 Hz, corrupted by</span>
-<span class="sd">        0.001 V**2/Hz of white noise sampled at 10 kHz.</span>
-<span class="sd">        &gt;&gt;&gt; fs = 10e3</span>
-<span class="sd">        &gt;&gt;&gt; N = 1e5</span>
-<span class="sd">        &gt;&gt;&gt; amp = 2*np.sqrt(2)</span>
-<span class="sd">        &gt;&gt;&gt; freq = 1234.0</span>
-<span class="sd">        &gt;&gt;&gt; noise_power = 0.001 * fs / 2</span>
-<span class="sd">        &gt;&gt;&gt; time = np.arange(N) / fs</span>
-<span class="sd">        &gt;&gt;&gt; x = amp*np.sin(2*np.pi*freq*time)</span>
-<span class="sd">        &gt;&gt;&gt; x += np.random.normal(scale=np.sqrt(noise_power), size=time.shape)</span>
-<span class="sd">        Compute and plot the power spectral density.</span>
-<span class="sd">        &gt;&gt;&gt; f, Pxx_den = signal.welch(x, fs, nperseg=1024)</span>
-<span class="sd">        &gt;&gt;&gt; plt.semilogy(f, Pxx_den)</span>
-<span class="sd">        &gt;&gt;&gt; plt.ylim([0.5e-3, 1])</span>
-<span class="sd">        &gt;&gt;&gt; plt.xlabel(&#39;frequency [Hz]&#39;)</span>
-<span class="sd">        &gt;&gt;&gt; plt.ylabel(&#39;PSD [V**2/Hz]&#39;)</span>
-<span class="sd">        &gt;&gt;&gt; plt.show()</span>
-<span class="sd">        If we average the last half of the spectral density, to exclude the</span>
-<span class="sd">        peak, we can recover the noise power on the signal.</span>
-<span class="sd">        &gt;&gt;&gt; np.mean(Pxx_den[256:])</span>
-<span class="sd">        0.0009924865443739191</span>
-<span class="sd">        Now compute and plot the power spectrum.</span>
-<span class="sd">        &gt;&gt;&gt; f, Pxx_spec = signal.welch(x, fs, &#39;flattop&#39;, 1024, scaling=&#39;spectrum&#39;)</span>
-<span class="sd">        &gt;&gt;&gt; plt.figure()</span>
-<span class="sd">        &gt;&gt;&gt; plt.semilogy(f, np.sqrt(Pxx_spec))</span>
-<span class="sd">        &gt;&gt;&gt; plt.xlabel(&#39;frequency [Hz]&#39;)</span>
-<span class="sd">        &gt;&gt;&gt; plt.ylabel(&#39;Linear spectrum [V RMS]&#39;)</span>
-<span class="sd">        &gt;&gt;&gt; plt.show()</span>
-<span class="sd">        The peak height in the power spectrum is an estimate of the RMS amplitude.</span>
-<span class="sd">        &gt;&gt;&gt; np.sqrt(Pxx_spec.max())</span>
-<span class="sd">        2.0077340678640727</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
-        
-        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-        
-        <span class="k">if</span> <span class="n">y</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-        
-        <span class="k">if</span> <span class="n">y</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Signals x and y are not of the same length.&#39;</span><span class="p">)</span>
-    
-        <span class="k">if</span> <span class="n">axis</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rollaxis</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
-            <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rollaxis</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
-    
-        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">nperseg</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;nperseg = </span><span class="si">%d</span><span class="s1">, is greater than x.shape[</span><span class="si">%d</span><span class="s1">] = </span><span class="si">%d</span><span class="s1">, using &#39;</span>
-            <span class="s1">&#39;nperseg = x.shape[</span><span class="si">%d</span><span class="s1">]&#39;</span>
-            <span class="o">%</span> <span class="p">(</span><span class="n">nperseg</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">],</span> <span class="n">axis</span><span class="p">))</span>
-            <span class="n">nperseg</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-    
-        <span class="k">if</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">nperseg</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;nperseg = </span><span class="si">%d</span><span class="s1">, is greater than y.shape[</span><span class="si">%d</span><span class="s1">] = </span><span class="si">%d</span><span class="s1">, using &#39;</span>
-                            <span class="s1">&#39;nperseg = y.shape[</span><span class="si">%d</span><span class="s1">]&#39;</span>
-                            <span class="o">%</span> <span class="p">(</span><span class="n">nperseg</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">],</span> <span class="n">axis</span><span class="p">))</span>
-            <span class="n">nperseg</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        
-        <span class="k">if</span> <span class="n">zeropad</span><span class="p">:</span>
-            <span class="n">winlength</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">nperseg</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">winlength</span> <span class="o">=</span> <span class="n">nperseg</span>
-    
-        <span class="c1">#if isinstance(window, string_types) or type(window) is tuple:</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">window</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">window</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">tuple</span><span class="p">:</span>
-            <span class="n">win</span> <span class="o">=</span> <span class="n">get_window</span><span class="p">(</span><span class="n">window</span><span class="p">,</span> <span class="n">winlength</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">win</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">window</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">win</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;window must be 1-D&#39;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">win</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;window is longer than x.&#39;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">win</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;window is longer than y.&#39;</span><span class="p">)</span>
-            <span class="n">nperseg</span> <span class="o">=</span> <span class="n">win</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    
-        <span class="k">if</span> <span class="n">scaling</span> <span class="o">==</span> <span class="s1">&#39;density&#39;</span><span class="p">:</span>
-            <span class="n">scale</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">fs</span> <span class="o">*</span> <span class="p">(</span><span class="n">win</span><span class="o">*</span><span class="n">win</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
-        <span class="k">elif</span> <span class="n">scaling</span> <span class="o">==</span> <span class="s1">&#39;spectrum&#39;</span><span class="p">:</span>
-            <span class="n">scale</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">win</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">**</span><span class="mi">2</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unknown scaling: </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">scaling</span><span class="p">)</span>
-    
-        <span class="k">if</span> <span class="n">noverlap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1">#noverlap = nperseg // 2</span>
-            <span class="n">noverlap</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">elif</span> <span class="n">noverlap</span> <span class="o">&gt;=</span> <span class="n">nperseg</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;noverlap must be less than nperseg.&#39;</span><span class="p">)</span>
-    
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">detrend</span><span class="p">,</span> <span class="s1">&#39;__call__&#39;</span><span class="p">):</span>
-            <span class="n">detrend_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">seg</span><span class="p">:</span> <span class="n">signaltools</span><span class="o">.</span><span class="n">detrend</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">detrend</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">axis</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-            <span class="c1"># Wrap this function so that it receives a shape that it could</span>
-            <span class="c1"># reasonably expect to receive.</span>
-            <span class="k">def</span> <span class="nf">detrend_func</span><span class="p">(</span><span class="n">seg</span><span class="p">):</span>
-                <span class="n">seg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rollaxis</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="p">)</span>
-                <span class="n">seg</span> <span class="o">=</span> <span class="n">detrend</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">rollaxis</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">detrend_func</span> <span class="o">=</span> <span class="n">detrend</span>
-    
-        <span class="n">step</span> <span class="o">=</span> <span class="n">nperseg</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">noverlap</span><span class="p">)</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">nperseg</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span>
-        
-    
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isrealobj</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isrealobj</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="ow">and</span> <span class="n">return_onesided</span><span class="p">:</span>
-             
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">ind</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">indices</span><span class="p">):</span>
-                <span class="n">x_dt</span> <span class="o">=</span> <span class="n">detrend_func</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span><span class="n">ind</span><span class="o">+</span><span class="n">nperseg</span><span class="p">])</span>
-                <span class="n">y_dt</span> <span class="o">=</span> <span class="n">detrend_func</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span><span class="n">ind</span><span class="o">+</span><span class="n">nperseg</span><span class="p">])</span>
-                    
-                <span class="k">if</span> <span class="n">zeropad</span><span class="p">:</span>
-                    <span class="n">x_tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_dt</span><span class="p">)))</span>
-                    <span class="n">x_tmp</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">x_dt</span><span class="p">)]</span> <span class="o">=</span> <span class="n">x_dt</span>
-                    <span class="n">x_dt</span> <span class="o">=</span> <span class="n">x_tmp</span>
-                    <span class="n">y_tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_dt</span><span class="p">)))</span>
-                    <span class="n">y_tmp</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">y_dt</span><span class="p">)]</span> <span class="o">=</span> <span class="n">y_dt</span>
-                    <span class="n">y_dt</span> <span class="o">=</span> <span class="n">y_tmp</span>
-                
-                <span class="n">xft</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfft</span><span class="p">(</span><span class="n">x_dt</span><span class="o">*</span><span class="n">win</span><span class="p">)</span>
-                <span class="n">yft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfft</span><span class="p">(</span><span class="n">y_dt</span><span class="o">*</span><span class="n">win</span><span class="p">)</span>
-    
-                <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">Pxy</span> <span class="o">=</span> <span class="n">xft</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">yft</span><span class="p">)</span>
-    
-                <span class="k">else</span><span class="p">:</span>  <span class="c1">#Averaging</span>
-                    <span class="n">Pxy</span> <span class="o">*=</span> <span class="n">k</span><span class="o">/</span><span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mf">1.0</span><span class="p">)</span>
-                    <span class="n">Pxy</span> <span class="o">+=</span> <span class="p">(</span><span class="n">xft</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">yft</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mf">1.0</span><span class="p">)</span>
-           
-            <span class="n">Pxy</span> <span class="o">*=</span> <span class="n">scale</span>
-            <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftfreq</span><span class="p">(</span><span class="n">nperseg</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">fs</span><span class="p">))</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">ind</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">indices</span><span class="p">):</span>
-                <span class="n">x_dt</span> <span class="o">=</span> <span class="n">detrend_func</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span><span class="n">ind</span><span class="o">+</span><span class="n">nperseg</span><span class="p">])</span>
-                <span class="n">y_dt</span> <span class="o">=</span> <span class="n">detrend_func</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span><span class="n">ind</span><span class="o">+</span><span class="n">nperseg</span><span class="p">])</span>
-                
-                <span class="k">if</span> <span class="n">zeropad</span><span class="p">:</span>
-                    <span class="n">x_tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_dt</span><span class="p">)))</span>
-                    <span class="n">x_tmp</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">x_dt</span><span class="p">)]</span> <span class="o">=</span> <span class="n">x_dt</span>
-                    <span class="n">x_dt</span> <span class="o">=</span> <span class="n">x_tmp</span>
-                    <span class="n">y_tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_dt</span><span class="p">)))</span>
-                    <span class="n">y_tmp</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">y_dt</span><span class="p">)]</span> <span class="o">=</span> <span class="n">y_dt</span>
-                    <span class="n">y_dt</span> <span class="o">=</span> <span class="n">y_tmp</span>
-                    
-                <span class="n">xft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">x_dt</span><span class="o">*</span><span class="n">win</span><span class="p">)</span>
-                <span class="n">yft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">y_dt</span><span class="o">*</span><span class="n">win</span><span class="p">)</span>
-    
-                <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">Pxy</span> <span class="o">=</span> <span class="n">xft</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">yft</span><span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>  <span class="c1">#Averaging</span>
-                    <span class="n">Pxy</span> <span class="o">*=</span> <span class="n">k</span><span class="o">/</span><span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mf">1.0</span><span class="p">)</span>
-                    <span class="n">Pxy</span> <span class="o">+=</span> <span class="p">(</span><span class="n">xft</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">yft</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mf">1.0</span><span class="p">)</span>
-            <span class="n">Pxy</span> <span class="o">*=</span> <span class="n">scale</span>
-            <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">nperseg</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">fs</span><span class="p">))</span>
-    
-        <span class="k">if</span> <span class="n">axis</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-            <span class="n">Pxy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rollaxis</span><span class="p">(</span><span class="n">Pxy</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">f</span><span class="p">,</span> <span class="n">Pxy</span></div>
-        
-        
-    
-    
-    <span class="c1">###############################################################################</span>
-    <span class="c1">####### Averaged FFT of real data #######################</span>
-    <span class="c1">###############################################################################</span>
-    
-<div class="viewcode-block" id="PLSCF.FFT_Average"><a class="viewcode-back" href="../classes/PLSCF.html#PLSCF.PLSCF.FFT_Average">[docs]</a>    <span class="k">def</span> <span class="nf">FFT_Average</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;boxcar&#39;</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">noverlap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
-    <span class="n">detrend</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">zeropad</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">return_onesided</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
-        
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Estimate the averaged FFT of a signal x.</span>
-<span class="sd">        The routine computes an estimate of the FFT</span>
-<span class="sd">        by dividing the data into overlapping segments, computing the FFT and </span>
-<span class="sd">        averaging them.</span>
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        x : array_like</span>
-<span class="sd">        Time series of measurement values</span>
-<span class="sd">        fs : float, optional</span>
-<span class="sd">        Sampling frequency of the `x` time series in units of Hz. Defaults</span>
-<span class="sd">        to 1.0.</span>
-<span class="sd">        window : str or tuple or array_like, optional</span>
-<span class="sd">        Desired window to use. See `get_window` for a list of windows and</span>
-<span class="sd">        required parameters. If `window` is array_like it will be used</span>
-<span class="sd">        directly as the window and its length will be used for nperseg.</span>
-<span class="sd">        Defaults to &#39;none&#39;.</span>
-<span class="sd">        nperseg : int, optional</span>
-<span class="sd">        Length of each segment. Defaults to 1024.</span>
-<span class="sd">        noverlap: int, optional</span>
-<span class="sd">        Number of points to overlap between segments. If None,</span>
-<span class="sd">        ``noverlap = nperseg / 2``. Defaults to None.</span>
-<span class="sd">        nfft : int, optional</span>
-<span class="sd">        Length of the FFT used, if a zero padded FFT is desired. If None,</span>
-<span class="sd">        the FFT length is `nperseg`. Defaults to None.</span>
-<span class="sd">        detrend : str or function, optional</span>
-<span class="sd">        Specifies how to detrend each segment. If `detrend` is a string,</span>
-<span class="sd">        it is passed as the ``type`` argument to `detrend`. If it is a</span>
-<span class="sd">        function, it takes a segment and returns a detrended segment.</span>
-<span class="sd">        Defaults to &#39;constant&#39;.</span>
-<span class="sd">        return_onesided : bool, optional</span>
-<span class="sd">        If True, return a one-sided spectrum. If False return</span>
-<span class="sd">        a two-sided spectrum. Note that for complex data, a two-sided</span>
-<span class="sd">        spectrum is always returned.</span>
-<span class="sd">        axis : int, optional</span>
-<span class="sd">        Axis along which the periodogram is computed; the default is over</span>
-<span class="sd">        the last axis (i.e. ``axis=-1``).</span>
-<span class="sd">    </span>
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        f : ndarray</span>
-<span class="sd">        Array of sample frequencies.</span>
-<span class="sd">        FTx : ndarray</span>
-<span class="sd">        DFT of x.</span>
-<span class="sd">    </span>
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        An appropriate amount of overlap will depend on the choice of window</span>
-<span class="sd">        and on your requirements. For the default &#39;hanning&#39; window an</span>
-<span class="sd">        overlap of 50% is a reasonable trade off between accurately estimating</span>
-<span class="sd">        the signal power, while not over counting any of the data. Narrower</span>
-<span class="sd">        windows may require a larger overlap.</span>
-<span class="sd">        If `noverlap` is 0, this method is equivalent to Bartlett&#39;s method [2]_.</span>
-<span class="sd">        .. versionadded:: 0.12.0</span>
-<span class="sd">    </span>
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; from scipy import signal</span>
-<span class="sd">        &gt;&gt;&gt; import matplotlib.pyplot as plt</span>
-<span class="sd">        Generate a test signal, a 2 Vrms sine wave at 1234 Hz, corrupted by</span>
-<span class="sd">        0.001 V**2/Hz of white noise sampled at 10 kHz.</span>
-<span class="sd">        &gt;&gt;&gt; fs = 10e3</span>
-<span class="sd">        &gt;&gt;&gt; N = 1e5</span>
-<span class="sd">        &gt;&gt;&gt; amp = 2*np.sqrt(2)</span>
-<span class="sd">        &gt;&gt;&gt; freq = 1234.0</span>
-<span class="sd">        &gt;&gt;&gt; noise_power = 0.001 * fs / 2</span>
-<span class="sd">        &gt;&gt;&gt; time = np.arange(N) / fs</span>
-<span class="sd">        &gt;&gt;&gt; x = amp*np.sin(2*np.pi*freq*time)</span>
-<span class="sd">        &gt;&gt;&gt; x += np.random.normal(scale=np.sqrt(noise_power), size=time.shape)</span>
-<span class="sd">        Compute and plot the power spectral density.</span>
-<span class="sd">        &gt;&gt;&gt; f, Pxx_den = signal.welch(x, fs, nperseg=1024)</span>
-<span class="sd">        &gt;&gt;&gt; plt.semilogy(f, Pxx_den)</span>
-<span class="sd">        &gt;&gt;&gt; plt.ylim([0.5e-3, 1])</span>
-<span class="sd">        &gt;&gt;&gt; plt.xlabel(&#39;frequency [Hz]&#39;)</span>
-<span class="sd">        &gt;&gt;&gt; plt.ylabel(&#39;PSD [V**2/Hz]&#39;)</span>
-<span class="sd">        &gt;&gt;&gt; plt.show()</span>
-<span class="sd">        If we average the last half of the spectral density, to exclude the</span>
-<span class="sd">        peak, we can recover the noise power on the signal.</span>
-<span class="sd">        &gt;&gt;&gt; np.mean(Pxx_den[256:])</span>
-<span class="sd">        0.0009924865443739191</span>
-<span class="sd">        Now compute and plot the power spectrum.</span>
-<span class="sd">        &gt;&gt;&gt; f, Pxx_spec = signal.welch(x, fs, &#39;flattop&#39;, 1024, scaling=&#39;spectrum&#39;)</span>
-<span class="sd">        &gt;&gt;&gt; plt.figure()</span>
-<span class="sd">        &gt;&gt;&gt; plt.semilogy(f, np.sqrt(Pxx_spec))</span>
-<span class="sd">        &gt;&gt;&gt; plt.xlabel(&#39;frequency [Hz]&#39;)</span>
-<span class="sd">        &gt;&gt;&gt; plt.ylabel(&#39;Linear spectrum [V RMS]&#39;)</span>
-<span class="sd">        &gt;&gt;&gt; plt.show()</span>
-<span class="sd">        The peak height in the power spectrum is an estimate of the RMS amplitude.</span>
-<span class="sd">        &gt;&gt;&gt; np.sqrt(Pxx_spec.max())</span>
-<span class="sd">        2.0077340678640727</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        
-        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-    
-        <span class="k">if</span> <span class="n">axis</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rollaxis</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
-    
-        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">nperseg</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;nperseg = </span><span class="si">%d</span><span class="s1">, is greater than x.shape[</span><span class="si">%d</span><span class="s1">] = </span><span class="si">%d</span><span class="s1">, using &#39;</span>
-            <span class="s1">&#39;nperseg = x.shape[</span><span class="si">%d</span><span class="s1">]&#39;</span>
-            <span class="o">%</span> <span class="p">(</span><span class="n">nperseg</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">],</span> <span class="n">axis</span><span class="p">))</span>
-            <span class="n">nperseg</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        
-        <span class="k">if</span> <span class="n">zeropad</span><span class="p">:</span>
-            <span class="n">winlength</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">nperseg</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">winlength</span> <span class="o">=</span> <span class="n">nperseg</span>
-    
-        <span class="c1">#if isinstance(window, string_types) or type(window) is tuple:</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">window</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">window</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">tuple</span><span class="p">:</span>
-            <span class="n">win</span> <span class="o">=</span> <span class="n">get_window</span><span class="p">(</span><span class="n">window</span><span class="p">,</span> <span class="n">winlength</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">win</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">window</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">win</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;window must be 1-D&#39;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">win</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;window is longer than x.&#39;</span><span class="p">)</span>
-    
-        <span class="k">if</span> <span class="n">noverlap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1">#noverlap = nperseg // 2</span>
-            <span class="n">noverlap</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">elif</span> <span class="n">noverlap</span> <span class="o">&gt;=</span> <span class="n">nperseg</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;noverlap must be less than nperseg.&#39;</span><span class="p">)</span>
-    
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">detrend</span><span class="p">,</span> <span class="s1">&#39;__call__&#39;</span><span class="p">):</span>
-            <span class="n">detrend_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">seg</span><span class="p">:</span> <span class="n">signaltools</span><span class="o">.</span><span class="n">detrend</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">detrend</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">axis</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-            <span class="c1"># Wrap this function so that it receives a shape that it could</span>
-            <span class="c1"># reasonably expect to receive.</span>
-            <span class="k">def</span> <span class="nf">detrend_func</span><span class="p">(</span><span class="n">seg</span><span class="p">):</span>
-                <span class="n">seg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rollaxis</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="p">)</span>
-                <span class="n">seg</span> <span class="o">=</span> <span class="n">detrend</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">rollaxis</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">detrend_func</span> <span class="o">=</span> <span class="n">detrend</span>
-    
-        <span class="n">step</span> <span class="o">=</span> <span class="n">nperseg</span> <span class="o">-</span> <span class="n">noverlap</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">nperseg</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span>
-        
-    
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isrealobj</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">and</span> <span class="n">return_onesided</span><span class="p">:</span>
-             
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">ind</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">indices</span><span class="p">):</span>
-                <span class="n">x_dt</span> <span class="o">=</span> <span class="n">detrend_func</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span><span class="n">ind</span><span class="o">+</span><span class="n">nperseg</span><span class="p">])</span>
-                    
-                <span class="k">if</span> <span class="n">zeropad</span><span class="p">:</span>
-                    <span class="n">x_tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_dt</span><span class="p">)))</span>
-                    <span class="n">x_tmp</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">x_dt</span><span class="p">)]</span> <span class="o">=</span> <span class="n">x_dt</span>
-                    <span class="n">x_dt</span> <span class="o">=</span> <span class="n">x_tmp</span>
-    
-                <span class="n">xft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfft</span><span class="p">(</span><span class="n">x_dt</span><span class="o">*</span><span class="n">win</span><span class="p">)</span>
-    
-                <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">FTx</span> <span class="o">=</span> <span class="n">xft</span>
-    
-                <span class="k">else</span><span class="p">:</span>  <span class="c1">#Averaging</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;average count = &#39;</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
-                    <span class="n">FTx</span> <span class="o">*=</span> <span class="n">k</span><span class="o">/</span><span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mf">1.0</span><span class="p">)</span>
-                    <span class="n">FTx</span> <span class="o">+=</span> <span class="p">(</span><span class="n">xft</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mf">1.0</span><span class="p">)</span>
-           
-            <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftfreq</span><span class="p">(</span><span class="n">nperseg</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">fs</span><span class="p">))</span>
-            
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">ind</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">indices</span><span class="p">):</span>
-                <span class="n">x_dt</span> <span class="o">=</span> <span class="n">detrend_func</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span><span class="n">ind</span><span class="o">+</span><span class="n">nperseg</span><span class="p">])</span>
-                    
-                <span class="k">if</span> <span class="n">zeropad</span><span class="p">:</span>
-                    <span class="n">x_tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_dt</span><span class="p">)))</span>
-                    <span class="n">x_tmp</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">x_dt</span><span class="p">)]</span> <span class="o">=</span> <span class="n">x_dt</span>
-                    <span class="n">x_dt</span> <span class="o">=</span> <span class="n">x_tmp</span>
-                <span class="n">xft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">x_dt</span><span class="o">*</span><span class="n">win</span><span class="p">)</span>
-    
-                <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">FTx</span> <span class="o">=</span> <span class="n">xft</span>
-    
-                <span class="k">else</span><span class="p">:</span>  <span class="c1">#Averaging</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;average count = &#39;</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
-                    <span class="n">FTx</span> <span class="o">*=</span> <span class="n">k</span><span class="o">/</span><span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mf">1.0</span><span class="p">)</span>
-                    <span class="n">FTx</span> <span class="o">+=</span> <span class="p">(</span><span class="n">xft</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mf">1.0</span><span class="p">)</span>
-    
-            <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftfreq</span><span class="p">(</span><span class="n">nperseg</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">fs</span><span class="p">))</span>
-    
-        <span class="k">if</span> <span class="n">axis</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-            <span class="n">FTx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rollaxis</span><span class="p">(</span><span class="n">FTx</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">f</span><span class="p">,</span> <span class="n">FTx</span></div>
-        
-    
-    <span class="c1">###############################################################################</span>
-    <span class="c1">####### Exponential window function #######################</span>
-    <span class="c1">###############################################################################</span>
-    
+
 <div class="viewcode-block" id="PLSCF.Exp_Win"><a class="viewcode-back" href="../classes/PLSCF.html#PLSCF.PLSCF.Exp_Win">[docs]</a>    <span class="k">def</span> <span class="nf">Exp_Win</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">fin_val</span><span class="p">):</span>
     
         <span class="sd">&#39;&#39;&#39;</span>
@@ -872,7 +432,7 @@
         <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="c1">#print(&#39;n= &#39;, n)</span>
         <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">fin_val</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-    
+     
         <span class="n">win</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
         <span class="n">win</span> <span class="o">=</span>  <span class="n">win</span> <span class="o">*</span> <span class="n">a</span>
         <span class="n">win</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">win</span><span class="p">)</span>
@@ -880,11 +440,7 @@
         <span class="n">x_win</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">win</span>
         
         <span class="k">return</span> <span class="n">x_win</span><span class="p">,</span> <span class="n">a</span></div>
-    
-   
-   
-   
-   
+
 <div class="viewcode-block" id="PLSCF.compute_modal_params"><a class="viewcode-back" href="../classes/PLSCF.html#PLSCF.PLSCF.compute_modal_params">[docs]</a>    <span class="k">def</span> <span class="nf">compute_modal_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_model_order</span><span class="p">,</span> <span class="n">multiprocessing</span><span class="p">):</span>
                         
         <span class="k">if</span> <span class="n">max_model_order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>

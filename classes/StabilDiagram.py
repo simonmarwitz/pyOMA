@@ -456,18 +456,20 @@ class StabilGUI(QMainWindow):
 
     def create_histo_plot(self, array, plot_obj, title='', ranges=None, select_ranges=[None], select_callback=[None]):
         '''
-        should work like following:
+        should work like following:: 
         
-        button press    if None        -> visible = True, create
-                        if visible     -> visible = False, hide
-                        if not visible -> visible = True, show
-        update stabil   if None        -> skip
-                        if visible     -> visible = visible, update
-                        if not visible -> visible = visible, update
-        close button                   -> visible = False, hide
+            button press    if None        → visible = True, create
+                            if visible     → visible = False, hide
+                            if not visible → visible = True, show
+            update stabil   if None        → skip
+                            if visible     → visible = visible, update
+                            if not visible → visible = visible, update
+            close button                   → visible = False, hide
+            
         
         but doesn't, since the function can not distinguish between 
-            "button press" and "update stabil"
+        "button press" and "update stabil"
+        
         '''
         old_mask = np.copy(array.mask)
         array.mask = np.ma.nomask
@@ -1462,8 +1464,13 @@ class StabilCalc(object):
         '''
         expects modeshapes in columns of v1 and/or v2
         outputs mac:
-        [MAC(v1[:,0],v2[:,0]),   MAC(v1[:,0],v2[:,1],
-         MAC(v1[:,1],v2[:,0]),   MAC(v1[:,1],v2[:,1]]
+        ..math::
+            
+            \begin{bmatrix}
+            MAC(v1[:,0],v2[:,0]) &   MAC(v1[:,0],v2[:,1]\\
+            MAC(v1[:,1],v2[:,0]) &   MAC(v1[:,1],v2[:,1]
+            \end{bmatrix}
+            
         '''
 
         v1_norms = np.einsum('ij,ij->j', v1, v1.conj())
@@ -2209,7 +2216,49 @@ class StabilCalc(object):
 
 
 class StabilCluster(StabilCalc):
-
+    """ The automatic modal analysis done in three stages clustering. 
+    1st stage: values sorted according to their soft and hard criteria by a 2-means partitioning algorithm
+    2nd stage: hierarchical clustering with automatic or user defined intercluster distance 
+    the automatic distance is based on the 'df', 'dd' and 'MAC' values from the centroids obtained in the first stage
+    :math:`d = weight*df + 1 - weight*MAC + weight*dd` 
+    3rd stage: 2-means partitioning of the physical and spurious poles. 
+    
+    E. Neu et al.
+    
+    1. Identify mode candidates from a large number of system orders.
+        -> OMA Algorithm with n_max sufficiently high, i.e. number of mathematical modes should exceed the number pf physical modes at n <= n_max
+        
+    2. Remove as many mathematical modes as possible.        
+    
+    (a) Remove certainly mathematical modes using hard validation criteria.
+        Re(\lambda_n)>= 0 or Im(\lambda_n)==0-> remove conjugates in OMA algorithm
+    (b) Split modes into consistent and non-consistent sets using k-means clustering.
+        p_i = [d_lambda, d_f, d_zeta, 1-MAC, dMPD]
+        power transformation eq 11
+        h_Ti = ln(p_i)
+        normalize: 
+        h_Ni = (h_Ti - mean(h_Ti)) / std(h_Ti)
+        initialize centroids with (+std(h_Ni), -std(h_Ni))
+        
+    3. Divide the remaining modes into homogeneous sets using hierarchical clustering.
+    
+    (a) Derive cutoff distance from the probability distribution of the consistent modes.
+            np.percentile(a,95)
+    (b) Cluster the mode candidates based on a complex distance measure.
+            average linkage / single linkage 
+    (c) Remove all but one mode from a single system order in one cluster.
+            walk over each cluster and ensure each model order exists only once in the cluster, else remove the mode with a higher distance to the cluster center
+            
+    4. Remove the small sets, which typically consist of mathematical modes.
+    
+    (a) Reject sets that are smaller than a threshold derived from the largest set size.
+        no recommendations given in paper (threshold 50 %)
+    (b) Use outlier rejection to remove natural frequency and damping outliers.
+        skip
+    (c) Select a single mode representative from the remaining modes in each cluster.
+        "multivariate" median
+    
+    """
     def __init__(self, modal_data, prep_data=None):
         '''
         stab_* in %
@@ -2227,50 +2276,6 @@ class StabilCluster(StabilCalc):
         self.threshold = None
         self.use_stabil = False
 
-        """ The automatic modal analysis done in three stages clustering. 
-        1st stage: values sorted according to their soft and hard criteria by a 2-means partitioning algorithm
-        2nd stage: hierarchical clustering with automatic or user defined intercluster distance 
-                   the automatic distance is based on the 'df', 'dd' and 'MAC' values from the centroids obtained in the first stage
-                   ---------------------------------------------
-                   | d = weight*df + 1 - weight*MAC + weight*dd |
-                   ---------------------------------------------
-        3rd stage: 2-means partitioning of the physical and spurious poles. 
-        
-        
-        E. Neu et al.
-        
-        1. Identify mode candidates from a large number of system orders.
-            -> OMA Algorithm with n_max sufficiently high, i.e. number of mathematical modes should exceed the number pf physical modes at n <= n_max
-            
-        2. Remove as many mathematical modes as possible.        
-        (a) Remove certainly mathematical modes using hard validation criteria.
-            Re(\lambda_n)>= 0 or Im(\lambda_n)==0-> remove conjugates in OMA algorithm
-        (b) Split modes into consistent and non-consistent sets using k-means clustering.
-            p_i = [d_lambda, d_f, d_zeta, 1-MAC, dMPD]
-            power transformation eq 11
-            h_Ti = ln(p_i)
-            normalize: 
-            h_Ni = (h_Ti - mean(h_Ti)) / std(h_Ti)
-            initialize centroids with (+std(h_Ni), -std(h_Ni))
-            
-        
-        3. Divide the remaining modes into homogeneous sets using hierarchical clustering.
-        (a) Derive cutoff distance from the probability distribution of the consistent modes.
-                np.percentile(a,95)
-        (b) Cluster the mode candidates based on a complex distance measure.
-                average linkage / single linkage 
-        (c) Remove all but one mode from a single system order in one cluster.
-                walk over each cluster and ensure each model order exists only once in the cluster, else remove the mode with a higher distance to the cluster center
-                
-        4. Remove the small sets, which typically consist of mathematical modes.
-        (a) Reject sets that are smaller than a threshold derived from the largest set size.
-            no recommendations given in paper (threshold 50 %)
-        (b) Use outlier rejection to remove natural frequency and damping outliers.
-            skip
-        (c) Select a single mode representative from the remaining modes in each cluster.
-            "multivariate" median
-        
-        """
     @staticmethod
     def decompress_flat_mask(compress_mask, flat_mask):
         # takes a flat mask generated on compressed data and restore it to its

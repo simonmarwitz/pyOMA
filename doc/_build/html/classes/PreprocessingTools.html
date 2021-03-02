@@ -165,19 +165,16 @@
 <span id="preprocessingtools-module"></span><h1>PreprocessingTools module<a class="headerlink" href="#module-PreprocessingTools" title="Permalink to this headline">¶</a></h1>
 <p>Based on previous works by Volkmar Zabel 2015
 Modified and Extended by Simon Marwitz 2015
-TODO:
-- correct linear,…. offsets as well
-- implement filter functions
-- implement loading of different filetypes ascii, lvm, …
-- currently loading geometry, etc. files will overwrite existing assignments</p>
-<blockquote>
-<div><p>implement “load and append”</p>
-</div></blockquote>
-<ul class="simple">
-<li><p>implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)</p></li>
-<li><p>implement integration</p></li>
-<li><p>implement windowing functions</p></li>
-</ul>
+.. todo:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">*</span> <span class="n">correct</span> <span class="n">linear</span><span class="p">,</span><span class="o">....</span> <span class="n">offsets</span> <span class="k">as</span> <span class="n">well</span>
+<span class="o">*</span> <span class="n">implement</span> <span class="nb">filter</span> <span class="n">functions</span>
+<span class="o">*</span> <span class="n">implement</span> <span class="n">loading</span> <span class="n">of</span> <span class="n">different</span> <span class="n">filetypes</span> <span class="n">ascii</span><span class="p">,</span> <span class="n">lvm</span><span class="p">,</span> <span class="o">...</span>
+<span class="o">*</span> <span class="n">currently</span> <span class="n">loading</span> <span class="n">geometry</span><span class="p">,</span> <span class="n">etc</span><span class="o">.</span> <span class="n">files</span> <span class="n">will</span> <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">assignments</span> <span class="n">implement</span> <span class="s2">&quot;load and append&quot;</span>
+<span class="o">*</span> <span class="n">implement</span> <span class="n">fft</span><span class="p">,</span> <span class="n">psd</span><span class="p">,</span> <span class="n">covariance</span> <span class="p">(</span><span class="n">auto</span><span class="p">,</span><span class="n">cross</span><span class="p">),</span> <span class="n">coherence</span><span class="p">,</span> <span class="n">frf</span> <span class="p">(</span><span class="n">to</span> <span class="n">be</span> <span class="n">used</span> <span class="k">with</span> <span class="n">a</span> <span class="n">preprocessor</span> <span class="n">gui</span><span class="p">)</span>
+<span class="o">*</span> <span class="n">implement</span> <span class="n">integration</span>
+<span class="o">*</span> <span class="n">implement</span> <span class="n">windowing</span> <span class="n">functions</span>
+</pre></div>
+</div>
 <dl class="py class">
 <dt id="PreprocessingTools.GeometryProcessor">
 <em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">PreprocessingTools.</span></code><code class="sig-name descname"><span class="pre">GeometryProcessor</span></code><a class="reference internal" href="../_modules/PreprocessingTools.html#GeometryProcessor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PreprocessingTools.GeometryProcessor" title="Permalink to this definition">¶</a></dt>
@@ -288,18 +285,18 @@ x,y,z are treated as floats (in scientific format)</p>
 <em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">PreprocessingTools.</span></code><code class="sig-name descname"><span class="pre">PreprocessData</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">measurement</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampling_rate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_time_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">accel_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">velo_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disp_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">setup_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_headers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ft_freq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_ft</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PreprocessingTools.html#PreprocessData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PreprocessingTools.PreprocessData" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A simple Data PreProcessor
-- load ascii datafiles
-- specify sampling rate, reference channels and roving channels
-- specify geometry, channel-dof-assignments
-- specify channel quantities such as acceleration, velocity, etc
-- remove channels, cut time histories
-- remove (constant) offsets from time history data
-- decimate time histories
+* load ascii datafiles
+* specify sampling rate, reference channels and roving channels
+* specify geometry, channel-dof-assignments
+* specify channel quantities such as acceleration, velocity, etc
+* remove channels, cut time histories
+* remove (constant) offsets from time history data
+* decimate time histories
 future:
-- apply several filters
-- calculate fft, psd, covariance, coherence, frf
-- integrate
-- apply windowing functions</p>
+* apply several filters
+* calculate fft, psd, covariance, coherence, frf
+* integrate
+* apply windowing functions</p>
 <dl class="py method">
 <dt id="PreprocessingTools.PreprocessData.add_chan_dofs">
 <code class="sig-name descname"><span class="pre">add_chan_dofs</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chan_dofs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PreprocessingTools.html#PreprocessData.add_chan_dofs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PreprocessingTools.PreprocessData.add_chan_dofs" title="Permalink to this definition">¶</a></dt>

@@ -82,8 +82,13 @@
               
             
             
-              <!-- Local TOC -->
-              <div class="local-toc"></div>
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/preprocessing.html">Pre-processing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/oma.html">Operational Modal Analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/postprocessing.html">Post-processing</a></li>
+</ul>
+
             
           
         </div>
@@ -330,43 +335,46 @@
 <span class="sd">    Abilities include:</span>
 
 <span class="sd">    Drawing:</span>
-<span class="sd">    - creation of 3d plots using matplotlib&#39;s mplot3 from the </span>
-<span class="sd">        matplotlib toolkit</span>
-<span class="sd">    - adjusting axis limits for each of the three axis</span>
-<span class="sd">        i.e. zoom view, shift view (along single and multiple axis&#39;)</span>
-<span class="sd">    - change the viewport e.g. x, y, z and isometric view</span>
-<span class="sd">    - rotating and zooming through mouse interaction is currently </span>
-<span class="sd">        supported by matplotlib, whereas panning is not</span>
-<span class="sd">    - animate the currently displayed deformed structure</span>
-<span class="sd">    - save the still frame</span>
+<span class="sd">    * creation of 3d plots using matplotlib&#39;s mplot3 from the </span>
+<span class="sd">    matplotlib toolkit</span>
+<span class="sd">    * adjusting axis limits for each of the three axis</span>
+<span class="sd">    i.e. zoom view, shift view (along single and multiple axis&#39;)</span>
+<span class="sd">    * change the viewport e.g. x, y, z and isometric view</span>
+<span class="sd">    * rotating and zooming through mouse interaction is currently </span>
+<span class="sd">    supported by matplotlib, whereas panning is not</span>
+<span class="sd">    * animate the currently displayed deformed structure</span>
+<span class="sd">    * save the still frame</span>
 
 <span class="sd">    currently __not__ supported:</span>
-<span class="sd">    - 3D surface plots, as they are not properly supported by the </span>
-<span class="sd">        underlying matplotlib api</span>
-<span class="sd">    - combination of several modeshapes or sensor setups </span>
-<span class="sd">        (this could be done easily in an external script)</span>
-<span class="sd">    - saving of the animation as a movie file</span>
-<span class="sd">    - drawing multiple modeshapes into one plot</span>
-<span class="sd">    - plot modeshape in a single call from a script i.e. use static methods</span>
+<span class="sd">    * 3D surface plots, as they are not properly supported by the </span>
+<span class="sd">    underlying matplotlib api</span>
+<span class="sd">    * combination of several modeshapes or sensor setups </span>
+<span class="sd">    (this could be done easily in an external script)</span>
+<span class="sd">    * saving of the animation as a movie file</span>
+<span class="sd">    * drawing multiple modeshapes into one plot</span>
+<span class="sd">    * plot modeshape in a single call from a script i.e. use static methods</span>
 <span class="sd">    </span>
-<span class="sd">                | Merging Routine</span>
-<span class="sd">Variable in     | single-setup  poger/preger  poser merging</span>
-<span class="sd">PlotMSH         |</span>
-<span class="sd">________________|____________________________________________</span>
-<span class="sd">modal_freq.     | modal_data    modal_data    merged_data</span>
-<span class="sd">modal_damping   | modal_data    modal_data    merged_data</span>
-<span class="sd">modeshapes      | modal_data    modal_data    merged_data</span>
-<span class="sd">                |</span>
-<span class="sd">num_channels    | prep_data     modal_data    merged_data</span>
-<span class="sd">                |</span>
-<span class="sd">chan_dofs       | prep_data     modal_data    merged_data</span>
-<span class="sd">                |    </span>
-<span class="sd">select_modes    | stabil_data   stabil_data   merged_data</span>
-<span class="sd">                |</span>
-<span class="sd">nodes           | geometry_data geometry_data geometry_data</span>
-<span class="sd">lines           | geometry_data geometry_data geometry_data</span>
-<span class="sd">master-slaves   | geometry_data geometry_data geometry_data </span>
+<span class="sd">    ================ =============================================</span>
+<span class="sd">    Variable in       Merging Routine</span>
+<span class="sd">    PlotMSH           single-setup  poger/preger  poser merging</span>
+<span class="sd">    ================ =============================================</span>
+<span class="sd">    modal_freq.       modal_data    modal_data    merged_data</span>
+<span class="sd">    modal_damping     modal_data    modal_data    merged_data</span>
+<span class="sd">    modeshapes        modal_data    modal_data    merged_data</span>
+<span class="sd">                     </span>
+<span class="sd">    num_channels      prep_data     modal_data    merged_data</span>
+<span class="sd">                     </span>
+<span class="sd">    chan_dofs         prep_data     modal_data    merged_data</span>
+<span class="sd">                         </span>
+<span class="sd">    select_modes      stabil_data   stabil_data   merged_data</span>
+<span class="sd">                     </span>
+<span class="sd">    nodes             geometry_data geometry_data geometry_data</span>
+<span class="sd">    lines             geometry_data geometry_data geometry_data</span>
+<span class="sd">    master-slaves     geometry_data geometry_data geometry_data </span>
+<span class="sd">    ================ =============================================</span>
+<span class="sd">                     </span>
 <span class="sd">    &#39;&#39;&#39;</span>
+    
     <span class="c1"># define this class&#39;s signals and the types of data they emit</span>
     <span class="n">grid_requested</span> <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
     <span class="n">beams_requested</span> <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
@@ -753,7 +761,7 @@
 
 <div class="viewcode-block" id="ModeShapePlot.save_plot"><a class="viewcode-back" href="../classes/PlotMSH.html#PlotMSH.ModeShapePlot.save_plot">[docs]</a>    <span class="k">def</span> <span class="nf">save_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        save the curently displayed frame as a *.png graphics file</span>
+<span class="sd">        save the curently displayed frame as a \*.png graphics file</span>
 <span class="sd">        &#39;&#39;&#39;</span>
 
         <span class="k">if</span> <span class="n">path</span><span class="p">:</span>
@@ -890,15 +898,21 @@
 <div class="viewcode-block" id="ModeShapePlot.add_master_slave"><a class="viewcode-back" href="../classes/PlotMSH.html#PlotMSH.ModeShapePlot.add_master_slave">[docs]</a>    <span class="k">def</span> <span class="nf">add_master_slave</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i_m</span><span class="p">,</span> <span class="n">x_m</span><span class="p">,</span> <span class="n">y_m</span><span class="p">,</span> <span class="n">z_m</span><span class="p">,</span> <span class="n">i_sl</span><span class="p">,</span> <span class="n">x_sl</span><span class="p">,</span> <span class="n">y_sl</span><span class="p">,</span> <span class="n">z_sl</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        receive master-slave definitions from a signal</span>
+<span class="sd">        </span>
 <span class="sd">        add these definitions to the internal master-slave table</span>
+<span class="sd">        </span>
 <span class="sd">        draw an arrow indicating the DOF at each node of master and slave</span>
-<span class="sd">            as a specialty arrows at equal positions and direction will </span>
-<span class="sd">            be offset to avoid overlapping</span>
+<span class="sd">        as a specialty arrows at equal positions and direction will </span>
+<span class="sd">        be offset to avoid overlapping</span>
+<span class="sd">        </span>
 <span class="sd">        arrow length&#39;s do not scale with the total dimensions of the plot</span>
+<span class="sd">        </span>
 <span class="sd">        store the two arrow objects in a table</span>
+<span class="sd">        </span>
 <span class="sd">        remove any objects that might be in the table at the desired place</span>
 <span class="sd">        i.e. avoid duplicate arrows</span>
 <span class="sd">        &#39;&#39;&#39;</span>
+        
         <span class="k">def</span> <span class="nf">offset_arrows</span><span class="p">(</span><span class="n">verts3d_new</span><span class="p">,</span> <span class="n">all_arrows_list</span><span class="p">):</span>
             <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">            avoid overlapping arrows as they are hard to distinguish</span>
@@ -1335,8 +1349,8 @@
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        draw all the beams in self.geometry_data.lines</span>
 <span class="sd">        self.geometry_data.lines=[line1, line2,....]</span>
-<span class="sd">            line = [node_start, node_end]</span>
-<span class="sd">            node numbering refers to elements in self.nodes</span>
+<span class="sd">        line = [node_start, node_end]</span>
+<span class="sd">        node numbering refers to elements in self.nodes</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">geometry_data</span><span class="o">.</span><span class="n">lines</span><span class="p">):</span>            
             <span class="bp">self</span><span class="o">.</span><span class="n">add_line</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
@@ -2109,49 +2123,47 @@
 <span class="sd">    by the SSICovRef class by Mihai-Andrei Udrea 2013 </span>
 <span class="sd">    (Bauhaus-Universität Weimar, Institut für Strukturmechanik). An</span>
 <span class="sd">    interactive GUI based on PyQt5 is used to create such plots.</span>
-
+<span class="sd">    </span>
 <span class="sd">    Abilities include:</span>
-
+<span class="sd">    </span>
 <span class="sd">    Drawing:</span>
-<span class="sd">    - creation of 3d plots using matplotlib&#39;s mplot3 from the </span>
-<span class="sd">        matplotlib toolkit</span>
-<span class="sd">    - adjusting axis limits for each of the three axis</span>
+<span class="sd">     * creation of 3d plots using matplotlib&#39;s mplot3 from the matplotlib toolkit</span>
+<span class="sd">     * adjusting axis limits for each of the three axis</span>
 <span class="sd">        i.e. zoom view, shift view (along single and multiple axis&#39;)</span>
-<span class="sd">    - change the viewport e.g. x, y, z and isometric view</span>
-<span class="sd">    - rotating and zooming through mouse interaction is currently </span>
+<span class="sd">     * change the viewport e.g. x, y, z and isometric view</span>
+<span class="sd">     * rotating and zooming through mouse interaction is currently </span>
 <span class="sd">        supported by matplotlib, whereas panning is not</span>
-<span class="sd">    - animate the currently displayed deformed structure</span>
-<span class="sd">    - save the still frame</span>
-
-
+<span class="sd">     * animate the currently displayed deformed structure</span>
+<span class="sd">     * save the still frame</span>
+<span class="sd">    </span>
 <span class="sd">    Geometry definition:</span>
-<span class="sd">    - draw single and multiple nodes (deformed and undeformed)</span>
-<span class="sd">    - draw single and multiple lines (deformed and undeformed)</span>
-<span class="sd">    - draw single and multiple master-slave assignments onto the nodes </span>
-<span class="sd">        (undeformed only)</span>
-<span class="sd">    - draw single and multiple channel-degree of freedom assignments </span>
+<span class="sd">     * draw single and multiple nodes (deformed and undeformed)</span>
+<span class="sd">     * draw single and multiple lines (deformed and undeformed)</span>
+<span class="sd">     * draw single and multiple master-slave assignments onto the nodes (undeformed only)</span>
+<span class="sd">     * draw single and multiple channel-degree of freedom assignments </span>
 <span class="sd">        onto the nodes (undeformed only</span>
-<span class="sd">    - initiate creation/editing/loading/saving of such geometric information</span>
-
+<span class="sd">     * initiate creation/editing/loading/saving of such geometric information</span>
+<span class="sd">    </span>
 <span class="sd">    SSI Solutions:</span>
-<span class="sd">    - load a SSI_solutions file</span>
-<span class="sd">    - extract and display the following from the SSI_solutions file (*.slv):</span>
-<span class="sd">        - available orders</span>
-<span class="sd">        - available modes for selected order</span>
-<span class="sd">        - modal values for selected mode and order</span>
+<span class="sd">     * load a SSI_solutions file</span>
+<span class="sd">     * extract and display the following from the SSI_solutions file (\*.slv):</span>
+<span class="sd">        * available orders</span>
+<span class="sd">        * available modes for selected order</span>
+<span class="sd">        * modal values for selected mode and order</span>
 <span class="sd">            frequency, damping, eigenvalue</span>
-<span class="sd">        - mode shapes for selected mode and order</span>
-<span class="sd">    - currently modeshapes are normalized to unit modal displacement by default</span>
-
+<span class="sd">        * mode shapes for selected mode and order</span>
+<span class="sd">     * currently modeshapes are normalized to unit modal displacement by default</span>
+<span class="sd">    </span>
 <span class="sd">    currently __not__ supported:</span>
-<span class="sd">    - 3D surface plots, as they are not properly supported by the </span>
+<span class="sd">     * 3D surface plots, as they are not properly supported by the </span>
 <span class="sd">        underlying matplotlib api</span>
-<span class="sd">    - combination of several modeshapes or sensor setups </span>
+<span class="sd">     * combination of several modeshapes or sensor setups </span>
 <span class="sd">        (this could be done easily in an external script)</span>
-<span class="sd">    - saving of the animation as a movie file</span>
-<span class="sd">    - drawing multiple modeshapes into one plot</span>
-<span class="sd">    - plot modeshape in a single call from a script i.e. use static methods</span>
+<span class="sd">     * saving of the animation as a movie file</span>
+<span class="sd">     * drawing multiple modeshapes into one plot</span>
+<span class="sd">     * plot modeshape in a single call from a script i.e. use static methods</span>
 <span class="sd">    &#39;&#39;&#39;</span>
+    
     <span class="c1"># define this class&#39;s signals and the types of data they emit</span>
     <span class="n">grid_requested</span> <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
     <span class="n">beams_requested</span> <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
@@ -2658,9 +2670,10 @@
     <span class="c1">#@pyqtSlot()</span>
 <div class="viewcode-block" id="ModeShapeGUI.save_plot"><a class="viewcode-back" href="../classes/PlotMSH.html#PlotMSH.ModeShapeGUI.save_plot">[docs]</a>    <span class="k">def</span> <span class="nf">save_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        save the curently displayed frame as a *.png graphics file</span>
+<span class="sd">        save the curently displayed frame as a \*.png graphics file</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-                <span class="c1"># copied and modified from matplotlib.backends.backend_qt4.NavigationToolbar2QT</span>
+        
+        <span class="c1"># copied and modified from matplotlib.backends.backend_qt4.NavigationToolbar2QT</span>
         <span class="n">canvas</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">canvas</span>
         
         <span class="n">filetypes</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">get_supported_filetypes_grouped</span><span class="p">()</span>
