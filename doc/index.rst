@@ -10,7 +10,6 @@ from ambient (output-only) vibration measurements....
 In a broader sense it consists of a series of processes:
 
 
-
 The toolbox is currently used on a daily basis to analyze the continuously acquired vibration measurements of the Geyer tower monitoring system (since 2015). Further uses include various academic and commercial measreument campaigns on civil engineering structures including bridges, towers/masts, widespanned floors, etc.
 
 It is written in python 3.7 and hosted on a git repository on /vegas/projects/modal_analysis_python/ on the institutes fileserver (binion.bauing.uni-weimar.de). It runs on any operating system that runs python and the required python packages.

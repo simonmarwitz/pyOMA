@@ -1,7 +1,0 @@
-decomp\_qr\_VZ module
-=====================
-
-.. automodule:: decomp_qr_VZ
-   :members:
-   :undoc-members:
-   :show-inheritance:
