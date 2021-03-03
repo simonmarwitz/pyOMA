@@ -6,7 +6,4 @@ PreprocessingTools module
    :undoc-members:
    :show-inheritance:
    
-.. currentmodule::
-
-   .. autoclass:: PreprocessData
-      :members
+   .. autoclasstoc::
