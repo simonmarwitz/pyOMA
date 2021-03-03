@@ -50,9 +50,9 @@ The documentation is generated from the git repository by Sphinx automatically a
    :maxdepth: 4
    :caption: Contents:
     
-   classes/preprocessing
-   classes/oma
-   classes/postprocessing
+   preprocessing
+   oma
+   postprocessing
 
 
 Indices and tables

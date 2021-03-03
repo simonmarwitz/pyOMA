@@ -1,9 +1,11 @@
 Operational Modal Analysis
 ==========================
 
-.. toctree::
-   :maxdepth: 4
-
+.. autosummary::
+   :recursive:
+   :toctree: classes
+   :template: custom-module-template.rst
+   
    SSICovRef
    SSIData
    VarSSIRef

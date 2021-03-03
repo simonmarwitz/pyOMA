@@ -1,7 +1,33 @@
-SSICovRef module
-================
+﻿SSICovRef
+=========
 
 .. automodule:: SSICovRef
-   :members:
-   :undoc-members:
-   :show-inheritance:
+  
+   
+   
+   
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+      :toctree:                                          
+      :template: custom-class-template.rst               
+   
+      BRSSICovRef
+      ModalBase
+      PogerSSICovRef
+   
+   
+
+   
+   
+   
+
+
+

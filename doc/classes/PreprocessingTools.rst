@@ -1,9 +1,43 @@
-PreprocessingTools module
-=========================
+﻿PreprocessingTools
+==================
 
 .. automodule:: PreprocessingTools
-   :members:
-   :undoc-members:
-   :show-inheritance:
+
    
-   .. autoclasstoc::
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      compare_PSD_Corr
+      example_blackman_tukey
+      example_decimate
+      example_filter
+      example_welch
+      load_measurement_file
+      main
+      nearly_equal
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      GeometryProcessor
+      PreprocessData
+   
+   
+
+   
+   
+   
+
+
+

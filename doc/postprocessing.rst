@@ -1,9 +1,9 @@
 Post-processing
 ===============
 
-.. toctree::
-   :maxdepth: 4
-
+.. autosummary::
+   :recursive:
+   :toctree: classes
   
    PlotMSH
    PostProcessingTools

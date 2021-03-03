@@ -7,7 +7,7 @@ Modified and Extended by Simon Marwitz 2015
 TODO
  * correct linear,.... offsets as well
  * implement filter functions
- * implement loading of different filetypes ascii, lvm, ...
+ * implement loading of different filetypes ascii, lvm, ... 
  * currently loading geometry, etc. files will overwrite existing assignments implement "load and append"
  * implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)
  * implement integration
@@ -1010,16 +1010,17 @@ class PreprocessData(object):
         
     
     def decimate_data(self, decimate_factor, highpass=None,  order=8, filter_type='cheby1'):
-        if highpass:
-            print('Decimating data with factor {} and additional highpass filtering at {}!'.format(decimate_factor, highpass))
-        else:
-            print('Decimating data with factor {}!'.format(decimate_factor))
         '''
         decimates measurement data
         filter type and order are choosable (order 8 and type cheby1 are standard for scipy signal.decimate function)
         maximum ripple in the passband (rp) and minimum attenuation in the stop band (rs) are modifiable
         '''
-        #signal.decimate()
+        
+        if highpass:
+            print('Decimating data with factor {} and additional highpass filtering at {}!'.format(decimate_factor, highpass))
+        else:
+            print('Decimating data with factor {}!'.format(decimate_factor))
+
         #input validation
         decimate_factor = abs(decimate_factor)
         order = abs(order)
@@ -1028,7 +1029,6 @@ class PreprocessData(object):
                 and (decimate_factor > 1) and (order > 1)):
             raise RuntimeError('Invalid arguments.')
             return
-        
         
         RpRs = [None, None]
         if filter_type=='cheby1' or filter_type=='cheby2' or filter_type=='ellip':
@@ -1049,8 +1049,6 @@ class PreprocessData(object):
     
     def psd_welch(self, n_lines=2048, refs_only=True, window='hamm'):
         '''
-        DONE:
-        
         * modify to compute one-sided PSD only, to save computation time
         * make possible to pass arguments to signal.csd
         * compute cross-psd of all  channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
@@ -1087,13 +1085,12 @@ class PreprocessData(object):
         
         
     def corr_welch(self, tau_max, window='hamming'):
-        
-        psd_mats, freqs = self.psd_welch(n_lines = tau_max, window=window)
-        
         '''
-        DONE:
         * compute cross-correlations of all channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
         '''
+        
+        
+        psd_mats, freqs = self.psd_welch(n_lines = tau_max, window=window)
         
         num_analised_channels = self.num_analised_channels
         num_ref_channels = self.num_ref_channels
@@ -1115,10 +1112,7 @@ class PreprocessData(object):
         
     
     def psd_blackman_tukey(self, tau_max=256, window = 'bartlett'):
-        print("Estimating Correlation Function and Power Spectral Density by Blackman-Tukey's method...")
-        
         '''
-        TO DO:
         * use rfft
         * why was 2*... removed from the amplitude correction?
         * compare with psd_welch
@@ -1128,6 +1122,8 @@ class PreprocessData(object):
         * read about the window choices in the reference that is mentioned in the comment and try to implement other windows that ensure non-negative fourier transform
         
         '''
+        
+        print("Estimating Correlation Function and Power Spectral Density by Blackman-Tukey's method...")
         
         num_analised_channels = self.num_analised_channels
         num_ref_channels = self.num_ref_channels
@@ -1560,8 +1556,10 @@ class PreprocessData(object):
             ax.set_ylabel('S_{i,j}(f) [mm^2/s^4/Hz]')
             
 def load_measurement_file(fname, **kwargs):
-    # assign this function to the class before instantiating the object
-    # PreprocessData.load_measurement_file = load_measurement_file
+    '''
+    assign this function to the class before instantiating the object
+    PreprocessData.load_measurement_file = load_measurement_file
+    '''
     
     # define a function to return the following variables
     headers=['channel_name','channel_name']

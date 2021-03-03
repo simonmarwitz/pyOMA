@@ -27,7 +27,7 @@ author = 'Simon Marwitz, Volkmar Zabel, Andrei Udrea'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinx.ext.viewcode', 'sphinx.ext.mathjax','sphinx.ext.todo']
+extensions = ['autoclasstoc', 'sphinx.ext.autodoc','sphinx.ext.autosummary', 'sphinx.ext.napoleon', 'sphinx.ext.viewcode', 'sphinx.ext.mathjax','sphinx.ext.todo']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -52,3 +52,7 @@ html_static_path = []
 
 # Build the documentation including the Todos
 todo_include_todos=True
+
+# 
+autodoc_default_flags = ['members']
+autosummary_generate = True
