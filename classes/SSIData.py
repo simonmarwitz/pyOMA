@@ -25,12 +25,12 @@ from PreprocessingTools import PreprocessData
 #import cython_code.cython_helpers
 
 '''
-TODO:
-- define unit tests to check functionality after changes
-- update SSIData to follow the generalized subspace algorithm approach by doehler et.al.
-- parallel state-estimation for SSI-DataMEC (different starting points and overlapping states)
-- add switch to keep synthesized time-histories
-- try to 
+..todo:: 
+     * define unit tests to check functionality after changes
+     * update SSIData to follow the generalized subspace algorithm approach by doehler et.al.
+     * parallel state-estimation for SSI-DataMEC (different starting points and overlapping states)
+     * add switch to keep synthesized time-histories
+     
 '''
 
 #from decomp_qr_VZ import qr

@@ -3,7 +3,8 @@
 '''
 Based on previous works by Volkmar Zabel 2015
 Modified and Extended by Simon Marwitz 2015
-TODO:
+
+TODO
  * correct linear,.... offsets as well
  * implement filter functions
  * implement loading of different filetypes ascii, lvm, ...
@@ -11,6 +12,7 @@ TODO:
  * implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)
  * implement integration
  * implement windowing functions
+ 
 '''
 
 import numpy as np

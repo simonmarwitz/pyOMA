@@ -14,16 +14,14 @@ The toolbox is currently used on a daily basis to analyze the continuously acqui
 
 It is written in python 3.7 and hosted on a git repository on /vegas/projects/modal_analysis_python/ on the institutes fileserver (binion.bauing.uni-weimar.de). It runs on any operating system that runs python and the required python packages.
 
-Prerequisites
-=============
+Getting started
+===============
 
-Learn python 3 with packages: numpy, scipy, matplotlib, (PyQt5, jupyter-notebook)
-Learn about documenting code with Sphinx (Cheatsheet here: https://matplotlib.org/sampledoc/cheatsheet.html)
-Learn about versioning with GIT: https://www.youtube.com/watch?v=8JJ101D3knE
-(Learn GUI programming with PyQt5)
-
-
- * Python with scientific Python packages → Intelpython 
+ * Learn python 3 with packages: numpy, scipy, matplotlib, (PyQt5, jupyter-notebook)
+ * Install python with scientific Python packages → `Intelpython <https://software.intel.com/content/www/us/en/develop/articles/oneapi-standalone-components.html#python>`_
+ * Learn about documenting code with Sphinx (`Tutorial <https://thomas-cokelaer.info/tutorials/sphinx/rest_syntax.html#inserting-code-and-literal-blocks>`_ , `Cheatsheet <https://matplotlib.org/sampledoc/cheatsheet.html>`_)
+ * Learn about versioning with GIT: `<https://www.youtube.com/watch?v=8JJ101D3knE>`_
+ * (Learn GUI programming with PyQt5)
  * QT-Designer for GUI development
  * Install Eclipse with PyDev and Git, or any other development environment
  * Clone the code with git from ssh://ism_username1234@stratos.bauing.uni-weimar.de/vegas/projects/pyOMA/repository.git/
@@ -49,7 +47,7 @@ The scripts package shall contain templates for certain recurring tasks, as well
 The documentation is generated from the git repository by Sphinx automatically and available on https://santafe.bauing.uni-weimar.de/pyOMA
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: Contents:
     
    classes/preprocessing

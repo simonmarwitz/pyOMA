@@ -5,3 +5,8 @@ PreprocessingTools module
    :members:
    :undoc-members:
    :show-inheritance:
+   
+.. currentmodule::
+
+   .. autoclass:: PreprocessData
+      :members

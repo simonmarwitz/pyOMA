@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-'''
-Based on previous works by Andrei Udrea 2014 and Volkmar Zabel 2015
-Modified and Extended by Simon Marwitz 2015/2016/2017
-'''
 
 import numpy as np
 import scipy.linalg 
@@ -15,12 +11,13 @@ from collections import deque
 from PreprocessingTools import PreprocessData
 
 '''
-TODO:
-- define unit tests to check functionality after changes
-- optimize multi order qr-based estimation routine
-- iterate over conjugate indices instead of removing them --> SSI_Data MC
-- add mode-shape integration with variances
-- use monte-carlo sampling in the last step of variance propagation (see: https://doi.org/10.1007/978-3-7091-0399-9_3)
+..todo::
+     * define unit tests to check functionality after changes
+     * optimize multi order qr-based estimation routine
+     * iterate over conjugate indices instead of removing them --> SSI_Data MC
+     * add mode-shape integration with variances
+     * use monte-carlo sampling in the last step of variance propagation (see: `https://doi.org/10.1007/978-3-7091-0399-9_3`_)
+     
 '''
     
 def vectorize(matrix):
