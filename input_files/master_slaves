@@ -1,5 +1,6 @@
 master_node	x_master	y_master	z_master	slave_node	x_slave	y_slave	z_slave
-A_1		0.00	1.00	1.00	A_2	1.00	0.00	0.00
+E_4		1.00	0.00	0.00	E_4	0.00	1.00	0.00
+E_4		1.00	0.00	0.00	E_4	0.00	0.00	1.00
 
 
 ########

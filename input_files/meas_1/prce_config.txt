@@ -1,0 +1,4 @@
+Number of Correlation Samples:
+200
+Maximum Model Order:
+100

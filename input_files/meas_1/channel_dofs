@@ -1,6 +1,15 @@
 Channel-Nr.	Node		Azimuth		Elevation	Channel Name		
-0		E1_X		0		90		II_0		
-1
+0		E1_X		0		0		II_0		
+1		E1_Y		90		0		II_1		
+2		E1_Z		0		90		II_2		
+3		E2_X		0		0		II_3		
+4		E2_Y		90		0		II_4		
+5		E2_Z		0		90		II_5		
+6		E3_X		0		0		II_6		
+7		E3_Y		0		90		II_7		
+8		E3_Z		90		0		II_8		
+9		E4  		0		0		II_9		
+
 
 
 

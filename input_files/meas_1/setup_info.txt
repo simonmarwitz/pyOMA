@@ -1,16 +1,17 @@
 Setup Name:
-blabla
+Test Setup
 Sampling Rate [Hz]:
-512
+25
 Reference Channels:
 0 1 2
 Delete Channels:
 3 4
 Accel. Channels:
-0 1 2
+0 1 2 3 4 5 
 Velo. Channels:
-
+8 9 
 Disp. Channels:
+6 7 
 
 ####
 Note:
