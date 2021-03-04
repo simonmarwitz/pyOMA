@@ -6,7 +6,6 @@ classes.SSIData.SSIData
 .. autoclass:: SSIData
    :members:                                   
    :show-inheritance:                          
-   :inherited-members:                         
 
    
    .. automethod:: __init__

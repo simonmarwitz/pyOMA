@@ -1,4 +1,4 @@
-classes.SSICovRef.PogerSSICovRef
+﻿classes.SSICovRef.PogerSSICovRef
 ================================
 
 .. currentmodule:: classes.SSICovRef
@@ -6,7 +6,6 @@ classes.SSICovRef.PogerSSICovRef
 .. autoclass:: PogerSSICovRef
    :members:                                   
    :show-inheritance:                          
-   :inherited-members:                         
 
    
    .. automethod:: __init__

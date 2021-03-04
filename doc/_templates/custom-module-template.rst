@@ -20,6 +20,7 @@
 
    .. autosummary::
       :toctree:                                         
+      
    {% for item in functions %}
       {{ item }}
    {%- endfor %}

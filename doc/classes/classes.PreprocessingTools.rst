@@ -2,7 +2,7 @@
 ==========================
 
 .. automodule:: classes.PreprocessingTools
-
+  
    
    
    
@@ -12,6 +12,8 @@
    .. rubric:: Functions
 
    .. autosummary::
+      :toctree:                                         
+      
    
       compare_PSD_Corr
       example_blackman_tukey
@@ -29,6 +31,8 @@
    .. rubric:: Classes
 
    .. autosummary::
+      :toctree:                                          
+      :template: custom-class-template.rst               
    
       GeometryProcessor
       PreprocessData

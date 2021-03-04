@@ -6,7 +6,6 @@ classes.PLSCF.PLSCF
 .. autoclass:: PLSCF
    :members:                                   
    :show-inheritance:                          
-   :inherited-members:                         
 
    
    .. automethod:: __init__

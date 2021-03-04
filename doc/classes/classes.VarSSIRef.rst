@@ -13,6 +13,7 @@
 
    .. autosummary::
       :toctree:                                         
+      
    
       dot
       lq_decomp

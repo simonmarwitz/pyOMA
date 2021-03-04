@@ -6,7 +6,6 @@ classes.ERA.ERA
 .. autoclass:: ERA
    :members:                                   
    :show-inheritance:                          
-   :inherited-members:                         
 
    
    .. automethod:: __init__

@@ -47,7 +47,7 @@ The scripts package shall contain templates for certain recurring tasks, as well
 The documentation is generated from the git repository by Sphinx automatically and available on https://santafe.bauing.uni-weimar.de/pyOMA
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
    :caption: Contents:
     
    preprocessing

@@ -2,7 +2,7 @@
 ===============
 
 .. automodule:: classes.PlotMSH
-
+  
    
    
    
@@ -12,6 +12,8 @@
    .. rubric:: Functions
 
    .. autosummary::
+      :toctree:                                         
+      
    
       draw_axes
       my_excepthook
@@ -28,6 +30,8 @@
    .. rubric:: Classes
 
    .. autosummary::
+      :toctree:                                          
+      :template: custom-class-template.rst               
    
       Arrow3D
       ModeShapeGUI

@@ -2,7 +2,7 @@
 =====================
 
 .. automodule:: classes.StabilDiagram
-
+  
    
    
    
@@ -12,6 +12,8 @@
    .. rubric:: Functions
 
    .. autosummary::
+      :toctree:                                         
+      
    
       my_excepthook
       nearly_equal
@@ -25,6 +27,8 @@
    .. rubric:: Classes
 
    .. autosummary::
+      :toctree:                                          
+      :template: custom-class-template.rst               
    
       ComplexPlot
       DataCursor

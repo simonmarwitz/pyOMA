@@ -1,4 +1,4 @@
-classes.SSICovRef.BRSSICovRef
+﻿classes.SSICovRef.BRSSICovRef
 =============================
 
 .. currentmodule:: classes.SSICovRef
@@ -6,7 +6,6 @@ classes.SSICovRef.BRSSICovRef
 .. autoclass:: BRSSICovRef
    :members:                                   
    :show-inheritance:                          
-   :inherited-members:                         
 
    
    .. automethod:: __init__
