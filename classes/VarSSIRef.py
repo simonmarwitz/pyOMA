@@ -8,7 +8,7 @@ import multiprocessing as mp
 import ctypes as c
 from collections import deque
 
-from PreprocessingTools import PreprocessData
+from classes.PreprocessingTools import PreprocessData
 
 '''
 ..todo::

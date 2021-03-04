@@ -6,109 +6,17 @@ Modified and Extended by Simon Marwitz 2015-2018
 
 import os
 import warnings
+import copy
 
 import numpy as np
 import scipy.linalg 
-import scipy.optimize
 
-from collections import deque
-import copy
+from classes.PreprocessingTools import PreprocessData
+from classes.ModalBase import ModalBase
 
-from PreprocessingTools import PreprocessData
-import matplotlib.pyplot as plot
-from numpy.linalg.linalg import LinAlgError
+import matplotlib.pyplot as plt
 
-class ModalBase(object):
-    '''
-    Base Class from which all other modal analysis classes should be inherited
-    * provides commonly used functions s.t. these don't have to be copied to each class
-    * object type checks in post-processing functions can check for 
-    modal base instead of each possible modal analysis class
-    '''
-    
-    def __init__(self,prep_data=None):
-        super().__init__()
-        if prep_data is not None:
-            assert isinstance(prep_data, PreprocessData)
-            self.setup_name = prep_data.setup_name
-            self.start_time = prep_data.start_time
-        else:
-            self.setup_name = ''
-            self.start_time = None
-        self.prep_data =prep_data
-        
-        self.eigenvalues = None
-        self.modal_damping = None
-        self.modal_frequencies = None
-        self.mode_shapes = None
-        
-    @staticmethod
-    def remove_conjugates(eigval, eigvec_r, eigvec_l=None, inds_only=False):
-        '''
-        finds conjugates: :math:`\\lambda_i = \\overline{\\lambda_j} for i \\neq j`
-        
-        unstable poles i.e. negatively damped poles :math:`[ln(|\lambda|)<0]: |\lambda_i|> 1`
-        overdamped poles :math:`[atan(Im/Re)=0]` i.e. real poles: :math:`Im(\lambda_i)==0`  
-        imaginary poles i.e. nyquist frequency: :math:`Re(\lambda_i)==0`
-        
-        keeps the second occurance of a conjugate pair (usually the one with the negative imaginary part)
-        
-        eigvec_l.shape = [order+1, order+1]
-        eigval.shape = [order+1,1]
-        '''
-        
-        num_val=len(eigval)
-        conj_indices=deque()
-        
-        for i in range(num_val):
-            this_val=eigval[i]
-            this_conj_val = np.conj(this_val)
-            if this_val == this_conj_val: #remove overdamped poles  i.e. real eigvals
-                conj_indices.append(i)
-            elif np.abs(this_val)>1: #remove negatively damped poles i.e. unstable poles
-                conj_indices.append(i)
-            for j in range(i+1, num_val): #catches unordered conjugates but takes slightly longer
-                if eigval[j] == this_conj_val:
-                    conj_indices.append(j)
-                    break
 
-        conj_indices=list(set(range(num_val)).difference(conj_indices))
-        
-        if inds_only:
-            return conj_indices
-        
-        if eigvec_l is None:
-            
-            eigvec_r = eigvec_r[:,conj_indices]
-            eigval = eigval[conj_indices]
-    
-            return eigval,eigvec_r      
-        
-        else:             
-            eigvec_l = eigvec_l[:,conj_indices]
-            eigvec_r = eigvec_r[:,conj_indices]
-            eigval = eigval[conj_indices]
-    
-            return eigval,eigvec_l,eigvec_r      
-    
-    @staticmethod
-    def integrate_quantities(vector, accel_channels, velo_channels, omega):
-        # input quantities = [a, v, d]
-        # output quantities = [d, d, d]
-        # converts amplitude and phase
-        #                     phase + 180; magn / omega^2
-        
-        vector[accel_channels] *= -1       / (omega ** 2)
-        #                    phase + 90; magn / omega
-        vector[velo_channels] *=  1j        / omega
-        
-        return vector   
-    
-    @staticmethod
-    def rescale_mode_shape(modeshape):
-        #scaling of mode shape
-        modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
-        return modeshape 
     
 class BRSSICovRef(ModalBase):
     
@@ -133,7 +41,6 @@ class BRSSICovRef(ModalBase):
     @classmethod
     def init_from_config(cls,conf_file, prep_data):
         assert os.path.exists(conf_file)
-        assert isinstance(prep_data, PreprocessData)
         
         with open(conf_file, 'r') as f:
             
@@ -223,13 +130,13 @@ class BRSSICovRef(ModalBase):
 #                 inds[1].append(col)
 #             means = Toeplitz_matrix[inds]
 #             #print(means.shape, sigma_r[inds,inds].shape, len(inds))
-#             #plot.errorbar(range(num_block_rows+num_block_rows-1), means, yerr=np.sqrt(sigma_r[inds,inds]))
+#             #plt.errorbar(range(num_block_rows+num_block_rows-1), means, yerr=np.sqrt(sigma_r[inds,inds]))
 #             #print(np.sqrt(sigma_r[inds,inds]))
 #                   
-#             #plot.plot(vec_R[inds,0])
-#             #plot.plot(vec_R[inds,1])
-#             plot.plot(range(1,num_block_columns+num_block_rows), means)
-#         plot.show()
+#             #plt.plot(vec_R[inds,0])
+#             #plt.plot(vec_R[inds,1])
+#             plt.plot(range(1,num_block_columns+num_block_rows), means)
+#         plt.show()
         
         if shift == 0:
             self.toeplitz_matrix = Toeplitz_matrix              
@@ -272,7 +179,7 @@ class BRSSICovRef(ModalBase):
         max_modes i.e. crystal clear only works with algorithm svd
         '''
 
-        assert algo in ['svd','qr','shift','opti']
+        assert algo in ['svd','qr','opti']
         
         max_model_order = self.max_model_order           
         num_block_rows = self.num_block_rows
@@ -292,8 +199,6 @@ class BRSSICovRef(ModalBase):
         O = np.dot(U, S_2)
         Z = np.dot(S_2, V_T)
         
-        if algo=='shift':
-            toeplitz_shift = self.build_toeplitz_cov(self.num_block_columns, self.num_block_rows, shift=1)
         
         print('Computing modal parameters...')
     
@@ -398,9 +303,6 @@ class BRSSICovRef(ModalBase):
             S=Q.T.dot(On_down)
             state_matrix = np.linalg.solve(R,S)
             
-        elif algo=='shift':
-            state_matrix = S_2_inv[:order,:order].dot(U[:,:order].T).dot(toeplitz_shift).dot(V_T[:order,:].T).dot(S_2_inv[:order,:order])
-        
         C = O[:num_analised_channels,:order]
         G = Z[:order,-num_ref_channels:]
         
@@ -422,7 +324,7 @@ class BRSSICovRef(ModalBase):
             #num_plots=5
             #num_plots = num_modes
             num_plots = len(modelist)+1
-            fig, axes= plot.subplots(num_plots, 2, 'col','none',False)
+            fig, axes= plt.subplots(num_plots, 2, 'col','none',False)
             #axes= axes.flatten()
         else:
             axes = None
@@ -529,7 +431,7 @@ class BRSSICovRef(ModalBase):
             axes[-1,1].set_xlabel('f [Hz]')
 #             if plot_:
 #                 fig.suptitle(str(np.sum(modal_contributions)))
-#                 #plot.show()
+#                 #plt.show()
             #print(str(np.sum(modal_contributions)))
             for ax in axes.flat:
                 ax.set_yticks([])
@@ -572,7 +474,7 @@ class BRSSICovRef(ModalBase):
         self.psd_matrix = psd_matrix        
 
         if 0:
-            ax = plot.subplot()
+            ax = plt.subplot()
             omega_max = psd_matrix.shape[2]
             
             freqs = np.fft.rfftfreq(2*omega_max - 1, delta_t) 
@@ -582,7 +484,7 @@ class BRSSICovRef(ModalBase):
                 for channel in range(num_analised_channels):
                     ax.plot(freqs,np.abs(psd_matrix[channel,ref_channel,:]))
             ax.set_xlim((0,freqs.max()))
-            plot.show()
+            plt.show()
         
     def save_state(self, fname):
         

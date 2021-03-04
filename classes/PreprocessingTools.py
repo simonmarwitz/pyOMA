@@ -12,13 +12,15 @@ TODO
  * implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)
  * implement integration
  * implement windowing functions
- 
+ * Proper documentation
+ * add test to tests package
+ * Remove multiprocessing routines, since numpy as paralelized already 
+ and proper vectorization of the code is better than just using multiprocessing to speed up bad code
 '''
 
 import numpy as np
-from scipy import signal
-import scipy.signal.ltisys
-import scipy.integrate
+import scipy.signal
+
 import os
 import csv
 import sys
@@ -30,8 +32,8 @@ import ctypes as c
 import warnings
 
 import matplotlib.pyplot as plt
-import matplotlib.pyplot as plot
-import warnings
+#import matplotlib.pyplot as plot
+#import warnings
 
 def nearly_equal(a,b,sig_fig=5):
     return ( a==b or 
@@ -660,69 +662,37 @@ class PreprocessData(object):
         return chan_dofs
     
     @staticmethod
-    def load_measurement_file(fname, ftype='ascii', **kwargs):
+    def load_measurement_file(fname, **kwargs):
+        '''
+        A method for loading a measurement file
         
-        if ftype!='ascii':
-            raise RuntimeError('Specified filetype: {} not implemented yet!'.format(ftype))
+        Parameters
+        ----------
+        fname : str
+                The full path of the measurement file
+                
+        Returns
+        -------
+        headers : list of str
+                The names of all channels
+        units : list of str
+                The units of all channels
+        start_time : datetime.datetime
+                The starting time of the measured signal
+        sample_rate : float
+                The sample rate, at wich the signal was acquired
+        measurement : ndarray
+                Array of shape (num_timesteps, num_channels) which contains
+                the acquired signal
+        '''
         
-        with open(fname, 'r', encoding='iso-8859-1') as f:
-            var_num = 1
-            headers = ['Delta Start']
-            units = []
-            i=-1
-            while True:
-                s = f.__next__()
-                i+=1                
-                if 'StartTime:' in s:
-                    s=s.split('(')[-1]
-                    s.strip(')')
-                    date, time, ampm = s.split(' ')
-                    month,day,year=[int(d) for d in date.split('/')]
-                    
-                    hour,min,sec=[int(t) for t in time.split(':')]
-                    if 'PM' in ampm and hour < 12:
-                        hour += 12
-                    start_time = datetime.datetime(year,month,day,hour, min,sec)
-                elif 'SampleRate' in s:
-                    sample_rate = float(s.split(' ')[-1])
-                elif 'VarCount' in s:
-                    num_vars = int(s.split(' ')[-1])
-                elif 'NameLen' in s:
-                    for s in s.split(' / '):
-                        if 'Name:' in s:
-                            while len(headers)<=var_num:
-                                headers.append(None)
-                            headers[var_num]=s.split(':')[-1].strip(' ')
-                        elif 'Unit:' in s:
-                            while len(units)<=var_num:
-                                units.append(None)
-                            units[var_num]=s.split(':')[-1].strip(' ')
-                    var_num += 1
-                elif '**' in s:
-                    break
-            assert var_num == num_vars+1
-            
-            s=f.__next__()
-            i+=1
-            start_sec = s.split(' ')[0].split('\t')[0]
-            start_time += datetime.timedelta(seconds = float(start_sec))
-            f.seek(0)
-            #print(i, num_vars)
-            #print(kwargs)
-            measurement=np.loadtxt(f, 
-                          dtype=kwargs.get('dtype',float), 
-                          comments=kwargs.get('comments','#'), 
-                          delimiter=kwargs.get('delimiter',None),
-                          converters=kwargs.get('converters',None), 
-                          skiprows=kwargs.get('skiprows',i), 
-                          usecols=kwargs.get('usecols',None), 
-                          unpack=kwargs.get('unpack',False),
-                          ndmin=kwargs.get('ndmin',0))
-            
-            assert measurement.shape [0] > measurement.shape [1]
-        #print(measurement[0,:])    
-        print(headers, measurement.shape)
-            
+        raise NotImplementedError('This method must be provided by the user for each specific analysis task and assigned to the class before instantiating the instance.')
+        headers = None
+        units=None
+        start_time=None
+        sample_rate=None
+        measurement=None
+        
         return headers, units, start_time, sample_rate, measurement  
 
         
@@ -759,7 +729,7 @@ class PreprocessData(object):
         
         #print('fname = ', fname)
         
-        dirname, filename = os.path.split(fname)
+        dirname, _ = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
         
@@ -808,7 +778,7 @@ class PreprocessData(object):
         if in_dict['self.channel_headers'].shape:
             channel_headers = list(in_dict['self.channel_headers'])
         else:
-            channel_headers =['' for chan in range(int(in_dict['self.num_analised_channels']))]
+            channel_headers =['' for _ in range(int(in_dict['self.num_analised_channels']))]
         start_time=in_dict['self.start_time'].item()
         
         accel_channels =  list(in_dict['self.accel_channels'])
@@ -897,10 +867,10 @@ class PreprocessData(object):
         order = int(order)
         measurement = self.measurement
         
-        b, a = signal.iirfilter(order, freqs, rp=RpRs[0], rs=RpRs[1], btype=btype, ftype=ftype)
-        self.measurement_filt = signal.filtfilt(b, a, measurement, axis=0, padlen=0)
+        b, a = scipy.signal.iirfilter(order, freqs, rp=RpRs[0], rs=RpRs[1], btype=btype, ftype=ftype)
+        self.measurement_filt = scipy.signal.filtfilt(b, a, measurement, axis=0, padlen=0)
         if self.F is not None:
-            self.F_filt = signal.filtfilt(b, a, self.F, axis=0, padlen=0)
+            self.F_filt = scipy.signal.filtfilt(b, a, self.F, axis=0, padlen=0)
         
         if np.isnan(self.measurement_filt).any():
             RuntimeWarning('Your filtered data contains NaNs. Check your filter settings! Continuing...')
@@ -935,9 +905,9 @@ class PreprocessData(object):
             channels = list(range(self.num_analised_channels))
             
         if single_channels:
-            fig, axes = plot.subplots(nrows=len(channels), ncols=2, sharey='col', sharex='col', tight_layout = True)
+            fig, axes = plt.subplots(nrows=len(channels), ncols=2, sharey='col', sharex='col', tight_layout = True)
         else:
-            fig, axes = plot.subplots(nrows=2, ncols=1, squeeze=False, tight_layout = True)
+            fig, axes = plt.subplots(nrows=2, ncols=1, squeeze=False, tight_layout = True)
             
         for i, channel in enumerate(channels):
             if not single_channels:
@@ -1303,7 +1273,7 @@ class PreprocessData(object):
                 
         #each process should have at least 10 blocks to compute, to reduce overhead associated with spawning new processes 
         n_proc = min(int(tau_max*num_blocks/10), os.cpu_count())
-        pool=mp.Pool(processes=n_proc, initializer=self.init_child_process, initargs=(measurement_memory, corr_matrices_mem)) # @UndefinedVariable
+        #pool=mp.Pool(processes=n_proc, initializer=self.init_child_process, initargs=(measurement_memory, corr_matrices_mem)) # @UndefinedVariable
         
         iterators = []            
         it_len = int(np.ceil(tau_max*num_blocks/n_proc))
@@ -1335,8 +1305,8 @@ class PreprocessData(object):
 #                                                         corr_mats_shape))
             self.compute_covariance(curr_it, tau_max, block_length, ref_channels, all_channels, measurement_shape, corr_mats_shape)
                                   
-        pool.close()
-        pool.join()               
+        #pool.close()
+        #pool.join()               
 
         corr_matrices = []
         for corr_mats_mem in corr_matrices_mem:
@@ -1453,7 +1423,7 @@ class PreprocessData(object):
     def plot_svd_spectrum(self,NFFT=512, log_scale=False, ax=None):
 
         if ax is None:
-            ax=plot.subplot(111)
+            ax=plt.subplot(111)
         
         psd_matrix, freq = self.psd_welch(NFFT,False)
         svd_matrix = np.zeros((self.num_analised_channels, len(freq)))
@@ -1472,17 +1442,17 @@ class PreprocessData(object):
              
 
         ax.set_xlim((0,self.sampling_rate/2))
-        #plot.grid(1)
+        #plt.grid(1)
         #ax.set_xlabel('Frequency [\si{\hertz}]')
         if log_scale: ax.set_ylabel('Singular Value Magnitude [\si{\decibel}]')
         else: ax.set_ylabel('Singul\\"arwert Magnitude')
-        #plot.yticks([0,-25,-50,-75,-100,-125,-150,-175,-200,-225,-250])
-        #plot.ylim((-225,0))
-        #plot.xlim((0.1,5))
+        #plt.yticks([0,-25,-50,-75,-100,-125,-150,-175,-200,-225,-250])
+        #plt.ylim((-225,0))
+        #plt.xlim((0.1,5))
 
-        #plot.grid(b=0)
+        #plt.grid(b=0)
         
-        #plot.show()
+        #plt.show()
     def plot_correlation(self, tau_max=None, num_blocks=False, ax=None):
         
         assert tau_max or self.corr_matrix.shape
@@ -1501,7 +1471,7 @@ class PreprocessData(object):
         num_ref_channels = self.num_ref_channels
         
         if ax is None:
-            ax=plot.subplot(111)
+            ax=plt.subplot(111)
         
         
         
@@ -1542,13 +1512,13 @@ class PreprocessData(object):
         num_ref_channels = self.num_ref_channels
         
         if ax is None:
-            ax=plot.subplot(111)
+            ax=plt.subplot(111)
             
         for ref_channel in range(num_ref_channels):
             for channel in range(num_analised_channels):
                 ax.plot(freqs,np.abs(psd_mats[channel,ref_channel,:]))
         ax.set_xlim((0,freqs.max()))
-        if plot.rc('latex.usetex'):
+        if plt.rc('latex.usetex'):
             ax.set_xlabel('$f [\si{\hertz}]$')
             ax.set_ylabel('$S_{i,j}(f) [\si{\milli\metre\squared\per\second\tothe{4}}\per\hertz]$')
         else:
@@ -1722,7 +1692,7 @@ if __name__ =='__main__':
     measurement = np.loadtxt(path)
     prep_data = PreprocessData(measurement, sampling_rate=128, ref_channels=[0, 1])
     prep_data.plot_svd_spectrum(8192)
-    plot.show()
+    plt.show()
     #example_filter()
     #example_decimate()
     #example_welch()

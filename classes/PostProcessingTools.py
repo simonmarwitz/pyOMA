@@ -33,12 +33,12 @@ poser multi-setup (merged_data)
 
 import numpy as np
 import datetime
-from PreprocessingTools import PreprocessData
-from SSICovRef import BRSSICovRef
-from PLSCF import PLSCF
-from PRCE import PRCE
-from SSIData import SSIData, SSIDataMC
-from StabilDiagram import StabilCalc
+from classes.PreprocessingTools import PreprocessData
+from classes.SSICovRef import BRSSICovRef
+from classes.PLSCF import PLSCF
+from classes.PRCE import PRCE
+from classes.SSIData import SSIData, SSIDataMC
+from classes.StabilDiagram import StabilCalc
 import os
 
 
@@ -501,10 +501,10 @@ class MergePoSER(object):
             f.close()
 
 def main():
-    from PreprocessingTools import PreprocessData, GeometryProcessor
-    from SSICovRef import BRSSICovRef
-    from StabilDiagram import StabilCalc
-    from PlotMSH import ModeShapePlot, start_msh_gui
+    from classes.PreprocessingTools import PreprocessData, GeometryProcessor
+    from classes.SSICovRef import BRSSICovRef
+    from classes.StabilDiagram import StabilCalc
+    from classes.PlotMSH import ModeShapePlot, start_msh_gui
     
     working_dir = '/home/womo1998/Projects/2017_modal_merging_test_files/'  
     interactive = False

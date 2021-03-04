@@ -49,44 +49,44 @@ import numpy as np
 from math import cos, pi, fmod
 #tools
 import itertools
-from StabilDiagram import StabilCalc, DelayedDoubleSpinBox
-from PreprocessingTools import PreprocessData, GeometryProcessor
+from classes.StabilDiagram import StabilCalc, DelayedDoubleSpinBox
+from classes.PreprocessingTools import PreprocessData, GeometryProcessor
 
 NoneType = type(None)
 
 try:
-    from SSICovRef import BRSSICovRef, PogerSSICovRef
+    from classes.SSICovRef import BRSSICovRef, PogerSSICovRef
 except ImportError:
     BRSSICovRef = NoneType
     PogerSSICovRef = NoneType
 try:    
-    from SSIData import SSIData, SSIDataMC
+    from classes.SSIData import SSIData, SSIDataMC
 except ImportError:
     SSIData = NoneType
     SSIDataMC = NoneType
     
 try:
-    from VarSSIRef import VarSSIRef
+    from classes.VarSSIRef import VarSSIRef
 except ImportError:
     VarSSIRef = NoneType
     
 try:
-    from PRCE import PRCE
+    from classes.PRCE import PRCE
 except ImportError:
     PRCE = NoneType
 
 try:
-    from PLSCF import PLSCF
+    from classes.PLSCF import PLSCF
 except ImportError:
     PLSCF = NoneType
     
 try:
-    from ERA import ERA
+    from classes.ERA import ERA
 except ImportError:
     ERA = NoneType
     
 try:
-    from PostProcessingTools import MergePoSER
+    from classes.PostProcessingTools import MergePoSER
 except ImportError:
     MergePoSER = NoneType
 #from pyparsing import line

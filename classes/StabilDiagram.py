@@ -65,38 +65,40 @@ from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHand
 
 NoneType = type(None)
 
+from classes.ModalBase import ModalBase
+
 try:
-    from SSICovRef import BRSSICovRef, PogerSSICovRef
+    from classes.SSICovRef import BRSSICovRef, PogerSSICovRef
 except ImportError:
     BRSSICovRef = NoneType
     PogerSSICovRef = NoneType
 try:    
-    from SSIData import SSIData, SSIDataMC
+    from classes.SSIData import SSIData, SSIDataMC
 except ImportError:
     SSIData = NoneType
     SSIDataMC = NoneType
     
 try:
-    from VarSSIRef import VarSSIRef
+    from classes.VarSSIRef import VarSSIRef
 except ImportError:
     VarSSIRef = NoneType
     
 try:
-    from PRCE import PRCE
+    from classes.PRCE import PRCE
 except ImportError:
     PRCE = NoneType
 
 try:
-    from PLSCF import PLSCF
+    from classes.PLSCF import PLSCF
 except ImportError:
     PLSCF = NoneType
     
 try:
-    from ERA import ERA
+    from classes.ERA import ERA
 except ImportError:
     ERA = NoneType
     
-from PreprocessingTools import PreprocessData
+from classes.PreprocessingTools import PreprocessData
 
 
 
@@ -123,14 +125,14 @@ def resizeEvent_(self, event):
     QWidget.resizeEvent(self, event)
     
 '''
-TODO:
-scale markers right on every platform
-frequency range as argument or from ssi params, sampling freq
-add switch to choose between "unstable only in ..." or "stable in ..."
-(select and merge several poles with a rectangular mouse selection)
-distinguish beetween stabilization criteria and filtering criteria
-add zoom and sliders (horizontal/vertical) for the main figure
-distinguish between  "export results" and "save state"
+..TODO::
+ * scale markers right on every platform
+ * frequency range as argument or from ssi params, sampling freq
+ * add switch to choose between "unstable only in ..." or "stable in ..."
+ * (select and merge several poles with a rectangular mouse selection)
+ * distinguish beetween stabilization criteria and filtering criteria
+ * add zoom and sliders (horizontal/vertical) for the main figure
+ * distinguish between  "export results" and "save state"
 '''
 
 
@@ -1186,10 +1188,10 @@ class StabilCalc(object):
     def __init__(self, modal_data, prep_data=None, **kwargs):
 
         super().__init__()
-        print(type(modal_data))
-        assert isinstance(
-            modal_data, (BRSSICovRef, SSIData, VarSSIRef, PRCE, 
-                         PLSCF, SSIDataMC, PogerSSICovRef, ERA))
+        #print(type(modal_data), file=sys.stderr)
+        assert isinstance(modal_data,
+                          (ModalBase, BRSSICovRef, SSIData, VarSSIRef, PRCE, 
+                          PLSCF, SSIDataMC, PogerSSICovRef, ERA))
 
         self.modal_data = modal_data
         
@@ -3641,7 +3643,7 @@ class ModeShapePlot(object):
         #sys.path.append("/vegas/users/staff/womo1998/Projects/2016_Burscheid") 
         #from main_Schwabach_2019 import print_mode_info
         
-        self.mode_shape_plot = PlotMSH.ModeShapePlot(
+        self.mode_shape_plot = classes.PlotMSH.ModeShapePlot(
             stabil_calc=stabil_calc, 
             modal_data=modal_data,
             geometry_data=geometry_data, 

@@ -17,7 +17,8 @@ from collections import deque
 #import datetime
 #from copy import deepcopy
 
-from PreprocessingTools import PreprocessData
+from classes.PreprocessingTools import PreprocessData
+from classes.ModalBase import ModalBase
 #import pyximport 
 #pyximport.install()
 
@@ -66,17 +67,14 @@ def lq_decomp(a, mode='full', unique=False):
     else:
         return r.T, q.T
     
-class SSIData(object):
+class SSIData(ModalBase):
     
-    def __init__(self,prep_data):    
+    def __init__(self,*args,**kwargs):    
         '''
         channel definition: channels start at 0
         '''
-        super().__init__()
-        assert isinstance(prep_data, PreprocessData)
-        self.prep_data =prep_data
-        self.setup_name = prep_data.setup_name
-        self.start_time = prep_data.start_time
+        
+        super().__init__(*args,**kwargs)
         #             0         1           2             3
         #self.state= [Hankel, QR_decomp.,  State matr.,  Modal Par.]
         self.state  =[False,    False,     False,        False]
@@ -90,9 +88,6 @@ class SSIData(object):
         self.state_matrix = None
         self.output_matrix = None
         
-        self.modal_damping = None
-        self.modal_frequencies = None
-        self.mode_shapes = None
             
     @classmethod
     def init_from_config(cls,conf_file, prep_data):
@@ -101,26 +96,22 @@ class SSIData(object):
         
         with open(conf_file, 'r') as f:
             
-            assert f.__next__().strip('\n').strip(' ') == 'Number of Block-Rows:'
+            assert f.__next__().strip('\n').strip(' ') == 'Number of Block-Columns:'
             num_block_rows = int(f. __next__().strip('\n'))
             assert f.__next__().strip('\n').strip(' ')== 'Maximum Model Order:'
             max_model_order= int(f. __next__().strip('\n'))
-            assert f.__next__().strip('\n').strip(' ')== 'Use Multiprocessing:'
-            multiprocessing= f.__next__().strip('\n').strip(' ')=='yes'
         
             
         ssi_object = cls(prep_data)
-        ssi_object.build_block_hankel(num_block_rows, multiprocess=multiprocessing)
-        ssi_object.compute_projection_matrix(num_block_rows, multiprocess=multiprocessing)
+        ssi_object.build_block_hankel(num_block_rows)
+        ssi_object.compute_projection_matrix(num_block_rows)
         ssi_object.compute_state_matrices(num_block_rows, max_model_order)
-        ssi_object.compute_modal_params(max_model_order, multiprocessing)
-        print('max_model_order = ', max_model_order)
-        print('ssi_object.max_model_order = ', ssi_object.max_model_order)
+        ssi_object.compute_modal_params(max_model_order)
         
         return ssi_object
 
         
-    def build_block_hankel(self, num_block_rows=None, multiprocess=True):
+    def build_block_hankel(self, num_block_rows=None, ):
         '''
         Builds a Block-Hankel Matrix of the measured time series with varying time lags
         
@@ -140,7 +131,7 @@ class SSIData(object):
         self.num_block_rows=num_block_rows
         total_time_steps = self.prep_data.total_time_steps
         ref_channels = sorted(self.prep_data.ref_channels)
-        roving_channels = self.prep_data.roving_channels
+        #roving_channels = self.prep_data.roving_channels
         measurement = self.prep_data.measurement
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels =self.prep_data.num_ref_channels 
@@ -156,8 +147,8 @@ class SSIData(object):
             total_time_steps = fixlimit
                        
         # Extract reference time series 
-        all_channels = ref_channels + roving_channels
-        all_channels.sort()
+        #all_channels = ref_channels + roving_channels
+        #all_channels.sort()
                               
         if (num_ref_channels < num_analised_channels):
             
@@ -165,12 +156,6 @@ class SSIData(object):
                      
         else:
             refs = measurement[0:extract_length,:]
-
-       
-           
-        ###############################################################################
-        ######## Create transpose of the block Hankel matrix [Y_(0|2i-1)]^T ###########
-        ###############################################################################
         
         print('Creating block Hankel matrix...')
         
@@ -215,10 +200,10 @@ class SSIData(object):
           
           
     def compute_projection_matrix(self, num_block_rows=None, multiprocess=True):
-            
-        ###############################################################################
-        ####################### QR decomposition of [Y_(0|2i-1)]^T ####################
-        ###############################################################################
+        '''
+        QR decomposition of [Y_(0|2i-1)]^T
+        '''
+        
         
         print('Computing QR decomposition of block Hankel matrix...')
         
@@ -263,25 +248,9 @@ class SSIData(object):
          
         self.P_i_ref = P_i_ref              
         self.state[1]=True
-        self.state[2] = False # previous state matrices are invalid now
-      
-                       
-    '''    
-    def init_child_process(self, refs_memory_, measurement_memory_, toeplitz_memory_):
-        #make the  memory arrays available to the child processes
-        global refs_memory
-        refs_memory = refs_memory_
-        
-        global measurement_memory
-        measurement_memory = measurement_memory_   
-        
-        global toeplitz_memory
-        toeplitz_memory = toeplitz_memory_
-    '''
-        
+        self.state[2] = False # previous state matrices are invalid now        
         
     def compute_state_matrices(self, num_block_rows=None, max_model_order=None):
-        
         '''
         computes the state and output matrices A and C, resp., of the state-space-model
         by applying a singular value decomposition to the projection matrix P_i_ref
@@ -296,12 +265,7 @@ class SSIData(object):
         
         P_i_ref = self.P_i_ref              
         num_analised_channels = self.prep_data.num_analised_channels
-           
-        ###############################################################################
-        ############# Computation of state matrices A and C ###########################
-        ###############################################################################
-       
-        
+
         print('Computing state matrices A and C...')
         
         
@@ -344,11 +308,6 @@ class SSIData(object):
         C_full = self.output_matrix
         num_analised_channels = self.prep_data.num_analised_channels
         sampling_rate = self.prep_data.sampling_rate
-          
-        ###############################################################################
-        ############# Computation of modal parameters #################################
-        ###############################################################################
-        
          
         print('Computing modal parameters...')
           
@@ -441,57 +400,12 @@ class SSIData(object):
         for truncation_order in truncation_orders:
             eigenvalues_paired, eigenvectors_paired = np.linalg.eig(a[0:truncation_order+1, 0:truncation_order+1])
     
-            eigenvectors_single,eigenvalues_single = \
-                    self.remove_conjugates_new(eigenvectors_paired,eigenvalues_paired)
+            eigenvalues_single,eigenvectors_single = \
+                    self.remove_conjugates(eigenvalues_paired,eigenvectors_paired)
             return_dict[truncation_order] = (eigenvalues_single, eigenvectors_single)
         
         return
                     
-    @staticmethod
-    def remove_conjugates_new (vectors, values):
-        '''
-        removes conjugates and marks the vectors which appear in pairs
-        
-        vectors.shape = [order+1, order+1]
-        values.shape = [order+1,1]
-        '''
-        num_val=vectors.shape[1]
-        conj_indices=deque()
-        
-        for i in range(num_val):
-            this_vec=vectors[:,i]
-            this_conj_vec = np.conj(this_vec)
-            this_val=values[i]
-            this_conj_val = np.conj(this_val)
-            if this_val == this_conj_val: #remove real eigenvalues
-                continue
-            for j in range(i+1, num_val): #catches unordered conjugates but takes slightly longer
-                if vectors[0,j] == this_conj_vec[0] and \
-                   vectors[-1,j] == this_conj_vec[-1] and \
-                   values[j] == this_conj_val:
-                    # saves computation time this function gets called many times and 
-                    #numpy's np.all() function causes a lot of computation time
-                    conj_indices.append(i)
-                    break
-        conj_indices=list(conj_indices)
-        vector = vectors[:,conj_indices]
-        value = values[conj_indices]
-
-        return vector,value
-
-    
-    @staticmethod
-    def integrate_quantities(vector, accel_channels, velo_channels, omega):
-        # input quantities = [a, v, d]
-        # output quantities = [d, d, d]
-        # converts amplitude and phase
-        #                     phase + 180; magn / omega^2
-        
-        vector[accel_channels] *= -1       / (omega ** 2)
-        #                    phase + 90; magn / omega
-        vector[velo_channels] *=  1j        / omega
-        
-        return vector   
     
     def save_state(self, fname):
         
@@ -525,7 +439,7 @@ class SSIData(object):
     def load_state(cls, fname, prep_data):
         print('Now loading previous results from  {}'.format(fname))
         
-        in_dict=np.load(fname)    
+        in_dict=np.load(fname, allow_pickle=True)   
         #             0         1           2             3
         #self.state= [Hankel, QR_decomp.,  State matr.,  Modal Par.]
         if 'self.state' in in_dict:
@@ -572,17 +486,13 @@ class SSIData(object):
         modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
         return modeshape
     
-class SSIDataMC(object):
+class SSIDataMC(ModalBase):
     
-    def __init__(self,prep_data):    
+    def __init__(self,*args,**kwargs):    
         '''
         channel definition: channels start at 0
         '''
-        super().__init__()
-        assert isinstance(prep_data, PreprocessData)
-        self.prep_data =prep_data
-        self.setup_name = prep_data.setup_name
-        self.start_time = prep_data.start_time
+        super().__init__(*args,**kwargs)
         #             0         1           2             3
         #self.state= [Hankel, QR_decomp.,  State matr.,  Modal Par.]
         self.state  =[False,    False,     False,        False]
@@ -591,14 +501,10 @@ class SSIDataMC(object):
         self.num_block_rows = None
         self.Hankel_matrix_T = None
         
-        self.max_model_order = None
         self.P_i_ref = None
         self.state_matrix = None
         self.output_matrix = None
         
-        self.modal_damping = None
-        self.modal_frequencies = None
-        self.mode_shapes = None
         self.modal_contributions = None
             
     @classmethod
@@ -608,12 +514,10 @@ class SSIDataMC(object):
         
         with open(conf_file, 'r') as f:
             
-            assert f.__next__().strip('\n').strip(' ') == 'Number of Block-Rows:'
+            assert f.__next__().strip('\n').strip(' ') == 'Number of Block-Columns:'
             num_block_rows = int(f. __next__().strip('\n'))
             assert f.__next__().strip('\n').strip(' ')== 'Maximum Model Order:'
             max_model_order= int(f. __next__().strip('\n'))
-            assert f.__next__().strip('\n').strip(' ')== 'Use Multiprocessing:'
-            multiprocessing= f.__next__().strip('\n').strip(' ')=='yes'
         
         
         ssi_object = cls(prep_data)
@@ -922,7 +826,7 @@ class SSIDataMC(object):
             
             eigval, eigvec_r = np.linalg.eig(A)
             
-            conj_indices = self.remove_conjugates_new(eigval, eigvec_r,inds_only=True)
+            conj_indices = self.remove_conjugates(eigval, eigvec_r,inds_only=True)
             
             for i,ind in enumerate(conj_indices):
                 
@@ -983,7 +887,7 @@ class SSIDataMC(object):
             
             j= self.prep_data.measurement.shape[0]
             #j=12000
-            states = np.zeros((order+1,j),dtype=np.complex64)
+            states = np.zeros((order,j),dtype=np.complex64)
 
             
             AKC = (A_0-K_0.dot(C_0))
@@ -991,14 +895,11 @@ class SSIDataMC(object):
 
             K_0m = K_0.dot(self.prep_data.measurement[:j,:].T)
             K_0m = np.array(K_0m, dtype = np.complex64)
-            global use_cython
-            if use_cython:
-                states = estimate_states(AKC, K_0m)#@UndefinedVariable
-            else:
-                
-                for k in range(j-1):
-     
-                    states[:,k+1] = K_0m[:,k] + np.dot(AKC, states[:,k])
+
+            #print(states.shape,AKC.shape, A_0.shape, C_0.shape)
+            
+            for k in range(j-1):
+                states[:,k+1] = K_0m[:,k] + np.dot(AKC, states[:,k])
 
 
             Y = self.prep_data.measurement[:j,:].T
@@ -1097,63 +998,7 @@ class SSIDataMC(object):
         self.state[2]=True
         print('.',end='\n', flush=True)  
     
-    @staticmethod
-    def remove_conjugates_new (eigval, eigvec_r, eigvec_l=None, inds_only=False):
-        '''
-        finds and removes conjugates
-        keeps the second occurance of a conjugate pair (usually the one with the negative imaginary part)
-        
-        eigvec_l.shape = [order+1, order+1]
-        eigval.shape = [order+1,1]
-        '''
-        #return vectors, eigval
-        num_val=len(eigval)
-        conj_indices=deque()
-        
-        for i in range(num_val):
-            this_val=eigval[i]
-            this_conj_val = np.conj(this_val)
-            if this_val == this_conj_val: #remove real eigvals
-                #continue
-                conj_indices.append(i)
-            for j in range(i+1, num_val): #catches unordered conjugates but takes slightly longer
-                if eigval[j] == this_conj_val:
-
-                    conj_indices.append(j)
-                    break
-
-        conj_indices=list(set(range(num_val)).difference(conj_indices))
-        
-        if inds_only:
-            return conj_indices
-        
-        if eigvec_l is None:
-            
-            eigvec_r = eigvec_r[:,conj_indices]
-            eigval = eigval[conj_indices]
     
-            return eigval,eigvec_r      
-        
-        else:             
-            eigvec_l = eigvec_l[:,conj_indices]
-            eigvec_r = eigvec_r[:,conj_indices]
-            eigval = eigval[conj_indices]
-    
-            return eigval,eigvec_l,eigvec_r      
-
-    
-    @staticmethod
-    def integrate_quantities(vector, accel_channels, velo_channels, omega):
-        # input quantities = [a, v, d]
-        # output quantities = [d, d, d]
-        # converts amplitude and phase
-        #                     phase + 180; magn / omega^2
-        
-        vector[accel_channels] *= -1       / (omega ** 2)
-        #                    phase + 90; magn / omega
-        vector[velo_channels] *=  1j        / omega
-        
-        return vector   
     
     def save_state(self, fname):
         
