@@ -4,18 +4,19 @@
 Based on previous works by Volkmar Zabel 2015
 Modified and Extended by Simon Marwitz 2015
 
-TODO
- * correct linear,.... offsets as well
- * implement filter functions
- * implement loading of different filetypes ascii, lvm, ... 
- * currently loading geometry, etc. files will overwrite existing assignments implement "load and append"
- * implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)
- * implement integration
- * implement windowing functions
- * Proper documentation
- * add test to tests package
- * Remove multiprocessing routines, since numpy as paralelized already 
- and proper vectorization of the code is better than just using multiprocessing to speed up bad code
+.. TODO::
+     * correct linear,.... offsets as well
+     * implement filter functions
+     * implement loading of different filetypes ascii, lvm, ... 
+     * currently loading geometry, etc. files will overwrite existing assignments implement "load and append"
+     * implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)
+     * implement integration
+     * implement windowing functions
+     * Proper documentation
+     * add test to tests package
+     * Remove multiprocessing routines, since numpy as paralelized already 
+       and proper vectorization of the code is better than just using multiprocessing to speed up bad code
+ 
 '''
 
 import numpy as np

@@ -1,6 +1,8 @@
 Operational Modal Analysis
 ==========================
 
+.. currentmodule:: classes
+
 .. autosummary::
    :recursive:
    :toctree: classes
