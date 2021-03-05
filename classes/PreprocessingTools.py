@@ -481,6 +481,7 @@ class PreprocessData(object):
         loaded_data   = cls.load_measurement_file(meas_file, **kwargs)
         
         if not isinstance(loaded_data, np.ndarray):
+            #print(loaded_data)
             headers, units, start_time, sample_rate, measurement = loaded_data
         else:
             measurement = loaded_data

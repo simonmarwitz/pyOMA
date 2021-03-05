@@ -28,24 +28,12 @@ from matplotlib import rcParams
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backend_bases import FigureCanvasBase
 
-def my_excepthook(type_, value, tback):
-    '''
-    make qt application not crash on errors
-    log the exception here
-    then call the default handler
-    '''
-    sys.__excepthook__(type_, value, tback)
-
-sys.excepthook = my_excepthook
-
-#math
-import numpy as np
-
 #tools
-from classes.StabilDiagram import DelayedDoubleSpinBox
-from classes.PlotMSH import ModeShapePlot
-
+from GUI.Helpers import DelayedDoubleSpinBox, my_excepthook
+sys.excepthook = my_excepthook
 NoneType = type(None)
+
+from classes.PlotMSH import ModeShapePlot
 
 from copy import deepcopy
 

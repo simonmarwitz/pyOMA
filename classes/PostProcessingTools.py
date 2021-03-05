@@ -102,16 +102,21 @@ class MergePoSER(object):
         self.state[0] = True
         
     def merge(self, base_setup_num = 0, mode_pairing=None):
-        # generate new_chan_dofs
-        # assign modes from each setup
-        # for each mode:
-        #     for each setup:
-        #         rescale
-        #         merge
+        '''
+        generate new_chan_dofs
+        assign modes from each setup
         
-        # TODO: rescale w.r.t to the average solution from all setups rather than specifying a base setup
-        # compute scaling factors for each setup with each setup and average them for each setup before rescaling
-        # corresponding standard deviations can be used to asses the quality of fit
+        ::
+            for each mode:
+                for each setup:
+                    rescale
+                    merge
+                
+        .. TODO::
+             * rescale w.r.t to the average solution from all setups rather than specifying a base setup
+             * compute scaling factors for each setup with each setup and average them for each setup before rescaling
+             * corresponding standard deviations can be used to asses the quality of fit
+        '''
         
         def pair_modes(frequencies_1, frequencies_2):
             delta_matrix=np.ma.array(np.zeros((len(frequencies_1),len(frequencies_2))))
@@ -157,10 +162,10 @@ class MergePoSER(object):
         channel_pairing = []
         
         if mode_pairing is None:
-            pair_modes = True
+            auto_pairing = True
             mode_pairing = []
         else:
-            pair_modes=False
+            auto_pairing=False
             print('The provided mode pairs will be applied without any further checks.')
         
         total_dofs = 0
@@ -188,7 +193,7 @@ class MergePoSER(object):
             # calculate the mode pairing by minimal frequency difference
             # check that number of modes is equal in all instances (not necessarily)
             # assert len(self.selected_modes_indices) == len(instance.selected_modes_indices)
-            if pair_modes:
+            if auto_pairing:
                 frequencies_this=setup['modal_frequencies']
                     
                 mode_pairs = pair_modes(frequencies_base, frequencies_this)
@@ -376,7 +381,7 @@ class MergePoSER(object):
         
         print('Now loading previous results from  {}'.format(fname))
         
-        in_dict=np.load(fname)    
+        in_dict=np.load(fname, allow_pickle=True)    
         
         if 'self.state' in in_dict:
             state= list(in_dict['self.state'])
