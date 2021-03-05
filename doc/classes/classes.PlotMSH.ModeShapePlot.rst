@@ -42,7 +42,6 @@ classes.PlotMSH.ModeShapePlot
       ~ModeShapePlot.refresh_master_slaves
       ~ModeShapePlot.refresh_nd_lines
       ~ModeShapePlot.refresh_nodes
-      ~ModeShapePlot.rescale_mode_shape
       ~ModeShapePlot.reset_view
       ~ModeShapePlot.save_plot
       ~ModeShapePlot.stop_ani

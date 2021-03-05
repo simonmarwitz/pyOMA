@@ -14,3 +14,4 @@ Operational Modal Analysis
    ERA
    PLSCF
    PRCE
+   ModalBase

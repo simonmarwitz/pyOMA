@@ -19,7 +19,7 @@ Getting started
 
  * Learn python 3 with packages: numpy, scipy, matplotlib, (PyQt5, jupyter-notebook)
  * Install python with scientific Python packages → `Intelpython <https://software.intel.com/content/www/us/en/develop/articles/oneapi-standalone-components.html#python>`_
- * Learn about documenting code with Sphinx (`Tutorial <https://thomas-cokelaer.info/tutorials/sphinx/rest_syntax.html#inserting-code-and-literal-blocks>`_ , `Cheatsheet <https://matplotlib.org/sampledoc/cheatsheet.html>`_)
+ * Learn about documenting code with Sphinx (`Tutorial <https://thomas-cokelaer.info/tutorials/sphinx/rest_syntax.html>`_ , `Cheatsheet <https://matplotlib.org/sampledoc/cheatsheet.html>`_)
  * Learn about versioning with GIT: `<https://www.youtube.com/watch?v=8JJ101D3knE>`_
  * (Learn GUI programming with PyQt5)
  * QT-Designer for GUI development

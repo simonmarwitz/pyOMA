@@ -1,4 +1,4 @@
-﻿classes.SSICovRef.BRSSICovRef
+classes.SSICovRef.BRSSICovRef
 =============================
 
 .. currentmodule:: classes.SSICovRef

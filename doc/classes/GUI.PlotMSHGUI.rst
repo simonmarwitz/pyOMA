@@ -1,7 +1,7 @@
-﻿classes.PlotMSH
-===============
+﻿GUI.PlotMSHGUI
+==============
 
-.. automodule:: classes.PlotMSH
+.. automodule:: GUI.PlotMSHGUI
   
    
    
@@ -16,9 +16,12 @@
       
    
       draw_axes
+      my_excepthook
       nearly_equal
       orthogonal_proj
       persp_transformation
+      resizeEvent_
+      start_msh_gui
    
    
 
@@ -30,8 +33,7 @@
       :toctree:                                          
       :template: custom-class-template.rst               
    
-      Arrow3D
-      ModeShapePlot
+      ModeShapeGUI
    
    
 

@@ -12,3 +12,10 @@ Post-processing
    PostProcessingTools
    StabilDiagram
 
+.. currentmodule:: GUI
+.. autosummary::
+   :recursive:
+   :toctree: classes
+   :template: custom-module-template.rst
+   
+   PlotMSHGUI

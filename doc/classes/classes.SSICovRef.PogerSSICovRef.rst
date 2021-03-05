@@ -1,4 +1,4 @@
-﻿classes.SSICovRef.PogerSSICovRef
+classes.SSICovRef.PogerSSICovRef
 ================================
 
 .. currentmodule:: classes.SSICovRef

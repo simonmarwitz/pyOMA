@@ -1,7 +1,7 @@
-classes.PlotMSH.ModeShapeGUI
-============================
+GUI.PlotMSHGUI.ModeShapeGUI
+===========================
 
-.. currentmodule:: classes.PlotMSH
+.. currentmodule:: GUI.PlotMSHGUI
 
 .. autoclass:: ModeShapeGUI
    :members:                                   
