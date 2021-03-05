@@ -19,3 +19,6 @@ Post-processing
    :template: custom-module-template.rst
    
    PlotMSHGUI
+   StabilGUI
+   Helpers
+   
