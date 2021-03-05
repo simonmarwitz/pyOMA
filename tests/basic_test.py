@@ -4,6 +4,7 @@ Created on 04.03.2021
 @author: womo1998
 '''
 import numpy as np
+import glob
 
 from classes.PreprocessingTools  import *
 
@@ -17,6 +18,9 @@ from classes.VarSSIRef import *
 from classes.StabilDiagram import *
 from classes.PostProcessingTools  import *
 from classes.PlotMSH  import *
+
+from GUI.PlotMSHGUI import *
+from GUI.StabilGUI import start_stabil_gui, StabilGUI
 
 
     
@@ -64,8 +68,111 @@ def analysis_chain(tmpdir):
     # test all the functionality of StabilCalc
     # test the functionality of ModeShapePlot
     # test MergePoser
+
+def PlotMSHGUI_test():
     
+    working_dir = './files/'    
+    result_folder = working_dir + 'merged_poser/'
+    geometry_data = GeometryProcessor.load_geometry(nodes_file=working_dir+'macec/grid_full.asc', lines_file=working_dir+'macec/beam_full.asc')
+    merger = MergePoSER.load_state(result_folder+'merged_setups.npz')
+    
+    
+    
+    modeshapeplot = ModeShapePlot(
+                 geometry_data,
+                 merged_data=merger,)
+    
+    start_msh_gui(modeshapeplot)
 
+def single_setup_analysis(result_folder, setup_info, meas_file,  conf_file, method, geometry_data=None, chan_dofs_file=None, skip_existing = True, save_results = True, interactive = True):
+    
+    
+    assert issubclass(method, ModalBase)
+    
+    for f in [result_folder,setup_info,meas_file,conf_file, chan_dofs_file]:
+        assert os.path.exists(f)
+    
+    
+    if not os.path.exists(result_folder+'prep_data.npz') or not skip_existing:
+        prep_data = PreprocessData.init_from_config(conf_file=setup_info, meas_file=meas_file, chan_dofs_file=chan_dofs_file)
+        
+        if save_results:
+            prep_data.save_state(result_folder+'prep_data.npz')
+    else:
+        prep_data=PreprocessData.load_state(result_folder+'prep_data.npz')
+    
+    if not os.path.exists(result_folder+'modal_data.npz') or not skip_existing:
+        
+        modal_data = method.init_from_config(conf_file,prep_data)
+        
+        if save_results:
+            modal_data.save_state(result_folder+'modal_data.npz')
+    else:
+        modal_data=method.load_state(result_folder+'modal_data.npz', prep_data)
+        
+        
+    if os.path.exists(result_folder+'stabil_data.npz') and skip_existing:
+        stabil_calc = StabilCalc.load_state(result_folder+'stabil_data.npz', modal_data, prep_data)
+    else:
+        stabil_calc = StabilCalc(modal_data, prep_data)
+        
+    if interactive:
+        stabil_plot = StabilPlot(stabil_calc)
+        start_stabil_gui(stabil_plot, modal_data, geometry_data, prep_data)
+        
+    if save_results:
+        stabil_calc.save_state(result_folder+'stabil_data.npz')
+    
+    return prep_data, modal_data, stabil_calc
+
+def merge_poser_test():
+    
+    PreprocessData.load_measurement_file = np.load
+    
+    working_dir = './files/'
+    
+    geometry_data = GeometryProcessor.load_geometry(
+        nodes_file=working_dir+'grid.txt', 
+        lines_file=working_dir+'lines.txt')
+    
+    meas_files = glob.glob(working_dir+'measurement*/')
+    
+    merger = MergePoSER()
+    
+    skip_existing = True
+    save_results = False
+    interactive = True
+    
+    
+    for result_folder in meas_files:
+        meas_name = os.path.basename(result_folder[:-1])
+        
+        prep_data, modal_data, stabil_calc = single_setup_analysis(
+            result_folder = result_folder, 
+            setup_info = result_folder+'setup_info.txt', 
+            meas_file = result_folder+meas_name+'.npy', 
+            conf_file = working_dir+'ssi_config.txt', 
+            method = BRSSICovRef, 
+            geometry_data = geometry_data, 
+            chan_dofs_file = result_folder+"channel_dofs.txt", 
+            skip_existing = skip_existing, 
+            save_results = save_results, 
+            interactive = False)
+        
+        merger.add_setup(prep_data, modal_data, stabil_calc)
+        
+    merger.merge()
+    
+    merger.save_state(result_folder+'merged_setups.npz')
+    
+    if interactive:
+                    
+        mode_shape_plot= ModeShapePlot(geometry_data=geometry_data,
+                                       merged_data=merger)
+        start_msh_gui(mode_shape_plot)
+    
 if __name__ =='__main__':
-    analysis_chain(tmpdir='/dev/shm/womo1998/')
-
+    #analysis_chain(tmpdir='/dev/shm/womo1998/')
+    #PlotMSHGUI_test()
+    #StabilGUI_test()
+    merge_poser_test()

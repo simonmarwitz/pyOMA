@@ -1,0 +1,21 @@
+Setup Name:
+measurement_15
+Sampling Rate [Hz]:
+256
+Reference Channels:
+3 4
+Delete Channels:
+5
+Accel. Channels:
+3 4 5
+Velo. Channels:
+0 1 2
+Disp. Channels:
+
+####
+Note:
+Channel Numbering start with 0!!!
+Channel Numbers refer to the columns of the measurement data!
+Numbers are separated by blank. Do not use tabulators.
+Create one file per measurement.
+

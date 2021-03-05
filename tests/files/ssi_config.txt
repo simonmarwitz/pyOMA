@@ -1,0 +1,10 @@
+Number of Block-Columns:
+200
+Maximum Model Order:
+200
+Use Multiprocessing:
+yes
+
+#######
+Configuration Options for the SSI-cov/ref algorithm.
+Keep the order of options!
