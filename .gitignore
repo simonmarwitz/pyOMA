@@ -3,3 +3,4 @@
 .settings/*
 doc/_build/*
 doc/build/*
+**/__pycache__/*
