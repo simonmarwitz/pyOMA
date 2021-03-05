@@ -1,27 +1,31 @@
-# GUI
+'''
+Module PlotMSH contains classes and functions for plotting mode shapes
+obtained from any of the classes derived from ModalBase of the pyOMA project
+
+.. TODO::
+ * Implement scale (for correct drawing of axis arrows)
+ * Use current axes settings when starting the animation
+ * Remove PyQT dependency -> move the signal definitions somewhere else
+ * Restore functionality needed to create the geometry in another GUI
+ * Use the logging module to replace print commands at an appropriate 
+   logging level
+ * Implement the plotting in  pyvista for better and faster 3D graphics 
+   `https://docs.pyvista.org/examples/99-advanced/warp-by-vector-eigenmodes.html`
+ 
+'''
+
 # system i/o
-import sys
 import os
-import warnings
 import logging
 logger = logging.getLogger('')
 
-from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
-    QCheckBox, QButtonGroup, QLabel, QToolButton, QComboBox, QStyle,\
-    QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction, \
-    QFileDialog, QInputDialog, QMessageBox, QDoubleSpinBox, QTableWidget,\
-    QSpinBox, QAbstractItemView, QTableWidgetItem, QApplication, QSizePolicy, QLineEdit, QTabWidget,\
-    QSlider
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QTimer, qInstallMessageHandler, QEventLoop, QSize
+from PyQt5.QtCore import pyqtSignal
+
 # Matplotlib
 import matplotlib
-from _functools import reduce
 # check if python is running in headless mode i.e. as a server script
 if 'DISPLAY' in os.environ:
     matplotlib.use("Qt5Agg",force=True) 
-from matplotlib import rcParams
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d.axes3d import Axes3D, proj3d  # @UnresolvedImport
@@ -29,87 +33,36 @@ from matplotlib.patches import FancyArrowPatch
 from matplotlib.colors import is_color_like
 import matplotlib.animation 
 from matplotlib.markers import MarkerStyle
-import matplotlib.cm
 
 
-#make qt application not crash on errors
-def my_excepthook(type, value, tback):
-    # log the exception here
 
-    # then call the default handler
-    sys.__excepthook__(type, value, tback)
-
-sys.excepthook = my_excepthook
-
-import csv
-import os
-import shelve
-#math
 import numpy as np
-from math import cos, pi, fmod
 #tools
 import itertools
-from classes.StabilDiagram import StabilCalc, DelayedDoubleSpinBox
+from classes.StabilDiagram import StabilCalc
 from classes.PreprocessingTools import PreprocessData, GeometryProcessor
+
+from classes.ModalBase import ModalBase
+from classes.SSICovRef import PogerSSICovRef
+from classes.VarSSIRef import VarSSIRef
+from classes.PostProcessingTools import MergePoSER
 
 NoneType = type(None)
 
-try:
-    from classes.SSICovRef import BRSSICovRef, PogerSSICovRef
-except ImportError:
-    BRSSICovRef = NoneType
-    PogerSSICovRef = NoneType
-try:    
-    from classes.SSIData import SSIData, SSIDataMC
-except ImportError:
-    SSIData = NoneType
-    SSIDataMC = NoneType
-    
-try:
-    from classes.VarSSIRef import VarSSIRef
-except ImportError:
-    VarSSIRef = NoneType
-    
-try:
-    from classes.PRCE import PRCE
-except ImportError:
-    PRCE = NoneType
 
-try:
-    from classes.PLSCF import PLSCF
-except ImportError:
-    PLSCF = NoneType
-    
-try:
-    from classes.ERA import ERA
-except ImportError:
-    ERA = NoneType
-    
-try:
-    from classes.PostProcessingTools import MergePoSER
-except ImportError:
-    MergePoSER = NoneType
-#from pyparsing import line
-from copy import deepcopy
-
-
-'''
-TODO:
-- button for Axes3d.set_axis_off/on
-- implement scale (for correct drawing of axis arrows)
-- use current axes settings when starting the animation 
-- rewrite the whole thing properly!!!
-'''
 
 def nearly_equal(a,b,sig_fig=5):
     return ( a==b or 
              int(a*10**sig_fig) == int(b*10**sig_fig)
            )
 
-# monkeypatch to allow orthogonal projection in mplot3d
-# breaks automatic placement of axis
-# credit: https://github.com/matplotlib/matplotlib/issues/537
+
 def orthogonal_proj(zfront, zback):
+    '''
+    monkeypatch to allow orthogonal projection in mplot3d
+    breaks automatic placement of axis
+    credit: https://github.com/matplotlib/matplotlib/issues/537
+    '''
     a = (zfront + zback) / (zfront - zback)
     b = -2 * (zfront * zback) / (zfront - zback)
     return np.array([[1, 0, 0, 0],
@@ -117,10 +70,12 @@ def orthogonal_proj(zfront, zback):
                         [0, 0, a, b],
                         [0, 0, 0, zback]])
 
-# copy of mpl_toolkits.mplot3d.proj3d.persp_transformation
-# for restoring the projection in isonometriv view
+
 def persp_transformation(zfront, zback):
-    #return orthogonal_proj(zfront, zback)
+    ''' 
+    copy of mpl_toolkits.mplot3d.proj3d.persp_transformation
+    for restoring the projection in isonometriv view
+    '''
     a = (zfront + zback) / (zfront - zback)
     b = -2 * (zfront * zback) / (zfront - zback)
     return np.array([[1, 0, 0, 0],
@@ -128,12 +83,13 @@ def persp_transformation(zfront, zback):
                         [0, 0, a, b],
                         [0, 0, -1, 0]
                         ])
-#monkeypatch draw method to always enforce an aspect ratio of 1 on all axis'
+
 old_draw = Axes3D.draw
 def draw_axes(self, renderer=None):
-    #old_draw = self.draw
-    #print('s',self)
-    #print('r',renderer)
+    ''' 
+    monkeypatch draw method to always enforce an aspect ratio of 1 on all axis'
+    '''
+    
     minx, maxx, miny, maxy, minz, maxz = self.get_w_lims()
     dx,dy,dz=(maxx-minx),(maxy-miny),(maxz-minz)
     
@@ -143,83 +99,68 @@ def draw_axes(self, renderer=None):
         midz=0.5*(minz+maxz)
     
         hrange=max(dy,dy,dz)*0.5
-        #print(midx, midy,midz, hrange)
-        #print(type(midx), type(midy),type(midz), type(hrange))
         self.set_xlim3d(midx-hrange , midx+hrange)
         self.set_ylim3d(midy-hrange , midy+hrange)
         self.set_zlim3d(midz-hrange , midz+hrange)
     old_draw(self, renderer)
-#Axes3D.draw = draw_axes
-old_resize_event = deepcopy(FigureCanvasQTAgg.resizeEvent)
-
-def resizeEvent_(self, event):
-    w = event.size().width()
-    h = event.size().height()
-    dpival = self.figure.dpi
-    winch, hinch = self.figure.get_size_inches()
-    aspect = winch/hinch
-    if w/h <= aspect:               
-        h = w/aspect
-    else:               
-        w = h *aspect
-    winch = w/dpival
-    hinch = h/dpival
-    self.figure.set_size_inches(winch, hinch)
-    FigureCanvasBase.resize_event(self)
-    self.draw()
-    self.update() 
-    QWidget.resizeEvent(self, event)
 
 class ModeShapePlot(object):
     '''
     This class is used for displaying modal values and modeshapes obtained
-    by the SSICovRef class by Mihai-Andrei Udrea 2013 
-    (Bauhaus-Universität Weimar, Institut für Strukturmechanik). An
-    interactive GUI based on PyQt5 is used to create such plots.
-
-    Abilities include:
-
-    Drawing:
-    * creation of 3d plots using matplotlib's mplot3 from the 
-    matplotlib toolkit
-    * adjusting axis limits for each of the three axis
-    i.e. zoom view, shift view (along single and multiple axis')
-    * change the viewport e.g. x, y, z and isometric view
-    * rotating and zooming through mouse interaction is currently 
-    supported by matplotlib, whereas panning is not
-    * animate the currently displayed deformed structure
-    * save the still frame
-
-    currently __not__ supported:
-    * 3D surface plots, as they are not properly supported by the 
-    underlying matplotlib api
-    * combination of several modeshapes or sensor setups 
-    (this could be done easily in an external script)
-    * saving of the animation as a movie file
-    * drawing multiple modeshapes into one plot
-    * plot modeshape in a single call from a script i.e. use static methods
+    by one of the classes derived from ModalBase as part the of the pyOMA project  
+    (Bauhaus-Universität Weimar, Institut für Strukturmechanik).
     
-    ================ =============================================
-    Variable in       Merging Routine
-    PlotMSH           single-setup  poger/preger  poser merging
-    ================ =============================================
-    modal_freq.       modal_data    modal_data    merged_data
-    modal_damping     modal_data    modal_data    merged_data
-    modeshapes        modal_data    modal_data    merged_data
-                     
-    num_channels      prep_data     modal_data    merged_data
-                     
-    chan_dofs         prep_data     modal_data    merged_data
-                         
-    select_modes      stabil_data   stabil_data   merged_data
-                     
-    nodes             geometry_data geometry_data geometry_data
-    lines             geometry_data geometry_data geometry_data
-    master-slaves     geometry_data geometry_data geometry_data 
-    ================ =============================================
+    Test
+    Test
+    Test
+    
+    
+    Drawing abilities:
+        * creation of 3d plots using matplotlib's mplot3 from the 
+          matplotlib toolkit
+        * adjusting axis limits for each of the three axis
+          i.e. zoom view, shift view (along single and multiple axis')
+        * change the viewport e.g. x, y, z and isometric view
+        * rotating and zooming through mouse interaction is currently 
+          supported by matplotlib, whereas panning is not
+        * animate the currently displayed deformed structure
+        * save the still frame
+
+    currently **not** supported:
+        * 3D surface plots, as they are not properly supported by the 
+          underlying matplotlib api
+        * combination of several modeshapes or sensor setups 
+          (this could be done easily in an external script)
+        * saving of the animation as a movie file
+        * drawing multiple modeshapes into one plot
+        * plot modeshape in a single call from a script i.e. use static methods
+    
+    
+    +----------------+--------------+-------------+--------------+
+    |Variable in     |  Merging Routine                          |
+    |PlotMSH         +--------------+-------------+--------------+
+    |                | single-setup |poger/preger |poser merging |
+    +----------------+--------------+-------------+--------------+
+    |modal_freq.     | modal_data   |modal_data   |merged_data   |
+    +----------------+--------------+-------------+--------------+
+    |modal_damping   | modal_data   |modal_data   |merged_data   |
+    +----------------+--------------+-------------+--------------+
+    |modeshapes      | modal_data   |modal_data   |merged_data   |
+    +----------------+--------------+-------------+--------------+
+    |num_channels    | prep_data    |modal_data   |merged_data   |
+    +----------------+--------------+-------------+--------------+
+    |chan_dofs       | prep_data    |modal_data   |merged_data   |
+    +----------------+--------------+-------------+--------------+
+    |select_modes    | stabil_data  |stabil_data  |merged_data   |
+    +----------------+--------------+-------------+--------------+
+    |nodes           | geometry_data|geometry_data|geometry_data |
+    +----------------+--------------+-------------+--------------+
+    |lines           | geometry_data|geometry_data|geometry_data |
+    +----------------+--------------+-------------+--------------+
+    |master-slaves   | geometry_data|geometry_data|geometry_data |
+    +----------------+--------------+-------------+--------------+
                      
     '''
-    
     # define this class's signals and the types of data they emit
     grid_requested = pyqtSignal(str, bool)
     beams_requested = pyqtSignal(str, bool)
@@ -245,12 +186,70 @@ class ModeShapePlot(object):
                  linewidth = 1,
                  callback_fun=None
                  ):
-        #print(callback_fun)
-        #assert merged_data is not None or (prep_data is not None and modal_data is not None and stabil_calc is not None) or isinstance(modal_data, PogerSSICovRef)
-        
+        '''
+        Parameters 
+        ------------
+            geometry_data : PreprocessingTools.GeometryProcessor
+                    Object containing all the necessary geometry information.
+            
+            stabil_calc : StabilDiagram.StabilCalc, optional
+                    Object containing the information, which modes were 
+                    selected from modal_data.
+                    
+            modal_data : ModalBase.ModalBase, optional
+                    Object of one the classes derived from ModalBase.ModalBase,
+                    containing the estimated modal parameters at multiple
+                    model orders.
+                    
+            prep_data : PreprocessingTools.PreprocessData, optional
+                    Object containing the measurement data and information 
+                    about it.
+                    
+            merged_data : PostProcessingTools.MergePoSER, SSICovRef.PogerSSICovRef, optional
+                    Object containing the merged data
+                    
+            selected_mode : list, optional
+                    List of [model_order, mode_index] to define the mode
+                    that is displayed upon startup 
+                    
+            amplitude : float, optional
+                    Scaling factor to scale the magnitude of mode shape displacements
+                    
+            real : bool, optional
+                    Whether to plot only the real part or the magnitude 
+                    of the complex modal coordinates
+                    
+            scale : float, optional
+                    Scaling factor for other elements such as arrows, etc.
+                    
+            dpi : float, optional
+                    Resolution of the drawing canvas
+                    
+            nodecolor : matplotlib color, optional
+                    Color which is used to draw the nodes
+                    
+            nodemarker : matplotlib marker, optional
+                    Marker which is used to draw the nodes
+                    
+            nodesize : float, optional
+                    Marker size for the nodes
+                    
+            beamcolor : matplotlib color, optional
+                    Color which is used to draw the lines
+                    
+            beamstyle : matplotlib linestyle, optional
+                    Linestyle which is used to draw the lines
+                    
+            linewidth : float, optional
+                    Line width which is used to draw the lines
+                    
+            callback_fun : function, optional
+                    A function that is executed upon changing to a new 
+                    mode, allows to print mode information or change some 
+                    other behaviour of the class. It takes the class itself
+                    and the mode index as its parameters.
+        '''
         if stabil_calc is not None:
-            #print('stabil_calc = ', stabil_calc)
-            #print('StabilCalc = ', StabilCalc)
             assert isinstance(stabil_calc, StabilCalc)
         self.stabil_calc = stabil_calc
         
@@ -258,7 +257,7 @@ class ModeShapePlot(object):
         
         #modal_data = modal_data
         if modal_data is not None:
-            assert isinstance(modal_data, (BRSSICovRef, SSIData,SSIDataMC,VarSSIRef, PRCE, PLSCF, PogerSSICovRef, ERA))
+            assert isinstance(modal_data, ModalBase)
         self.modal_data = modal_data
         
         assert isinstance(geometry_data, GeometryProcessor)
@@ -804,7 +803,7 @@ class ModeShapePlot(object):
         #self.undraw_lines()  # do not show beams, as they are distracting
         #self.undraw_chan_dofs()
 
-        color = "bgrcmyk"[int(fmod(i, 7))]  # equal colors for both arrows
+        color = "bgrcmyk"[int(np.fmod(i, 7))]  # equal colors for both arrows
 
         x_s, y_s, z_s = self.geometry_data.nodes[i_m]
         ((x_s, x_m), (y_s, y_m), (z_s, z_m)) = offset_arrows(
@@ -1328,11 +1327,6 @@ class ModeShapePlot(object):
             for obj in patch:
                 obj.set_visible(self.show_chan_dofs)
         self.canvas.draw_idle()
-        
-    def rescale_mode_shape(self,modeshape):
-        #scaling of mode shape
-        modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
-        return modeshape
     
     def draw_msh(self):
         '''
@@ -1359,7 +1353,7 @@ class ModeShapePlot(object):
         
         mode_shape = self.mode_shapes[:,self.mode_index[1], self.mode_index[0]]
         #print(mode_shape)
-        mode_shape = self.rescale_mode_shape(mode_shape)
+        mode_shape = ModalBase.rescale_mode_shape(mode_shape)
         ampli = self.amplitude
 
         self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() } 
@@ -1525,9 +1519,11 @@ class ModeShapePlot(object):
             if not found:
                 print('Could not find channel - DOF assignment for '
                       'channel {}!'.format(chan))
-        #print(self.disp_nodes)
-        # TODO: change master_slave assignment to skewed coordinate 
-        # TODO: change master_slaves to az, elev
+        '''
+        .. TODO::
+             * change master_slave assignment to skewed coordinate 
+             * change master_slaves to az, elev
+        '''
         
         for i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl in self.geometry_data.master_slaves:
                         
@@ -1962,748 +1958,6 @@ class ModeShapePlot(object):
         self.line_ani._setup_blit()
         #self.line_ani._start()   
         
-class ModeShapeGUI(QMainWindow):
-    '''
-    This class is used for displaying modal values and modeshapes obtained
-    by the SSICovRef class by Mihai-Andrei Udrea 2013 
-    (Bauhaus-Universität Weimar, Institut für Strukturmechanik). An
-    interactive GUI based on PyQt5 is used to create such plots.
-    
-    Abilities include:
-    
-    Drawing:
-     * creation of 3d plots using matplotlib's mplot3 from the matplotlib toolkit
-     * adjusting axis limits for each of the three axis
-        i.e. zoom view, shift view (along single and multiple axis')
-     * change the viewport e.g. x, y, z and isometric view
-     * rotating and zooming through mouse interaction is currently 
-        supported by matplotlib, whereas panning is not
-     * animate the currently displayed deformed structure
-     * save the still frame
-    
-    Geometry definition:
-     * draw single and multiple nodes (deformed and undeformed)
-     * draw single and multiple lines (deformed and undeformed)
-     * draw single and multiple master-slave assignments onto the nodes (undeformed only)
-     * draw single and multiple channel-degree of freedom assignments 
-        onto the nodes (undeformed only
-     * initiate creation/editing/loading/saving of such geometric information
-    
-    SSI Solutions:
-     * load a SSI_solutions file
-     * extract and display the following from the SSI_solutions file (\*.slv):
-        * available orders
-        * available modes for selected order
-        * modal values for selected mode and order
-            frequency, damping, eigenvalue
-        * mode shapes for selected mode and order
-     * currently modeshapes are normalized to unit modal displacement by default
-    
-    currently __not__ supported:
-     * 3D surface plots, as they are not properly supported by the 
-        underlying matplotlib api
-     * combination of several modeshapes or sensor setups 
-        (this could be done easily in an external script)
-     * saving of the animation as a movie file
-     * drawing multiple modeshapes into one plot
-     * plot modeshape in a single call from a script i.e. use static methods
-    '''
-    
-    # define this class's signals and the types of data they emit
-    grid_requested = pyqtSignal(str, bool)
-    beams_requested = pyqtSignal(str, bool)
-    slaves_requested = pyqtSignal(str, bool)
-    chan_dofs_requested = pyqtSignal(str, bool)
-
-    def __init__(self,
-                 mode_shape_plot,      
-                 reduced_gui=False):
-
-        QMainWindow.__init__(self)
-        assert isinstance(mode_shape_plot, ModeShapePlot)
-        self.mode_shape_plot = mode_shape_plot
-        self.animated = False
-        self.setWindowTitle('Plot Modeshapes')
-        self.create_menu()
-        self.create_main_frame(mode_shape_plot, reduced_gui)
-        self.setGeometry(300, 300, 1000, 600)
-        self.show()
-            
-    def create_main_frame(self, mode_shape_plot, reduced_gui=False):
-        '''
-        set up all the widgets and other elements to draw the GUI
-        '''
-        main_frame = QWidget()
-        
-        # Create the mpl Figure and FigCanvas objects.
-        fig=mode_shape_plot.fig
-        FigureCanvasQTAgg.resizeEvent = resizeEvent_
-        self.canvas = fig.canvas.switch_backends(FigureCanvasQTAgg)
-        #self.canvas.resize_event = resizeEvent_
-        #self.canvas.resize_event  = funcType(resizeEvent_, self.canvas, FigureCanvasQTAgg)
-        mode_shape_plot.canvas = self.canvas
-        self.canvas.mpl_connect('button_release_event', self.update_lims)
-        fig.get_axes()[0].mouse_init()
-
-        #controls for changing what to draw
-        view_layout = QHBoxLayout()
-        
-        view_layout.addStretch()
-        self.axis_checkbox = QCheckBox('Show Axis Arrows')
-        self.axis_checkbox.setTristate(False)
-        self.axis_checkbox.setCheckState(Qt.Checked if mode_shape_plot.show_axis else Qt.Unchecked)
-        self.axis_checkbox.stateChanged[int].connect(mode_shape_plot.refresh_axis)
-        
-        self.nodes_checkbox = QCheckBox('Show Nodes')
-        self.nodes_checkbox.setTristate(False)
-        self.nodes_checkbox.setCheckState(Qt.Checked if mode_shape_plot.show_nodes else Qt.Unchecked)
-        self.nodes_checkbox.stateChanged[int].connect(mode_shape_plot.refresh_nodes)
-        
-        line_checkbox = QCheckBox('Show Lines')
-        line_checkbox.setTristate(False)
-        conn_lines_checkbox = QCheckBox('Show Connecting Lines')
-        conn_lines_checkbox.setTristate(False)
-        conn_lines_checkbox.setCheckState(Qt.Checked if mode_shape_plot.show_nd_lines else Qt.Unchecked)
-        conn_lines_checkbox.stateChanged[int].connect(mode_shape_plot.refresh_nd_lines)
-        
-        ms_checkbox = QCheckBox('Show Master-Slaves Assignm.')
-        ms_checkbox.setTristate(False)
-        chandof_checkbox = QCheckBox('Show Channel-DOF Assignm.')
-        chandof_checkbox.setTristate(False)
-            
-            
-        self.draw_button_group = QButtonGroup()
-        self.draw_button_group.setExclusive(False)
-        self.draw_button_group.addButton(line_checkbox, 0)
-        self.draw_button_group.addButton(ms_checkbox, 1)
-        self.draw_button_group.addButton(chandof_checkbox, 2)
-        self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
-        
-        if mode_shape_plot.show_lines:
-            line_checkbox.setCheckState(Qt.Checked)
-        elif mode_shape_plot.show_master_slaves:
-            ms_checkbox.setCheckState(Qt.Checked)
-        elif mode_shape_plot.show_chan_dofs:
-            chandof_checkbox.setCheckState(Qt.Checked)
-            
-        view_layout.addWidget(self.axis_checkbox)
-        view_layout.addWidget(self.nodes_checkbox)
-        view_layout.addWidget(line_checkbox)
-        view_layout.addWidget(ms_checkbox)
-        view_layout.addWidget(chandof_checkbox)
-        view_layout.addWidget(conn_lines_checkbox)
-
-        # controls for changing the axis' limits and viewport i.e. zoom and shift
-        axis_limits_layout = QGridLayout()
-        
-        
-
-        
-        
-            
-        # Buttons for creating/editing geometry and loading solutions
-        #grid_button = QPushButton('Edit Grid')
-        #grid_button.released.connect(self.stop_ani)
-        #grid_button.released.connect(self.geometry_creator.load_nodes)
-
-        #beam_button = QPushButton('Edit Beams')
-        #beam_button.released.connect(self.stop_ani)
-        #beam_button.released.connect(self.geometry_creator.load_lines)
-
-        #ms_button = QPushButton('Edit Master Slaves')
-        #ms_button.released.connect(self.stop_ani)
-        #ms_button.released.connect(self.geometry_creator.load_master_slave)
-
-        #cd_button = QPushButton('Edit Channel-DOFS-Assignment')
-        #cd_button.released.connect(self.stop_ani)
-        #cd_button.released.connect(self.geometry_creator.load_chan_dof)
-
-        #ssi_button = QPushButton('Load Modal Data')
-        #ssi_button.released.connect(self.stop_ani)
-        #ssi_button.released.connect(self.reload_ssi_solutions)
-        
-        # GUI controls for selecting modes and changing various 
-        # values for drawing the modeshapes
-        #self.order_combo = QComboBox()
-        #self.order_combo.currentIndexChanged[str].connect(self.change_order)
-        #textbox for showing information about the currently displayed mode
-        self.info_box = QTextEdit()
-        self.info_box.setReadOnly(True)
-        
-        
-        self.mode_combo = QComboBox()
-        frequencies = ['{}: {}'.format(i+1,f) for i,f in enumerate(self.mode_shape_plot.get_frequencies())]
-        #print(frequencies)
-        if frequencies:
-            self.mode_combo.addItems(frequencies)
-            self.mode_combo.currentIndexChanged[str].connect(self.change_mode)
-        else:
-            self.mode_combo.setEnabled(False) 
-        
-        
-        
-
-        self.amplitude_box = DelayedDoubleSpinBox()
-        self.amplitude_box.setRange(0, 1000000000)
-        self.amplitude_box.setValue(mode_shape_plot.amplitude)
-        self.amplitude_box.valueChangedDelayed.connect(mode_shape_plot.change_amplitude)
-
-        real_checkbox = QCheckBox('Magn.')
-        real_checkbox.setTristate(False)
-        
-
-        imag_checkbox = QCheckBox('Magn.+Phase')
-        imag_checkbox.setTristate(False)
-        
-
-        real_imag_group = QButtonGroup()
-        real_imag_group.addButton(real_checkbox,0)
-        real_imag_group.addButton(imag_checkbox,1)        
-        real_imag_group.setExclusive(True)
-        #print(real_imag_group.exclusive(), real_imag_group.checkedId())
-        imag_checkbox.setCheckState(Qt.Unchecked if mode_shape_plot.real else Qt.Checked)
-        
-        #print(real_imag_group.exclusive(), real_imag_group.checkedId())
-        real_checkbox.setCheckState(Qt.Checked if mode_shape_plot.real else Qt.Unchecked)
-        
-        #print(real_imag_group.exclusive(), real_imag_group.checkedId())
-        
-        self.test_=real_imag_group
-        real_checkbox.stateChanged[int].connect(self.mode_shape_plot.change_part)
-        #real_checkbox.stateChanged[int].connect(self.test)
-        #plot_button = QPushButton('Draw')
-        #plot_button.released.connect(self.draw_msh)
-
-        self.ani_button = QToolButton()
-        self.ani_button.setIcon(
-            self.style().standardIcon(QStyle.SP_MediaPlay))
-        self.ani_button.setToolTip("Play")
-        self.ani_button.released.connect(self.animate)
-        
-        if mode_shape_plot.prep_data is not None:
-            self.ani_lowpass_box = DelayedDoubleSpinBox()
-            self.ani_lowpass_box.setRange(0, 1000000000)
-            self.ani_lowpass_box.valueChangedDelayed.connect(self.prepare_filter)
-            
-            self.ani_highpass_box = DelayedDoubleSpinBox()
-            self.ani_highpass_box.setRange(0, 1000000000)
-            self.ani_highpass_box.valueChangedDelayed.connect(self.prepare_filter)
-            
-            self.ani_speed_box = QDoubleSpinBox()        
-            self.ani_speed_box.setRange(0, 1000000000)
-            self.ani_speed_box.valueChanged[float].connect(self.change_animation_speed)
-            
-            self.ani_position_slider = QSlider(Qt.Horizontal)
-            self.ani_position_slider.setRange(0,mode_shape_plot.prep_data.measurement.shape[0])
-            self.ani_position_slider.valueChanged.connect(self.set_ani_time) 
-            self.ani_position_data = QLineEdit()
-        
-        self.ani_data_button = QToolButton()
-        self.ani_data_button.setIcon(
-            self.style().standardIcon(QStyle.SP_MediaPlay))
-        self.ani_data_button.setToolTip("Play")
-        self.ani_data_button.released.connect(self.filter_and_animate_data)
-        
-
-        
-        #put everything in layouts
-        controls_layout = QGridLayout()
-#         controls_layout.addWidget(grid_button, 0, 0)
-#         controls_layout.addWidget(beam_button, 1, 0)
-#         controls_layout.addWidget(ms_button, 2, 0)
-#         controls_layout.addWidget(cd_button, 3, 0)
-#         controls_layout.addWidget(ssi_button, 4, 0)
-        
-        
-
-#         sep = QFrame()
-#         sep.setFrameShape(QFrame.VLine)
-# 
-#         controls_layout.addWidget(sep, 0, 1, 5, 1)
-        
-        controls_layout.addWidget(QLabel('Change Viewport:'),0,2,1,2)
-        hbox=QHBoxLayout()
-        for i,view in enumerate(['X', 'Y', 'Z', 'ISO']):
-            button = QToolButton()
-            button.setText(view)
-            button.released.connect(self.change_viewport)
-            hbox.addWidget(button)
-        hbox.addStretch()
-        controls_layout.addLayout(hbox, 0, 4,1,4)
-        
-        self.val_widgets={}
-        lims = self.mode_shape_plot.subplot.get_w_lims()
-        for row,dir in enumerate(['X', 'Y', 'Z']):
-            label = QLabel(dir+' Limits:')
-            r_but = QToolButton()
-            r_but.setText('<-')
-            r_but.released.connect(self.change_view)
-            r_val = QLineEdit()
-            r_val.setText(str(lims[row*2+0]))
-            r_val.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-            r_val.editingFinished.connect(self.change_view)
-            l_val = QLineEdit()
-            l_val.setText(str(lims[row*2+1]))
-            l_val.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-            l_val.editingFinished.connect(self.change_view)
-            l_but = QToolButton()
-            l_but.setText('->')
-            l_but.released.connect(self.change_view)            
-            self.val_widgets[dir]=[r_but,r_val,l_val,l_but]
-            controls_layout.addWidget(label,row+1,0+2)
-            controls_layout.addWidget(r_but,row+1,1+2)
-            controls_layout.addWidget(r_val,row+1,2+2)
-            controls_layout.addWidget(l_val, row+1,3+2)
-            controls_layout.addWidget(l_but, row+1, 4+2)
-        #controls_layout.setColumnStretch(5,10)
-        
-        label = QLabel('Zoom:')
-        r_but = QToolButton()
-        r_but.setText('+') 
-        r_but.released.connect(self.change_view)
-        l_but = QToolButton()
-        l_but.setText('-')
-        l_but.released.connect(self.change_view)  
-        
-        controls_layout.addWidget(label, row+2,0+2)
-        controls_layout.addWidget(r_but, row+2,1+2)
-        controls_layout.addWidget(l_but, row+2,2+2)
-        
-        reset_button = QPushButton('Reset View')
-        reset_button.released.connect(self.reset_view)
-
-        controls_layout.addWidget(reset_button, row+2,3+2)
-
-        sep = QFrame()
-        sep.setFrameShape(QFrame.VLine)
-
-        tab_widget = QTabWidget()
-
-        tab_1 = QWidget()
-        lay_1 = QGridLayout()
-        tab_2 = QWidget()
-        lay_2 = QGridLayout()
-        #lay_1.setContentsMargins(0,0,0,0)
-        tab_1.setContentsMargins(0,0,0,0)
-        #lay_2.setContentsMargins(0,0,0,0)
-        tab_2.setContentsMargins(0,0,0,0)
-        tab_widget.setContentsMargins(0,0,0,0)
-        #lay_1.setVerticalSpacing(0)
-        #lay_2.setVerticalSpacing(0)
-        
-        controls_layout.addWidget(sep, 0, 7, 5, 1)
-
-        lay_1.addWidget(QLabel('Mode'), 0,0)
-        lay_1.addWidget(self.mode_combo, 0,1)
-
-        lay_1.addWidget(QLabel('Amplitude'), 1,0)
-        lay_1.addWidget(self.amplitude_box, 1,1)
-
-        layout = QHBoxLayout()
-        lay_1.addWidget(QLabel('Complex Modeshape:'), 2,0)
-        layout.addWidget(real_checkbox)
-        layout.addWidget(imag_checkbox)
-        lay_1.addLayout(layout, 2,1)
-
-        layout = QHBoxLayout()
-        #layout.addWidget(QLabel('Show Modeshape:'))
-        #layout.addWidget(self.ani_button)        
-        #lay_1.addLayout(layout, 3,0,0,1)
-        
-        lay_1.addWidget(self.ani_button,3,0,)
-        tab_1.setLayout(lay_1)
-        if mode_shape_plot.prep_data is not None:
-            lay_2.addWidget(QLabel('Lowpass [Hz]:'),0,0)
-            lay_2.addWidget(self.ani_lowpass_box,0,1)
-            lay_2.addWidget(QLabel('Highpass [Hz]:'),1,0)
-            lay_2.addWidget(self.ani_highpass_box)
-            lay_2.addWidget(QLabel('Animation Speed [ms]:'),2,0)
-            lay_2.addWidget(self.ani_speed_box,2,1)
-            #lay_2.addWidget(self.ani_data_button,3,0,)
-            layout = QHBoxLayout()
-            layout.addWidget(self.ani_data_button)
-            layout.addWidget(self.ani_position_slider)
-            layout.addWidget(self.ani_position_data)
-            lay_2.addLayout(layout, 3,0,1,2)
-        tab_2.setLayout(lay_2)
-        
-        policy = QSizePolicy.Minimum
-        tab_1.setSizePolicy(policy,policy)
-        tab_2.setSizePolicy(policy,policy)
-        tab_widget.setSizePolicy(policy, policy)
-
-        tab_widget.addTab(tab_1, 'Modeshape')
-        tab_widget.addTab(tab_2, 'Time Histories')
-        
-        controls_layout.addWidget(tab_widget, 0, 8, 5, 1)
-        
-        if not reduced_gui:
-            sep = QFrame()
-            sep.setFrameShape(QFrame.VLine)
-            controls_layout.addWidget(sep, 0, 9, 5, 1)        
-            controls_layout.addWidget(self.info_box, 0, 10, 5, 2)
-
-        vbox = QVBoxLayout()
-        
-        sep1 = QFrame()
-        sep1.setFrameShape(QFrame.HLine)
-        
-        sep2 = QFrame()
-        sep2.setFrameShape(QFrame.HLine)
-
-        vbox.addWidget(self.canvas,10,Qt.AlignCenter)
-
-        
-
-        vbox.addWidget(sep1)    
-        vbox.addLayout(view_layout)
-        vbox.addLayout(axis_limits_layout)   
-        vbox.addWidget(sep2)     
-        vbox.addLayout(controls_layout)
-
-        main_frame.setLayout(vbox)
-        self.setCentralWidget(main_frame)
-
-        self.show()
-        #self.reset_view()
-        self.mode_combo.setCurrentIndex(1)
-        imag_checkbox.setChecked(True)
-        self.mode_combo.setCurrentIndex(0)
-        
-        
-    def create_menu(self):
-        '''
-        create the menubar and add actions to it
-        '''
-        def add_actions(target, actions):
-            for action in actions:
-                if action is None:
-                    target.addSeparator()
-                else:
-                    target.addAction(action)
-
-        def create_action(text, slot=None, shortcut=None,
-                          icon=None, tip=None, checkable=False,
-                          signal="triggered()"):
-            action = QAction(text, self)
-            if icon is not None:
-                action.setIcon(QIcon(":/%s.png" % icon))
-            if shortcut is not None:
-                action.setShortcut(shortcut)
-            if tip is not None:
-                action.setToolTip(tip)
-                action.setStatusTip(tip)
-            if slot is not None:
-                getattr(action, signal.strip('()')).connect(slot)
-            if checkable:
-                action.setCheckable(True)
-            return action
-
-        file_menu = self.menuBar().addMenu("&File")
-
-        load_file_action = create_action("&Save plot",
-                                         shortcut="Ctrl+S", 
-                                         slot=self.save_plot,
-                                         tip="Save the plot")
-        quit_action = create_action("&Quit", 
-                                    slot=self.close,
-                                    shortcut="Ctrl+Q", 
-                                    tip="Close the application")
-
-        add_actions(file_menu,
-                    (load_file_action, None, quit_action))
-
-        help_menu = self.menuBar().addMenu("&Help")
-    
-    def reset_view(self):
-        self.stop_ani()
-        self.mode_shape_plot.reset_view()
-        self.axis_checkbox.setChecked(True)
-        self.nodes_checkbox.setChecked(True)
-        self.draw_button_group.button(0).setChecked(True)
-        self.toggle_draw(0)
-        lims=self.mode_shape_plot.subplot.get_w_lims()
-
-        self.val_widgets['X'][1].setText(str(lims[0]))
-        self.val_widgets['X'][2].setText(str(lims[1]))        
-        self.val_widgets['Y'][1].setText(str(lims[2]))
-        self.val_widgets['Y'][2].setText(str(lims[3]))        
-        self.val_widgets['Z'][1].setText(str(lims[4]))
-        self.val_widgets['Z'][2].setText(str(lims[5]))
-            
-    ##@pyqtSlot()
-    def change_view(self):
-        '''
-        shift the view along specified axis by +-20 % (hardcoded)
-        works in combination with the appropriate buttons as senders
-        or by passing one of  ['+X', '-X', '+Y', '-Y', '+Z', '-Z']
-        '''
-        sender = self.sender()
-        for dir, widgets in self.val_widgets.items():
-            for i,widget in enumerate(widgets):
-                if sender == widget:
-                    break
-            else:
-                continue
-            val1, val0 = float(widgets[2].text()), float(widgets[1].text())
-            rang = val1-val0
-            if i == 0:
-                val0 -=rang*0.2
-                val1 -=rang*0.2
-            elif i == 3:
-                val0 +=rang*0.2
-                val1 +=rang*0.2
-            widgets[2].setText(str(val1))
-            widgets[1].setText(str(val0))
-            if 'X' in dir:
-                self.mode_shape_plot.subplot.set_xlim3d((val0,val1))
-            elif 'Y' in dir:
-                self.mode_shape_plot.subplot.set_ylim3d((val0,val1))
-            elif 'Z' in dir:
-                self.mode_shape_plot.subplot.set_zlim3d((val0,val1))
-        else:
-            val1, val0 = float(widgets[2].text()), float(widgets[1].text())
-            rang = val1-val0
-            if sender.text() == '+':
-                rang *=0.8
-            elif sender.text() == '-':
-                rang*=1.25
-                
-        for dir, widgets in self.val_widgets.items():
-            val1_, val0_ = float(widgets[2].text()), float(widgets[1].text())
-            rang_ = val1_-val0_
-            delta = (rang_ - rang)/2
-            val1_ -= delta
-            val0_ += delta
-            widgets[2].setText(str(val1_))
-            widgets[1].setText(str(val0_))    
-            if 'X' in dir:
-                self.mode_shape_plot.subplot.set_xlim3d((val0_,val1_))
-            elif 'Y' in dir:
-                self.mode_shape_plot.subplot.set_ylim3d((val0_,val1_))
-            elif 'Z' in dir:
-                self.mode_shape_plot.subplot.set_zlim3d((val0_,val1_))
-        self.mode_shape_plot.canvas.draw_idle()
-        
-    def update_lims(self, event):
-        if event.button == 3:
-            lims = self.mode_shape_plot.subplot.get_w_lims()
-            for row,dir in enumerate(['X', 'Y', 'Z']):
-                [r_but,r_val,l_val,l_but]=self.val_widgets[dir]
-                r_val.setText(str(lims[row*2+0]))
-                l_val.setText(str(lims[row*2+1]))
-        
-                
-
-            
-    #@pyqtSlot()
-    def change_viewport(self, viewport=None):
-        '''
-        change the viewport
-        for non-ISO viewports the projection methods of matplotlib
-        will be monkeypatched, because otherwise it would not be an 
-        axonometric view (functions are defined at the top of document)
-        works in combination with the appropriate buttons as senders or
-        by passing one of ['X', 'Y', 'Z', 'ISO']
-        
-        '''
-        if viewport is None:
-            viewport = self.sender().text()
-            
-        self.mode_shape_plot.change_viewport(viewport)
-                    
-    #@pyqtSlot()
-    def save_plot(self, path=None):
-        '''
-        save the curently displayed frame as a \*.png graphics file
-        '''
-        
-        # copied and modified from matplotlib.backends.backend_qt4.NavigationToolbar2QT
-        canvas=self.canvas
-        
-        filetypes = canvas.get_supported_filetypes_grouped()
-        sorted_filetypes = list(filetypes.items())
-        sorted_filetypes.sort()
-        default_filetype = canvas.get_default_filetype()
-        
-        startpath = rcParams.get('savefig.directory', '')
-        startpath = os.path.expanduser(startpath)
-        start = os.path.join(startpath, self.canvas.get_default_filename())
-        filters = []
-        selectedFilter = None
-        for name, exts in sorted_filetypes:
-            exts_list = " ".join(['*.%s' % ext for ext in exts])
-            filter = '%s (%s)' % (name, exts_list)
-            if default_filetype in exts:
-                selectedFilter = filter
-            filters.append(filter)
-        filters = ';;'.join(filters)
-        
-        
-        fname,ext = QFileDialog.getSaveFileName(self, caption="Choose a filename to save to",
-                                       directory=start, filter=filters)
-
-        if fname:
-            self.mode_shape_plot.save_plot(fname)
-            self.statusBar().showMessage('Saved to %s' % fname, 2000)
-            
-    def plot_this(self, index):
-        #self.mode_shape_plot.stop_ani()
-        self.mode_shape_plot.change_mode(mode_index=index)
-        #self.animate()
-        
-    #@pyqtSlot(str)
-    def change_mode(self, mode):
-        '''
-        if user selects a new mode,
-        extract the mode number from the passed string (contains frequency...)
-        write modal values to the infobox
-        and plot the mode shape
-        '''
-        
-        #print('in change_mode: mode = ', mode)
-
-        # mode numbering starts at 1 python lists start at 0
-        mode_num = mode.split(':') # if mode is empty
-        if not mode_num[0]: return
-        
-        mode_num = int(float(mode_num[0])) - 1 
-        frequency = float(mode.split(':')[1])
-        mode,order,frequency, damping, MPC, MP, MPD = self.mode_shape_plot.change_mode(frequency)
-        
-        text = 'Selected Mode\n'\
-                      + '=======================\n'\
-                      + 'Frequency [Hz]:\t'           + str(frequency)    + '\n'\
-                      + 'Damping [%]:\t'            + str(damping)    + '\n'\
-                      + 'Model order:\t'            + str(order)      + '\n'\
-                      + 'Mode number: \t'           + str(mode)       + '\n'\
-                      + 'MPC [-]:\t'                + str(MPC)        + '\n'\
-                      + 'MP  [\u00b0]:\t'           + str(MP)         + '\n'\
-                      + 'MPD [-]:\t'                + str(MPD)        + '\n\n'
-        #print(text)             
-        self.info_box.setText(text)
-
-
-    #@pyqtSlot(int)
-    def toggle_draw(self, i):
-        '''
-        helper function to receive the signal from the draw_button_group
-        i is the number of the button that had it's state changed
-        based on i and the checkstate the appropriate functions will be called
-        '''
-        self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
-        self.mode_shape_plot.refresh_lines(False)
-        self.mode_shape_plot.refresh_master_slaves(False)            
-        self.mode_shape_plot.refresh_chan_dofs(False) 
-        if self.draw_button_group.button(i).checkState():
-            for j in range(3):
-                if j==i:continue
-                self.draw_button_group.button(j).setCheckState(Qt.Unchecked)
-            if i == 0:
-                self.mode_shape_plot.refresh_lines(True)
-            elif i == 1:
-                self.mode_shape_plot.refresh_master_slaves(True)
-            elif i == 2:
-                self.mode_shape_plot.refresh_chan_dofs(True)
-        self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)
-
-
-    #@pyqtSlot()
-    def stop_ani(self):
-        '''
-        convenience method to stop the animation and restore the still plot
-        '''
-        if self.animated:
-            self.ani_button.setIcon(
-                self.style().standardIcon(QStyle.SP_MediaPlay))
-            self.animated = False
-
-    #@pyqtSlot()
-    def animate(self):
-        '''
-        create necessary objects to animate the currently displayed
-        deformed structure
-        '''
-        if self.mode_shape_plot.animated:
-            self.ani_button.setIcon(
-                self.style().standardIcon(QStyle.SP_MediaPlay))
-            self.mode_shape_plot.stop_ani()
-        else:
-            if self.mode_shape_plot.data_animated:
-                self.ani_data_button.setIcon(
-                    self.style().standardIcon(QStyle.SP_MediaPlay))
-                self.mode_shape_plot.stop_ani()
-            self.nodes_checkbox.setCheckState(False)
-            #self.axis_checkbox.setCheckState(False)
-            self.ani_button.setIcon(
-                self.style().standardIcon(QStyle.SP_MediaPause))
-            self.mode_shape_plot.animate()
-    
-    def prepare_filter(self):
-        lowpass = self.ani_lowpass_box.value()
-        highpass = self.ani_highpass_box.value()
-        #print(lowpass, highpass)
-        try:
-            lowpass = float(lowpass)
-        except ValueError:
-            lowpass = None
-        try:
-            highpass = float(highpass)
-        except ValueError:
-            highpass = None
-        
-        if lowpass == 0.0:
-            lowpass = None
-        if highpass == 0.0:
-            highpass = None
-        if lowpass and highpass:
-            assert lowpass > highpass
-        #print(highpass, lowpass)
-        self.mode_shape_plot.prep_data.filter_data(lowpass, highpass)
-    
-    def set_ani_time(self, pos):
-        #print(pos)
-        tot_len = self.mode_shape_plot.prep_data.measurement.shape[0]
-        #pos = int(pos*tot_len)
-        self.mode_shape_plot.line_ani.frame_seq = iter(range(pos,tot_len))
-        
-    def change_animation_speed(self, speed):
-        try:
-            speed = float(speed)
-        except ValueError:
-            return
-        
-        #print(speed)
-        self.mode_shape_plot.line_ani.event_source.interval = int(speed)
-        self.mode_shape_plot.line_ani.event_source._timer_set_interval()
-         
-    #@pyqtSlot()
-    def filter_and_animate_data(self):
-        '''
-        create necessary objects to animate the currently displayed
-        deformed structure
-        '''
-        if self.mode_shape_plot.data_animated:
-            self.ani_data_button.setIcon(
-                self.style().standardIcon(QStyle.SP_MediaPlay))
-            self.mode_shape_plot.stop_ani()
-        else:
-            if self.mode_shape_plot.animated:
-                self.ani_button.setIcon(
-                    self.style().standardIcon(QStyle.SP_MediaPlay))
-                self.mode_shape_plot.stop_ani()
-            self.nodes_checkbox.setCheckState(False)
-            self.axis_checkbox.setCheckState(False)
-            self.ani_data_button.setIcon(
-                self.style().standardIcon(QStyle.SP_MediaPause))
-            self.mode_shape_plot.filter_and_animate_data(callback=self.ani_position_data.setText)
-            
-    def closeEvent(self, *args, **kwargs):
-        self.mode_shape_plot.stop_ani()
-        FigureCanvasQTAgg.resizeEvent = old_resize_event
-        self.deleteLater()
-        return QMainWindow.closeEvent(self, *args, **kwargs)   
-
 
 class Arrow3D(FancyArrowPatch):
     '''
@@ -2728,972 +1982,6 @@ class Arrow3D(FancyArrowPatch):
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
         FancyArrowPatch.draw(self, renderer)
 
-
-# class GeometryCreator(QMainWindow):
-#     '''
-#     GUI for creating/editing/loading/saving node, lines, 
-#     master-slave definitions and channel-DOF assignments.
-#     several signals automatically emit any changes made with this GUI,
-#     such that they can be processed in a class that plots these things.
-#     
-#     Files are assumed to be in a matlab compatible, csv readable ascii 
-#     format, with whitespace delimiters:
-#     possible node definitions (scientific notation):
-#       1.0000000e+000 -2.4000000e+000 -2.4000000e+000  0.0000000e+000
-#       2.0000000e+000 -2.4000000e+000  2.4000000e+000  0.0000000e+000
-#       ....
-#     possible channel-DOF assignments (float/int notation):
-#      1  0  9  0.000  0.000  1.000
-#      2  1  1  0.000  0.000  1.000
-#      ...
-#     others are similar.
-#     '''
-#     # define pyqtSignals that can be connected to
-#     node_added = pyqtSignal(float, float, float, int)
-#     node_taken = pyqtSignal(float, float, float, int)
-# 
-#     line_added = pyqtSignal(tuple, int)
-#     line_taken = pyqtSignal(tuple)
-# 
-#     slave_added = pyqtSignal(
-#         int, float, float, float, int, float, float, float, int)
-#     slave_taken = pyqtSignal(
-#         int, float, float, float, int, float, float, float)
-# 
-#     chan_dof_added = pyqtSignal(int, int, tuple, int)
-#     chan_dof_taken = pyqtSignal(int, int, tuple)
-# 
-#     return_to_func = pyqtSignal()
-# 
-#     def __init__(self):
-#         '''
-#         initiate the class,
-#         inherit from QMainWindow
-#         create class variables
-#         '''
-#         super(GeometryCreator, self).__init__()
-# 
-#         # not sure if it is necessary to hold a copy of these variables in this class's memory
-#         # these variables should always be equal to the ones in PlotMSH object
-#         
-#         # node tables are dicts to make node numbering with gaps possible
-#         # else we would have to store node numbers in a separate list which
-#         # has to be kept in sync with the coordinates tables
-#         self.xs, self.ys, self.zs = {}, {}, {}
-#         self.lines = []
-#         self.master_slaves = []
-#         self.chan_dofs = []
-# 
-#         self.last_path = os.getcwd()
-# 
-#     def show_creation_widget(self, type_='nodes'):
-#         '''
-#         draw a widget containing:
-#         several inputboxes (QSpinBox, QDoubleSpinBox) for defining 
-#         the values for nodes, lines, master slaves and channel dof assignments
-#         '''
-#         'types =  [nodes, lines master_slaves, chan_dofs]'
-# 
-#         main_frame = QWidget()
-# 
-#         inp_box = QGridLayout()
-#         self.add_button = QPushButton('Add')
-# 
-#         if type_ == 'nodes':
-#             self.setWindowTitle('Edit Nodes')
-#             
-#             self.x_input = QDoubleSpinBox()
-#             self.x_input.setRange(-1000, 1000)
-#             self.y_input = QDoubleSpinBox()
-#             self.y_input.setRange(-1000, 1000)
-#             self.z_input = QDoubleSpinBox()
-#             self.z_input.setRange(-1000, 1000)
-# 
-#             inp_box.addWidget(QLabel('x'), 0, 0)
-#             inp_box.addWidget(self.x_input, 1, 0)
-#             inp_box.addWidget(QLabel('y'), 0, 1)
-#             inp_box.addWidget(self.y_input, 1, 1)
-#             inp_box.addWidget(QLabel('z'), 0, 2)
-#             inp_box.addWidget(self.z_input, 1, 2)
-# 
-#             self.add_button.released.connect(self.add_node)
-# 
-#             self.coordinates_list = QTableWidget(0, 4)
-# 
-#             load_button = QPushButton('Load Gridfile')
-#             load_button.released.connect(self.load_new_nodes)
-#             
-#         elif type_ == 'lines':
-#             self.setWindowTitle('Edit Lines')
-# 
-#             max_n = max(self.xs.keys()) # do not select nonexisting nodes
-#             self.start_input = QSpinBox()
-#             self.start_input.setRange(0, max_n)
-#             self.end_input = QSpinBox()
-#             self.end_input.setRange(0, max_n)
-# 
-#             inp_box.addWidget(QLabel('start node'), 0, 0)
-#             inp_box.addWidget(self.start_input, 1, 0)
-#             inp_box.addWidget(QLabel('end node'), 0, 1)
-#             inp_box.addWidget(self.end_input, 1, 1)
-# 
-#             self.add_button.released.connect(self.add_line)
-# 
-#             self.coordinates_list = QTableWidget(0, 2)
-# 
-#             load_button = QPushButton('Load Beamfile')
-#             load_button.released.connect(self.load_new_lines)
-#             
-#         elif type_ == 'master_slaves':
-#             self.setWindowTitle('Edit Master-Slave Definitions')
-# 
-#             max_n = max(self.xs.keys()) # do not select nonexisting nodes
-#             self.master_node = QSpinBox()
-#             self.master_node.setRange(0, max_n)
-#             self.master_x = QDoubleSpinBox()
-#             self.master_x.setRange(-100, 100)
-#             self.master_y = QDoubleSpinBox()
-#             self.master_y.setRange(-100, 100)
-#             self.master_z = QDoubleSpinBox()
-#             self.master_z.setRange(-100, 100)
-#             self.slave_node = QSpinBox()
-#             self.slave_node.setRange(0, max_n)
-#             self.slave_x = QDoubleSpinBox()
-#             self.slave_x.setRange(-100, 100)
-#             self.slave_y = QDoubleSpinBox()
-#             self.slave_y.setRange(-100, 100)
-#             self.slave_z = QDoubleSpinBox()
-#             self.slave_z.setRange(-100, 100)
-# 
-#             inp_box.addWidget(QLabel('master node'), 0, 0)
-#             inp_box.addWidget(self.master_node, 1, 0)
-#             inp_box.addWidget(QLabel('master x'), 0, 1)
-#             inp_box.addWidget(self.master_x, 1, 1)
-#             inp_box.addWidget(QLabel('master y'), 0, 2)
-#             inp_box.addWidget(self.master_y, 1, 2)
-#             inp_box.addWidget(QLabel('master z'), 0, 3)
-#             inp_box.addWidget(self.master_z, 1, 3)
-#             inp_box.addWidget(QLabel('slave node'), 0, 4)
-#             inp_box.addWidget(self.slave_node, 1, 4)
-#             inp_box.addWidget(QLabel('slave x'), 0, 5)
-#             inp_box.addWidget(self.slave_x, 1, 5)
-#             inp_box.addWidget(QLabel('slave y'), 0, 6)
-#             inp_box.addWidget(self.slave_y, 1, 6)
-#             inp_box.addWidget(QLabel('slave z'), 0, 7)
-#             inp_box.addWidget(self.slave_z, 1, 7)
-# 
-#             self.add_button.released.connect(self.add_master_slave)
-# 
-#             self.coordinates_list = QTableWidget(0, 8)
-# 
-#             load_button = QPushButton('Load Master-Slave-File')
-#             load_button.released.connect(self.load_new_master_slave)
-# 
-#         elif type_ == 'chan_dofs':
-#             self.setWindowTitle('Edit Channel-DOF Assignmnents')
-# 
-#             max_n = max(self.xs.keys())
-#             self.chan_input = QSpinBox()
-#             self.chan_input.setRange(0, 1000)
-#             self.node_input = QSpinBox()
-#             self.node_input.setRange(0, max_n)
-#             self.x_input = QDoubleSpinBox()
-#             self.x_input.setRange(-1000, 1000)
-#             self.y_input = QDoubleSpinBox()
-#             self.y_input.setRange(-1000, 1000)
-#             self.z_input = QDoubleSpinBox()
-#             self.z_input.setRange(-1000, 1000)
-# 
-#             inp_box.addWidget(QLabel('channel'), 0, 0)
-#             inp_box.addWidget(self.chan_input, 1, 0)
-#             inp_box.addWidget(QLabel('node'), 0, 1)
-#             inp_box.addWidget(self.node_input, 1, 1)
-#             inp_box.addWidget(QLabel('x ampl.'), 0, 2)
-#             inp_box.addWidget(self.x_input, 1, 2)
-#             inp_box.addWidget(QLabel('y ampl.'), 0, 3)
-#             inp_box.addWidget(self.y_input, 1, 3)
-#             inp_box.addWidget(QLabel('z ampl.'), 0, 4)
-#             inp_box.addWidget(self.z_input, 1, 4)
-# 
-#             self.add_button.released.connect(self.add_chan_dof)
-# 
-#             self.coordinates_list = QTableWidget(0, 5)
-# 
-#             load_button = QPushButton('Load Channel DOF File')
-#             load_button.released.connect(self.load_new_chan_dof)
-# 
-#         remove_button = QPushButton('remove')
-#         remove_button.released.connect(self.remove_rows)
-# 
-#         button_box_top = QHBoxLayout()
-#         button_box_top.addWidget(remove_button)
-#         button_box_top.addStretch()
-#         button_box_top.addWidget(self.add_button)
-# 
-#         self.coordinates_list.horizontalHeader().hide()
-#         self.coordinates_list.verticalHeader().hide()
-#         self.coordinates_list.setShowGrid(False)
-#         for column in range(self.coordinates_list.columnCount()):
-#             self.coordinates_list.setColumnWidth(column, 50)
-#         self.coordinates_list.setSelectionBehavior(
-#             QAbstractItemView.SelectRows)
-# 
-#         clear_button = QPushButton('Clear')
-#         clear_button.released.connect(self.clear_list)
-# 
-#         save_button = QPushButton('Save')
-#         save_button.released.connect(self.save_file)
-# 
-#         close_button = QPushButton('Close')
-#         close_button.released.connect(self.close_return)
-# 
-#         button_box_bottom = QHBoxLayout()
-#         button_box_bottom.addWidget(clear_button)
-#         button_box_bottom.addWidget(load_button)
-#         button_box_bottom.addWidget(save_button)
-#         button_box_bottom.addWidget(close_button)
-# 
-#         vbox = QVBoxLayout()
-#         vbox.addLayout(inp_box)
-#         vbox.addLayout(button_box_top)
-#         vbox.addWidget(self.coordinates_list, stretch=1)
-#         vbox.addLayout(button_box_bottom)
-# 
-#         main_frame.setLayout(vbox)
-# 
-#         self.setCentralWidget(main_frame)
-#         self.show()
-#         
-#     def keyPressEvent(self, e):        
-#         "define which signals will be emitted if a specified key is pressed"
-#         
-#         #inherit the original method from QMainWindows to not break keyboard navigation
-#         super(GeometryCreator, self).keyPressEvent(e)
-#         if e.key() == Qt.Key_Enter: 
-#             self.add_button.released.emit()
-#                
-#     @pyqtSlot()
-#     @pyqtSlot(int, int, int)
-#     def add_node(self, x=None, y=None, z=None, node=None):
-#         '''
-#         add a node either programatically by passing the corrdinates
-#         or via a signal from a button, such that the coordinates will be
-#         read from the input widgets
-#         coordinates will be added to the list widget, to the internal
-#         node table and sent via a signal
-#         x, y, z = float
-#         node = int
-#         '''
-#         if x is None:
-#             x = self.x_input.value()
-#         else:
-#             x = float(x)
-#         if y is None:
-#             y = self.y_input.value()
-#         else:
-#             y = float(y)
-#         if z is None:
-#             z = self.z_input.value()
-#         else:
-#             z = float(z)
-# 
-#         rows = self.coordinates_list.rowCount()
-#         self.coordinates_list.insertRow(rows)
-# 
-#         if node is None:
-#             node = int(rows)
-#         else:
-#             node = int(float(node))
-# 
-#         for col, val in enumerate([node, x, y, z]):
-#             if isinstance(val, int):
-#                 item = QTableWidgetItem('{:d}'.format(val))
-#             else:
-#                 item = QTableWidgetItem('{:2.3f}'.format(val))
-#             item.setFlags(item.flags() ^ Qt.ItemIsEditable)
-#             self.coordinates_list.setItem(rows, col, item)
-#         self.coordinates_list.resizeRowsToContents()
-# 
-#         self.xs[node], self.ys[node], self.zs[node] = x, y, z
-# 
-#         self.node_added.emit(x, y, z, node)
-#         
-#     @pyqtSlot()
-#     @pyqtSlot(tuple)
-#     def add_line(self, line=None):
-#         '''
-#         add a line either programatically by passing the line nodes
-#         or via a signal from a button, such that the coordinates will be
-#         read from the input widgets
-#         line nodes (start node and end node; must be existing)
-#         will be added to the list widget, to the internal lines table
-#         and sent via a signal
-#         line = (start_node [int], end_node [int])
-#         '''
-#         if line is None:
-#             n_start = self.start_input.value()
-#             n_end = self.end_input.value()
-#             line = (n_start, n_end)
-# 
-#         assert isinstance(line, (tuple, list))
-#         assert len(line) == 2
-#         for value in line:
-#             assert isinstance(value, int)
-# 
-#         n_start, n_end = line
-# 
-#         assert len(self.xs) == len(self.ys) == len(self.zs)
-#         assert max(list(self.xs.keys())) >= n_start
-#         assert max(list(self.xs.keys())) >= n_end
-# 
-#         rows = self.coordinates_list.rowCount()
-#         self.coordinates_list.insertRow(rows)
-# 
-#         for col, val in enumerate(line):
-#             item = QTableWidgetItem('{:d}'.format(val))
-#             item.setFlags(item.flags() ^ Qt.ItemIsEditable)
-#             self.coordinates_list.setItem(rows, col, item)
-#         self.coordinates_list.resizeRowsToContents()
-# 
-#         while len(self.lines) <= rows:
-#             self.lines.append((0, 0))
-#         self.lines[rows] = line
-#         self.line_added.emit(line, rows)
-# 
-#     @pyqtSlot()
-#     @pyqtSlot(int, float, float, float, int, float, float, float)
-#     def add_master_slave(self, i_m=None,  x_m=None,  y_m=None,  z_m=None, 
-#                                i_sl=None, x_sl=None, y_sl=None, z_sl=None):
-#         '''
-#         add a master slave definition either programatically by passing
-#         the nodes and directional factors or via a signal from a button,
-#         such that these values will be read from the input widgets
-#         master-slave definitions will be added to the list widget, to 
-#         the internal master-slave table and sent via a signal
-#         i_m, i_sl = node_num [int]
-#         x_m, y_m, z_m, x_sl, y_sl, z_sl = float
-#         '''
-#         if i_m is None:
-#             i_m = self.master_node.value()
-#         i_m = int(float(i_m))
-#         if x_m is None:
-#             x_m = self.master_x.value()
-#         x_m = float(x_m)
-#         if y_m is None:
-#             y_m = self.master_y.value()
-#         y_m = float(y_m)
-#         if z_m is None:
-#             z_m = self.master_z.value()
-#         z_m = float(z_m)
-#         if i_sl is None:
-#             i_sl = self.slave_node.value()
-#         i_sl = int(float(i_sl))
-#         if x_sl is None:
-#             x_sl = self.slave_x.value()
-#         x_sl = float(x_sl)
-#         if y_sl is None:
-#             y_sl = self.slave_y.value()
-#         y_sl = float(y_sl)
-#         if z_sl is None:
-#             z_sl = self.slave_z.value()
-#         z_sl = float(z_sl)
-# 
-#         if x_m == y_m == z_m == 0 or x_sl == y_sl == z_sl == 0:
-#             QMessageBox.warning(
-#                 self, 'Warning', 'You have to select at least one direction' 
-#                 'for each of master and slave to be non-zero! Will omit now!')
-#             return  # arrows of zero length cause error messages
-# 
-#         rows = self.coordinates_list.rowCount()
-#         self.coordinates_list.insertRow(rows)
-# 
-#         for col, val in enumerate([i_m,  x_m,  y_m,  z_m, 
-#                                    i_sl, x_sl, y_sl, z_sl]):
-#             if isinstance(val, int): # e.g. node
-#                 item = QTableWidgetItem('{:d}'.format(val))
-#             else: # e.g. DOF
-#                 item = QTableWidgetItem('{:2.3f}'.format(val))
-#             item.setFlags(item.flags() ^ Qt.ItemIsEditable)
-#             self.coordinates_list.setItem(rows, col, item)
-#         self.coordinates_list.resizeRowsToContents()
-# 
-#         while len(self.master_slaves) <= rows:
-#             self.master_slaves.append((0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0))
-#         self.master_slaves[rows] = [i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl]
-# 
-#         self.slave_added.emit(i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl, rows)
-#  
-#     @pyqtSlot()
-#     @pyqtSlot(int, tuple)
-#     def add_chan_dof(self, chan=None, node=None, dof=None):
-#         '''
-#         add a channel - DOF assignment either programatically by passing
-#         the channel, node and direction information or via a signal from
-#         a button, such that these values will be read from the input widgets
-#         values will be added to the list widget, to the internal 
-#         channel-dof table and sent via a signal
-#         chan = int
-#         node = int
-#         dof = (x_ampli [float], y_ampli [float], z_ampli [float])
-#         '''
-#         if chan is None:
-#             chan = self.chan_input.value()
-#             self.chan_input.setValue(chan + 1)
-#         else:
-#             chan = int(float(chan))
-#         if node is None:
-#             node = self.node_input.value()
-#         else:
-#             node = int(float(node))
-#         if dof is None:
-#             x_amp = self.x_input.value()
-#             y_amp = self.y_input.value()
-#             z_amp = self.z_input.value()
-#             dof = (x_amp, y_amp, z_amp)
-#         else:
-#             assert isinstance(dof, (tuple, list))
-#             assert len(dof) == 3
-#             for amp in dof:
-#                 assert isinstance(amp, (int, float))
-# 
-#         if dof[0] == dof[1] == dof[2] == 0:
-#             QMessageBox.warning(
-#                 self, 'Warning', 'You have to select at least one direction'
-#                 'for amplification to be non-zero! Will omit now!')
-#             return  # arrows of zero length cause error messages
-# 
-#         rows = self.coordinates_list.rowCount()
-#         self.coordinates_list.insertRow(rows)
-# 
-#         for col, val in enumerate([chan, node] + list(dof)):
-#             if isinstance(val, int):
-#                 item = QTableWidgetItem('{:d}'.format(val))
-#             else:
-#                 item = QTableWidgetItem('{:2.3f}'.format(val))
-#             item.setFlags(item.flags() ^ Qt.ItemIsEditable)
-#             self.coordinates_list.setItem(rows, col, item)
-#         self.coordinates_list.resizeRowsToContents()
-# 
-#         while len(self.chan_dofs) <= rows:
-#             self.chan_dofs.append((0, 0, (0.0, 0.0, 0.0)))
-#         self.chan_dofs[rows] = (chan, node, dof)
-#         
-#         self.chan_dof_added.emit(chan, node, dof, rows)
-# 
-#     @pyqtSlot()
-#     def load_new_nodes(self):
-#         self.clear_list()
-#         self.load_nodes()
-#         
-#     @pyqtSlot()
-#     def load_new_lines(self):
-#         self.clear_list()
-#         self.load_lines()
-#         
-#     @pyqtSlot()    
-#     def load_new_master_slave(self):
-#         self.clear_list()
-#         self.load_master_slave()
-#  
-#     @pyqtSlot()
-#     def load_new_chan_dof(self):
-#         self.clear_list()
-#         self.load_chan_dof()
-# 
-#     @pyqtSlot()
-#     @pyqtSlot(str)
-#     @pyqtSlot(str, bool)
-#     def load_nodes(self, filename='', silent=False):
-#         '''
-#         this is an overloaded function with the following functionalities:
-#         - create a new set of nodes via a GUI
-#         - edit an already loaded/created set of nodes via a GUI
-#         - load an existing set of nodes
-#             - and show/edit it 
-#             - load it silently
-#         filename = str (should exist and point to a whitespace 
-#             delimited ascii file (see class description)
-#         silent = bool (if False show the GUI)
-#         '''
-#         def csv_loader(filename):
-#             xs, ys, zs = {}, {}, {} # dictionary (why? -> see __init__)
-#             with open(filename, 'r') as f:
-#                 for line in csv.reader(f, delimiter=' ', skipinitialspace=True):
-#                     if not line:
-#                         continue
-#                     node, x, y, z =  \
-#                         [float(line[i]) for i in range(4)]  # cut trailing empty columns
-#                     node = int(node)
-#                     xs[node], ys[node], zs[node] = x, y, z
-#             return xs, ys, zs
-# 
-#         self.show_creation_widget(type_='nodes')
-#         xs, ys, zs = {}, {}, {} # dictionary (why? -> see __init__)
-#         if self.xs and self.ys and self.zs:  # edit an existing grid
-#             xs, ys, zs = self.xs, self.ys, self.zs
-#         elif not os.path.exists(filename):  # load grid by button request
-#             filename = QFileDialog.getOpenFileName(
-#                 caption='Open Gridfile', filter="*.asc", directory=self.last_path)
-#             self.last_path = os.path.dirname(filename)
-#         # load grid by filename; continue button loading
-#         if os.path.exists(filename):
-#             xs, ys, zs = csv_loader(filename)
-#         # add nodes to the table, to the plot and to the coordinates lists
-#         for key in xs.keys():
-#             self.add_node(xs[key], ys[key], zs[key], key)
-#         if silent and xs and ys and zs:  # don't show the GUI
-#             self.hide()
-# 
-#     @pyqtSlot()
-#     @pyqtSlot(str)
-#     @pyqtSlot(str, bool)
-#     def load_lines(self, filename='', silent=False):
-#         '''
-#         this is an overloaded function with the following functionalities:
-#         - create a new set of lines via a GUI
-#         - edit an already loaded/created set of lines via a GUI
-#         - load an existing set of lines
-#             - and show/edit it 
-#             - load it silently
-#         filename = str (should exist and point to a whitespace 
-#             delimited ascii file (see class description)
-#         silent = bool (if False show the GUI)
-#         
-#         nodes have to exis before loading/creating lines
-#         '''
-#         def csv_loader(filename):
-#             lines = []
-#             with open(filename, 'r') as f:
-#                 for line in csv.reader(f, delimiter=' ', skipinitialspace=True):
-#                     if not line:
-#                         continue
-#                     node_start, node_end = \
-#                         [int(float(line[i])) for i in range(2)]
-#                     lines.append((node_start, node_end))
-#             return lines
-# 
-#         try:
-#             self.return_to_func.disconnect(self.load_lines)
-#         except TypeError: # signal is not connected to slot
-#             pass
-#         
-#         # check if nodes are present
-#         if not self.xs or not self.ys or not self.zs:
-#             self.return_to_func.connect(self.load_lines)
-#             QMessageBox.information(
-#                 self, 'Information', 
-#                 'No Nodes found! Create or load nodes first!')
-#             self.load_nodes()
-#             return
-# 
-#         self.show_creation_widget(type_='lines')
-#         lines = []
-#         if self.lines:  # edit  existing lines
-#             lines = self.lines
-#         elif not os.path.exists(filename):  # load lines by button request
-#             filename = QFileDialog.getOpenFileName(
-#                 caption='Open Beam', filter="*.asc", directory=self.last_path)
-#             self.last_path = os.path.dirname(filename)
-# 
-#         # load lines by filename, continue button loading
-#         if os.path.exists(filename):
-#             lines = csv_loader(filename)
-#         # add lines to the table, to the plot and to the coordinates lists
-#         for line in lines:
-#             self.add_line(line)
-#         if silent and lines:  # don't show the GUI
-#             self.hide()
-# 
-#     @pyqtSlot()
-#     @pyqtSlot(str)
-#     @pyqtSlot(str, bool)
-#     def load_master_slave(self, filename='', silent=False):
-#         '''
-#         this is an overloaded function with the following functionalities:
-#         - create a new set of master slave definitions via a GUI
-#         - edit an already loaded/created set of master slave definitions via a GUI
-#         - load an existing set of master slave definitions
-#             - and show/edit it 
-#             - load it silently
-#         filename = str (should exist and point to a whitespace 
-#             delimited ascii file (see class description)
-#         silent = bool (if False show the GUI)
-#         
-#         nodes have to exist before loading/creating master slave definitions
-#         '''
-#         def csv_loader(filename):
-#             master_slaves = []
-#             with open(filename, 'r') as f:
-#                 reader = csv.reader(f, delimiter=' ', skipinitialspace=True)
-#                 for line in reader:
-#                     if not line:
-#                         continue
-#                     i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl = \
-#                             [float(line[i]) for i in range(8)]
-#                     i_m, i_sl = [int(node) for node in [i_m, i_sl]]
-#                     master_slaves.append(
-#                         (i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl))
-#             return master_slaves
-# 
-#         try:
-#             self.return_to_func.disconnect(self.load_master_slave)
-#         except TypeError: # signal is not connected to slot
-#             pass
-# 
-#         # check if nodes are present
-#         if not self.xs or not self.ys or not self.zs:
-#             self.return_to_func.connect(self.load_master_slave)
-#             QMessageBox.information(
-#                 self, 'Information', 
-#                 'No Nodes found! Create or load nodes first!')
-#             self.load_nodes()
-#             return
-# 
-#         self.show_creation_widget(type_='master_slaves')
-#         master_slaves = []
-#         if self.master_slaves:  # edit  existing master_slaves
-#             master_slaves = self.master_slaves
-#         elif not os.path.exists(filename):  # load master_slaves by button request
-#             filename = QFileDialog.getOpenFileName(
-#                 caption='Open Master-Slave-File', 
-#                 filter="*.asc", directory=self.last_path)
-#             self.last_path = os.path.dirname(filename)
-# 
-#         # load master_slaves by filename; continue button loading
-#         if os.path.exists(filename):
-#             master_slaves = csv_loader(filename)
-#         # add master_slaves to the table, to the plot and to the list
-#         for master_slave in master_slaves:
-#             self.add_master_slave(*master_slave)
-#         if silent and master_slaves:  # don't show the GUI
-#             self.hide()
-# 
-#     @pyqtSlot()
-#     @pyqtSlot(str)
-#     @pyqtSlot(str, bool)
-#     def load_chan_dof(self, filename='', silent=False):
-#         '''
-#         this is an overloaded function with the following functionalities:
-#         - create a new set of channel-DOF-assignments via a GUI
-#         - edit an already loaded/created set of channel-DOF-assignments via a GUI
-#         - load an existing set of master slave definitions
-#             - and show/edit it 
-#             - load it silently
-#         filename = str (should exist and point to a whitespace 
-#             delimited ascii file (see class description)
-#         silent = bool (if False show the GUI)
-#         
-#         nodes have to exist before loading/creating channel-DOF-assignments
-#         '''
-#         def csv_loader(filename):
-#             chan_dofs = []
-#             with open(filename, 'r') as f:
-#                 for line in csv.reader(f, delimiter=' ', skipinitialspace=True):
-#                     if not line:
-#                         continue  # skip empty lines
-#                     chan, node, x_amp, y_amp, z_amp = \
-#                         [float(line[i]) for i in range(5)]  # cut trailing empties
-#                     x_amp = int(x_amp * 10**3)/10**3
-#                     y_amp = int(y_amp * 10**3)/10**3
-#                     z_amp = int(z_amp * 10**3)/10**3
-#                     
-#                     chan_dofs.append(
-#                         (int(chan), int(node), (x_amp, y_amp, z_amp)))
-#             return chan_dofs
-#         
-#         def json_loader(filename):
-#             import json
-#             chan_dofs_file=json.load(open(filename))
-#             
-#             chan_dofs=[]
-#             if isinstance(chan_dofs_file, dict):
-#                 ok=False
-#                 if len(chan_dofs_file.keys())>1:
-#                     while not ok:
-#                         measurement_name, ok = QInputDialog.getText(self, 'Input Dialog', 
-#                         'Choose measurement_name: {}'.format(str(list(chan_dofs_file.keys()))))
-#                 else: measurement_name = list(chan_dofs_file.keys())[0]
-#                 chan_dofs_file = chan_dofs_file[measurement_name]
-#                 
-#             for chan, node, az, elev in chan_dofs_file:
-#                 az = az/180*np.pi
-#                 elev=elev/180*np.pi
-#                 x_amp=1*np.cos(elev)*np.cos(az) # for elevation angle defined from XY-plane up
-#                 #x=r*numpy.sin(elev)*numpy.cos(az) # for elevation angle defined from Z-axis down
-#                 y_amp=1*np.cos(elev)*np.sin(az) # for elevation angle defined from XY-plane up
-#                 #y=r*numpy.sin(elev)*numpy.sin(az)# for elevation angle defined from Z-axis down
-#                 z_amp=1*np.sin(elev)
-#                 chan_dofs.append(
-#                         (int(chan), int(node), (x_amp, y_amp, z_amp)))
-#             return chan_dofs
-#         
-#         def numpy_loader(filename):
-#             chan_dofs_file = np.load(filename)
-#             chan_dofs=[]
-#             for chan, node, az, elev in chan_dofs_file:
-#                 az = az/180*np.pi
-#                 elev=elev/180*np.pi
-#                 x_amp=1*np.cos(elev)*np.cos(az) # for elevation angle defined from XY-plane up
-#                 #x=r*numpy.sin(elev)*numpy.cos(az) # for elevation angle defined from Z-axis down
-#                 y_amp=1*np.cos(elev)*np.sin(az) # for elevation angle defined from XY-plane up
-#                 #y=r*numpy.sin(elev)*numpy.sin(az)# for elevation angle defined from Z-axis down
-#                 z_amp=1*np.sin(elev)
-#                 chan_dofs.append(
-#                         (int(chan), int(node), (x_amp, y_amp, z_amp)))
-#             return chan_dofs
-#                         
-#         try:
-#             self.return_to_func.disconnect(self.load_chan_dof)
-#         except TypeError: # signal is not connected to slot
-#             pass
-# 
-#         # check if nodes are present
-#         if not self.xs or not self.ys or not self.zs:
-#             self.return_to_func.connect(self.load_chan_dof)
-#             QMessageBox.information(
-#                 self, 'Information', 
-#                 'No nodes found! Create or load nodes first!')
-#             self.load_nodes()
-#             return
-# 
-#         self.show_creation_widget(type_='chan_dofs')
-#         chan_dofs = []
-# 
-#         if self.chan_dofs:  # edit existing channel-DOF-assignments
-#             chan_dofs = self.chan_dofs
-#         elif not os.path.exists(filename):  # load channel-DOF-assignments by button request
-#             filename = QFileDialog.getOpenFileName(
-#                 caption='Open Channel DOF Assignment File', 
-#                 #filter="*.asc",
-#                  directory=self.last_path)
-#             self.last_path = os.path.dirname(filename)
-# 
-#         # load channel-DOF-assignments by filename, continue button loading
-#         if os.path.exists(filename):
-#             try:
-#                 chan_dofs = csv_loader(filename)
-#             except:
-#                 try:
-#                     chan_dofs = json_loader(filename)
-#                 except:
-#                     chan_dofs = numpy_loader(filename)
-#         # add channel-DOF-assignments to the table, to the plot and to the lists
-#         for chan, node, dof in chan_dofs:
-#             self.add_chan_dof(chan, node, dof)
-#         if silent and chan_dofs:  # don't show the GUI
-#             self.hide()
-#             
-#     @pyqtSlot()
-#     def remove_rows(self, rows=None):
-#         '''
-#         remove rows from the listwidget either pass a list-of-int or call 
-#         via a signal from a button and get selected rows from the list widget
-#         based on the number of columns in the list widget it is identified
-#         what type of geometry is currently edited 
-#         - columns = 4 -> nodes
-#         - columns = 2 -> lines
-#         - columns = 8 -> master slave definitions
-#         - columns = 5 -> channel-DOF assignments
-#         for each removed row a signal is emited containg the removed values
-#         so that they can be removed in any connected class, too
-#         when removing a node, a check is performed on the other objects
-#         if they are connected to this node and if yes they will be removed
-#         as well
-#         
-#         '''
-#         cols = self.coordinates_list.columnCount()
-#         if rows is None:
-#             items = self.coordinates_list.selectedItems()
-# 
-#             rows = set() # avoid duplicate rows if more than one item in a row is selected
-#             for item in items:
-#                 rows.add(item.row())
-#             rows = list(rows)
-#             
-#         rows.sort()
-#         # removing from start would change numbering each time an item 
-#         # is removed, therefore reverse the list
-#         rows.reverse() 
-#         for row in rows:
-#             if row == -1: # no row selected
-#                 continue
-# 
-#             if cols == 4: # nodes
-#                 node = int(self.coordinates_list.item(row, 0).text())
-#                 x = float(self.coordinates_list.item(row, 1).text())
-#                 y = float(self.coordinates_list.item(row, 2).text())
-#                 z = float(self.coordinates_list.item(row, 3).text())
-#                 self.coordinates_list.removeRow(row)
-# 
-#                 while True: # check if any channel is assigned to this node
-#                     for j, (chan, node_,  dof) in enumerate(self.chan_dofs):
-#                         if node == node_:
-#                             self.chan_dof_taken.emit(chan, node_, dof)
-#                             del self.chan_dofs[j]
-#                             break
-#                     else:
-#                         break
-# 
-#                 while True: # check if any line is connected to this node
-#                     for j in range(len(self.lines)):
-#                         line = self.lines[j]
-#                         if node in line:
-#                             self.line_taken.emit(line)
-#                             del self.lines[j]
-#                             break
-#                     else:
-#                         break
-# 
-#                 while True: # check if this node is a master or slave for another node
-#                     for j, master_slave in enumerate(self.master_slaves):
-#                         if node == master_slave[0] or node == master_slave[4]:
-#                             m = master_slave
-#                             self.slave_taken.emit(
-#                                 m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7])
-#                             del self.master_slaves[j]
-#                             break
-#                     else:
-#                         break
-#                     
-#                 self.node_taken.emit(x, y, z, node)
-# 
-#                 if self.xs[node] == x:
-#                     del self.xs[node]
-#                 else:
-#                     print(
-#                         "[i] does not correspond to i'th "
-#                         "element in coordinates list")
-#                 if self.ys[node] == y:
-#                     del self.ys[node]
-#                 else:
-#                     print(
-#                         "self.ys[i] does not correspond to i'th "
-#                         "element in coordinates list")
-#                 if self.zs[node] == z:
-#                     del self.zs[node]
-#                 else:
-#                     print(
-#                         "self.zs[i] does not correspond to i'th "
-#                         "element in coordinates list")
-# 
-#             elif cols == 2:
-#                 node_start = int(self.coordinates_list.item(row, 0).text())
-#                 node_end = int(self.coordinates_list.item(row, 1).text())
-#                 self.coordinates_list.removeRow(row)
-#                 
-#                 self.line_taken.emit((node_start, node_end))
-# 
-#                 if self.lines[row] == (node_start, node_end):
-#                     del self.lines[row]
-#                 else:
-#                     print(
-#                         "self.lines[i] does not correspond to i'th element in coordinates list")
-# 
-#             elif cols == 8:
-#                 i_m = int(self.coordinates_list.item(row, 0).text())
-#                 x_m = float(self.coordinates_list.item(row, 1).text())
-#                 y_m = float(self.coordinates_list.item(row, 2).text())
-#                 z_m = float(self.coordinates_list.item(row, 3).text())
-#                 i_sl = int(self.coordinates_list.item(row, 4).text())
-#                 x_sl = float(self.coordinates_list.item(row, 5).text())
-#                 y_sl = float(self.coordinates_list.item(row, 6).text())
-#                 z_sl = float(self.coordinates_list.item(row, 7).text())
-#                 self.coordinates_list.removeRow(row)
-#                 
-#                 self.slave_taken.emit(
-#                     i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl)
-# 
-#                 if self.master_slaves[row] == [i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl]:
-#                     del self.master_slaves[row]
-#                 else:
-#                     print(
-#                         "self.master_slaves[i] does not correspond to i'th element in coordinates list")
-# 
-#             elif cols == 5:
-#                 chan = int(self.coordinates_list.item(row, 0).text())
-#                 node = int(self.coordinates_list.item(row, 1).text())
-#                 x_amp = float(self.coordinates_list.item(row, 2).text())
-#                 y_amp = float(self.coordinates_list.item(row, 3).text())
-#                 z_amp = float(self.coordinates_list.item(row, 4).text())
-#                 self.coordinates_list.removeRow(row)
-#                 
-#                 self.chan_dof_taken.emit(
-#                     chan, node, (x_amp, y_amp, z_amp))
-# 
-#                 if self.chan_dofs[row][0] == chan and \
-#                     self.chan_dofs[row][1] == node and \
-#                     nearly_equal(self.chan_dofs[row][2][0],x_amp,3) and \
-#                     nearly_equal(self.chan_dofs[row][2][1],y_amp,3) and \
-#                     nearly_equal(self.chan_dofs[row][2][2],z_amp,3):
-#                     
-#                     del self.chan_dofs[row]
-#                 else:
-#                     print(
-#                         "self.chan_dofs[i] does not correspond to i'th element in coordinates list")
-# 
-#     @pyqtSlot()
-#     def clear_list(self):
-#         '''
-#         convenience function to remove all rows in a list
-#         '''
-#         rows = self.coordinates_list.rowCount()
-#         self.remove_rows(list(range(rows)))   
-#                         
-#     @pyqtSlot()
-#     def close_return(self):
-#         '''
-#         function is used in load_lines, load_master_slave and load_chan_dof
-#         if there are no nodes present load_* function will connect itself 
-#         to the return_to_func signal such that when the user is done
-#         loading/creating the grid this close_return function is called,
-#         which will hide the creation_widget for nodes and emit the 
-#         return_to_func signal, which will call the load_* function again
-#         '''
-#         self.hide()
-#         self.return_to_func.emit()
-# 
-# 
-#     @pyqtSlot()
-#     def save_file(self):
-#         '''
-#         save the contents of the listwidget to a whitespace delimited
-#         ascii file
-#         '''
-#         filename = QFileDialog.getSaveFileName(
-#             caption='Save File', filter="*.asc", directory=self.last_path)
-#         self.last_path = os.path.dirname(filename)
-#         if filename == "":
-#             return
-#         if not filename.endswith('.asc'):
-#             filename += '.asc'
-#         with open(filename, 'w') as csvfile:
-#             writer = csv.writer(csvfile, delimiter=' ')
-#             for row in range(self.coordinates_list.rowCount()):
-#                 row_list = []
-#                 for column in range(self.coordinates_list.columnCount()):
-#                     row_list.append(
-#                         self.coordinates_list.item(row, column).text())
-#                 writer.writerow(row_list)
-
-def start_msh_gui(mode_shape_plot):
-    
-    def handler(msg_type, msg_string):
-        pass
-    
-    #qInstallMessageHandler(handler)#suppress unimportant error msg
-    if not 'app' in globals().keys():
-        global app
-        app=QApplication(sys.argv)
-    if not isinstance(app, QApplication):
-        app=QApplication(sys.argv)
-
-    form = ModeShapeGUI(mode_shape_plot)
-
-    loop=QEventLoop()
-    form.destroyed.connect(loop.quit)
-    loop.exec_()
-    #FigureCanvasQTAgg.resize_event=old_resize_event
-    return
 
 if __name__ == "__main__":
     pass
