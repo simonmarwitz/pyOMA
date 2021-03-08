@@ -20,5 +20,5 @@ Post-processing
    
    PlotMSHGUI
    StabilGUI
-   Helpers
+   HelpersGUI
    

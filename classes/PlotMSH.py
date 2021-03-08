@@ -5,7 +5,7 @@ obtained from any of the classes derived from ModalBase of the pyOMA project
 .. TODO::
  * Implement scale (for correct drawing of axis arrows)
  * Use current axes settings when starting the animation
- * Remove PyQT dependency -> move the signal definitions somewhere else
+ * Remove PyQT dependency -> move the signal definitions somewhere else. Where?
  * Restore functionality needed to create the geometry in another GUI
  * Use the logging module to replace print commands at an appropriate 
    logging level
@@ -26,19 +26,20 @@ import matplotlib
 # check if python is running in headless mode i.e. as a server script
 if 'DISPLAY' in os.environ:
     matplotlib.use("Qt5Agg",force=True) 
-from matplotlib.backend_bases import FigureCanvasBase
-from matplotlib.figure import Figure
-from mpl_toolkits.mplot3d.axes3d import Axes3D, proj3d  # @UnresolvedImport
-from matplotlib.patches import FancyArrowPatch
-from matplotlib.colors import is_color_like
+import matplotlib.backend_bases
+import matplotlib.figure
+import mpl_toolkits.mplot3d.axes3d 
+import matplotlib.patches 
+import matplotlib.colors
 import matplotlib.animation 
-from matplotlib.markers import MarkerStyle
+import matplotlib.markers
 
-
-
+#Numpy
 import numpy as np
-#tools
+
+#project
 import itertools
+from classes.Helpers import calc_xyz, nearly_equal
 from classes.StabilDiagram import StabilCalc
 from classes.PreprocessingTools import PreprocessData, GeometryProcessor
 
@@ -50,11 +51,6 @@ from classes.PostProcessingTools import MergePoSER
 NoneType = type(None)
 
 
-
-def nearly_equal(a,b,sig_fig=5):
-    return ( a==b or 
-             int(a*10**sig_fig) == int(b*10**sig_fig)
-           )
 
 
 def orthogonal_proj(zfront, zback):
@@ -73,7 +69,7 @@ def orthogonal_proj(zfront, zback):
 
 def persp_transformation(zfront, zback):
     ''' 
-    copy of mpl_toolkits.mplot3d.proj3d.persp_transformation
+    copy of mpl_toolkits.mplot3d.mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation
     for restoring the projection in isonometriv view
     '''
     a = (zfront + zback) / (zfront - zback)
@@ -84,7 +80,7 @@ def persp_transformation(zfront, zback):
                         [0, 0, -1, 0]
                         ])
 
-old_draw = Axes3D.draw
+old_draw = mpl_toolkits.mplot3d.axes3d.Axes3D.draw
 def draw_axes(self, renderer=None):
     ''' 
     monkeypatch draw method to always enforce an aspect ratio of 1 on all axis'
@@ -110,10 +106,6 @@ class ModeShapePlot(object):
     by one of the classes derived from ModalBase as part the of the pyOMA project  
     (Bauhaus-Universität Weimar, Institut für Strukturmechanik).
     
-    Test
-    Test
-    Test
-    
     
     Drawing abilities:
         * creation of 3d plots using matplotlib's mplot3 from the 
@@ -135,30 +127,6 @@ class ModeShapePlot(object):
         * drawing multiple modeshapes into one plot
         * plot modeshape in a single call from a script i.e. use static methods
     
-    
-    +----------------+--------------+-------------+--------------+
-    |Variable in     |  Merging Routine                          |
-    |PlotMSH         +--------------+-------------+--------------+
-    |                | single-setup |poger/preger |poser merging |
-    +----------------+--------------+-------------+--------------+
-    |modal_freq.     | modal_data   |modal_data   |merged_data   |
-    +----------------+--------------+-------------+--------------+
-    |modal_damping   | modal_data   |modal_data   |merged_data   |
-    +----------------+--------------+-------------+--------------+
-    |modeshapes      | modal_data   |modal_data   |merged_data   |
-    +----------------+--------------+-------------+--------------+
-    |num_channels    | prep_data    |modal_data   |merged_data   |
-    +----------------+--------------+-------------+--------------+
-    |chan_dofs       | prep_data    |modal_data   |merged_data   |
-    +----------------+--------------+-------------+--------------+
-    |select_modes    | stabil_data  |stabil_data  |merged_data   |
-    +----------------+--------------+-------------+--------------+
-    |nodes           | geometry_data|geometry_data|geometry_data |
-    +----------------+--------------+-------------+--------------+
-    |lines           | geometry_data|geometry_data|geometry_data |
-    +----------------+--------------+-------------+--------------+
-    |master-slaves   | geometry_data|geometry_data|geometry_data |
-    +----------------+--------------+-------------+--------------+
                      
     '''
     # define this class's signals and the types of data they emit
@@ -187,8 +155,36 @@ class ModeShapePlot(object):
                  callback_fun=None
                  ):
         '''
-        Parameters 
-        ------------
+        Initializes the class object and automatically checks, which of
+        the below use cases have to be considered
+        
+            
+        +----------------+--------------+-------------+--------------+
+        |Variable in     |  Merging Routine                          |
+        |PlotMSH         +--------------+-------------+--------------+
+        |                | single-setup |poger/preger |poser merging |
+        +----------------+--------------+-------------+--------------+
+        |modal_freq.     | modal_data   |modal_data   |merged_data   |
+        +----------------+--------------+-------------+--------------+
+        |modal_damping   | modal_data   |modal_data   |merged_data   |
+        +----------------+--------------+-------------+--------------+
+        |modeshapes      | modal_data   |modal_data   |merged_data   |
+        +----------------+--------------+-------------+--------------+
+        |num_channels    | prep_data    |modal_data   |merged_data   |
+        +----------------+--------------+-------------+--------------+
+        |chan_dofs       | prep_data    |modal_data   |merged_data   |
+        +----------------+--------------+-------------+--------------+
+        |select_modes    | stabil_data  |stabil_data  |merged_data   |
+        +----------------+--------------+-------------+--------------+
+        |nodes           | geometry_data|geometry_data|geometry_data |
+        +----------------+--------------+-------------+--------------+
+        |lines           | geometry_data|geometry_data|geometry_data |
+        +----------------+--------------+-------------+--------------+
+        |master-slaves   | geometry_data|geometry_data|geometry_data |
+        +----------------+--------------+-------------+--------------+
+        
+        Parameters
+        ----------
             geometry_data : PreprocessingTools.GeometryProcessor
                     Object containing all the necessary geometry information.
             
@@ -344,8 +340,6 @@ class ModeShapePlot(object):
             self.select_modes = []
             self.setup_name = ''
             self.start_time = None
-        #if not geometry_data:
-        #geometry_data = prep_data.geometry_data          
         
         self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
         self.phi_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
@@ -354,7 +348,7 @@ class ModeShapePlot(object):
         styles = ['-', '--', '-.', ':', 'None', ' ', '', None]
         
         #markerstylesavailable in matplotlib
-        markers = list(MarkerStyle.markers.keys())
+        markers = list(matplotlib.markers.MarkerStyle.markers.keys())
         
         assert isinstance(real, bool)
         self.real = real  
@@ -362,13 +356,13 @@ class ModeShapePlot(object):
         assert isinstance(scale, (int,float))
         self.scale = scale
 
-        assert is_color_like(beamcolor) or isinstance(beamcolor, (list, tuple, np.ndarray))
+        assert matplotlib.colors.is_color_like(beamcolor) or isinstance(beamcolor, (list, tuple, np.ndarray))
         self.beamcolor = beamcolor
 
         assert beamstyle in styles
         self.beamstyle = beamstyle
 
-        assert is_color_like(nodecolor)
+        assert matplotlib.colors.is_color_like(nodecolor)
         self.nodecolor = nodecolor
 
         assert nodemarker in markers or \
@@ -414,15 +408,15 @@ class ModeShapePlot(object):
         self.axis_obj = {}
         self.seq_num = 0
         
-        self.fig = Figure((10,10), dpi=dpi, facecolor='white')
+        self.fig = matplotlib.figure.Figure((10,10), dpi=dpi, facecolor='white')
         self.fig.set_tight_layout(True)
-        self.canvas = FigureCanvasBase(self.fig)
+        self.canvas = matplotlib.backend_bases.FigureCanvasBase(self.fig)
         
         try:  # mpl 1.4
             self.subplot = self.fig.add_subplot(1, 1, 1, projection='3d')
         except ValueError:  # mpl 1.3
-            self.subplot = Axes3D(self.fig)
-        Axes3D.draw = draw_axes
+            self.subplot = mpl_toolkits.mplot3d.axes3d.Axes3D(self.fig)
+        mpl_toolkits.mplot3d.axes3d.Axes3D.draw = draw_axes
         
         self.subplot.grid(False)
         self.subplot.set_axis_off()
@@ -435,12 +429,12 @@ class ModeShapePlot(object):
     #@pyqtSlot()
     def reset_view(self):
         '''
-        restore viewport, 
-        restore axis' limits, 
-        reset displacements values for all nodes, 
+         * restore viewport
+         * restore axis' limits
+         * reset displacements values for all nodes 
         '''
         self.stop_ani()
-        proj3d.persp_transformation = persp_transformation
+        mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = persp_transformation
         self.subplot.view_init(30, -60)
         self.subplot.autoscale_view()
         xmin,xmax,ymin,ymax,zmin,zmax=None,None,None,None,None,None
@@ -476,32 +470,34 @@ class ModeShapePlot(object):
     #@pyqtSlot()
     def change_viewport(self, viewport=None):
         '''
-        change the viewport
-        works in combination with the appropriate buttons as senders or
-        by passing one of ['X', 'Y', 'Z', 'ISO']
-        
+         Change the viewport e.g. azimuth and elevation and refresh the canvas
+         
+         Parameters
+         ----------
+             viewport: {'X', 'Y', 'Z', 'ISO'\, optional
+                 The viewport to set.
         '''
             
         if viewport == 'X':
             azim, elev = 0, 0
-            #proj3d.persp_transformation = orthogonal_proj
+            #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = orthogonal_proj
             self.subplot.set_proj_type('ortho')
         elif viewport == 'Y':
             azim, elev = 270, 0
-            #proj3d.persp_transformation = orthogonal_proj
+            #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = orthogonal_proj
             self.subplot.set_proj_type('ortho')
         elif viewport == 'Z':
             azim, elev = 0, 90
-            #proj3d.persp_transformation = orthogonal_proj
+            #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = orthogonal_proj
             self.subplot.set_proj_type('ortho')
         elif viewport == 'ISO':
             azim, elev = -60, 30
-            #proj3d.persp_transformation = persp_transformation
+            #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = persp_transformation
             self.subplot.set_proj_type('persp')
         else:
             print('viewport not recognized: ', viewport)
             azim, elev = -60, 30
-            #proj3d.persp_transformation = persp_transformation
+            #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = persp_transformation
             self.subplot.set_proj_type('persp')
         self.subplot.view_init(elev, azim)
         self.canvas.draw()
@@ -518,18 +514,48 @@ class ModeShapePlot(object):
     #@pyqtSlot(str)
     def change_mode(self, frequency=None, index=None, mode_index=None,):
         '''
-        if user selects a new mode,
-        extract the mode number from the passed string (contains frequency...)
-        write modal values to the infobox
-        and plot the mode shape
+        If the user selects a new mode: plots the mode shape
+        and returns modal values e.g. to a GUI caller.
+        
+        Parameters
+        ----------
+            frequency: float,optional
+                A search for the closest frequency in the list of already
+                selected indices (self.selected_indices) is performed
+            index: integer, optional
+                Alternatively, the index of the wanted mode can be directly given 
+            mode_index: integer, optional
+                The number of the mode in the list of currently selected modes
+        
+        Returns
+        -------
+            order_index: integer
+                Model order of the selected mode
+            mode_index: integer
+                Index of the selected mode at model order
+            frequency: float
+                natural frequency of the selected mode
+            damping: float
+                damping ratio of the selected mode
+            MPC: float, optional
+                Modal phase colinearity of the selected mode, 
+                if available from an instance of StabilDiagram.StabilCalc1
+            MP: float, optional
+                Mean phase of the selected mode, 
+                if available from an instance of StabilDiagram.StabilCalc1
+            MPD: float, optional
+                Mean phase deviation of the selected mode, 
+                if available from an instance of StabilDiagram.StabilCalc1
+            
         '''
         # mode numbering starts at 1 python lists start at 0
         selected_indices = self.select_modes
         if frequency is not None:       
-            frequencies =np.array([self.modal_frequencies[index[0],index[1]] for index in selected_indices])     
+            frequencies =np.array([self.modal_frequencies[index[0],index[1]] 
+                                   for index in selected_indices])     
             f_delta= abs(frequencies-frequency)
             index = np.argmin(f_delta)
-        #print(selected_indices)
+            
         if index is not None:
             mode_index = selected_indices[index]
         if mode_index is None:
@@ -567,9 +593,16 @@ class ModeShapePlot(object):
         return mode_index[1], mode_index[0], frequency, damping, MPC, MP, MPD #order, mode_num,....
 
     def get_frequencies(self):
+        '''
+        Returns
+        -------
+            frequencies: list
+                Identified frequencies of all currently selected modes.
+        '''
         selected_indices = self.select_modes
         
-        frequencies =[self.modal_frequencies[index[0],index[1]] for index in selected_indices]
+        frequencies =[self.modal_frequencies[index[0],index[1]] 
+                      for index in selected_indices]
         frequencies.sort()
         return frequencies
     
@@ -577,9 +610,12 @@ class ModeShapePlot(object):
     #@pyqtSlot(float)
     def change_amplitude(self, amplitude=None):
         '''
-        changes the amplitude
-        amplitude either gets passed or will be read from the widget
-        redraw the modeshapes based on this amplitude
+        Changes the amplitude of the mode shape, and redraws the 
+        modeshapes based on this amplitude.
+        
+        Parameters
+        ----------
+            amplitude: float, optional
         '''
         if amplitude is None: return
         amplitude = float(amplitude)
@@ -593,9 +629,15 @@ class ModeShapePlot(object):
     #@pyqtSlot(bool)
     def change_part(self, b):
         '''
-        change, which part of the complex number modeshapes should be 
-        drawn, set the pointer variable based on which widget sent the signal
-        redraw the modeshapes 
+        Change, which part of the complex number modeshapes should be 
+        drawn and redraw the modeshapes
+            
+        Parameters
+        ----------
+            b: bool
+                If b draws the magnitude of the modal coordinated, else 
+                phase information is considered. Default: b = False 
+                
         '''
         if b == self.real: return
         
@@ -605,7 +647,13 @@ class ModeShapePlot(object):
 
     def save_plot(self, path=None):
         '''
-        save the curently displayed frame as a \*.png graphics file
+        Save the curently displayed frame as a graphics file
+        
+        Parameters
+        ----------
+            path: str (valid filepath), optional
+                The full path, including the extension, where to save 
+                the graphic.
         '''
 
         if path:
@@ -615,13 +663,19 @@ class ModeShapePlot(object):
     #@pyqtSlot(float, float, float, int)
     def add_node(self, x, y, z, i):
         '''
-        receive a node from a signal
-        add zero-value displacements for this node to the internal displacements table
-        draw a single point at coordinates
-        draw the number of the node
-        store the two plot objects in a table
-        remove any objects that might be in the table at the desired place
-        to avoid duplicate nodes
+        Adds a node to the internal node table and initializes zero-value 
+        displacements for this node to the internal displacements table. 
+        Draws a single point at the coordinates and annotates it with 
+        its number. Stores the two plot objects in a table and removes 
+        any objects that might be in the table at the desired place
+        to avoid duplicate nodes.
+        
+        Parameters
+        ----------
+            x,y,z: float
+                3D-coordinates of the node
+            i: integer
+                Index of the node, must be previously determined
         '''
         # leave present value if there is any else put 0
         self.disp_nodes[i] = self.disp_nodes.get(i,[0,0,0])        
@@ -646,12 +700,18 @@ class ModeShapePlot(object):
     #@pyqtSlot(tuple, int)
     def add_line(self, line, i):
         '''
-        receive a line coordinates from a signal
-        add the start node and end node to the internal line table
-        draw a line between the tow nodes
-        store the line object in a table
-        remove any objects that might be in the table at the desired place
-        i.e. avoid duplicate lines
+        Add a line by adding the start node and end node to the internal 
+        line table and draws that line between the two nodes. Stores the 
+        line object in a table and removes any objects that might be in 
+        the table at the desired place, i.e. avoid duplicate lines
+        
+        Parameters
+        ----------
+            line: 2-tuple of integer
+                The indices of the start- and end-node of the line
+            i: integer
+                Index of the line, must be previously determined
+                
         '''
         if isinstance(self.beamcolor, (list, tuple, np.ndarray)):
             beamcolor = self.beamcolor[i]
@@ -663,10 +723,16 @@ class ModeShapePlot(object):
             beamstyle = self.beamstyle
 
         line_object = self.subplot.plot(
-                        [self.geometry_data.nodes[node][0] + self.disp_nodes[node][0] for node in line],
-                        [self.geometry_data.nodes[node][1] + self.disp_nodes[node][1] for node in line],
-                        [self.geometry_data.nodes[node][2] + self.disp_nodes[node][2] for node in line],
-                        color=beamcolor, linestyle=beamstyle,  visible = self.show_lines, linewidth = self.linewidth)[0]
+                        [self.geometry_data.nodes[node][0] 
+                         + self.disp_nodes[node][0] for node in line],
+                        [self.geometry_data.nodes[node][1] 
+                         + self.disp_nodes[node][1] for node in line],
+                        [self.geometry_data.nodes[node][2] 
+                         + self.disp_nodes[node][2] for node in line],
+                        color=beamcolor, 
+                        linestyle=beamstyle,  
+                        visible = self.show_lines, 
+                        linewidth = self.linewidth)[0]
 
         while len(self.lines_objects) < i + 1:
             self.lines_objects.append(None)
@@ -683,7 +749,16 @@ class ModeShapePlot(object):
     #@pyqtSlot(tuple, int)
     def add_nd_line(self, line, i):
         '''
-
+        Add a non-displaced line, which acts as a mesh-reference for the
+        displaced lines. Works analogously to self.add_line
+        
+        Parameters
+        ----------
+            line: 2-tuple of integer
+                The indices of the start- and end-node of the line
+            i: integer
+                Index of the line, must be previously determined
+                
         '''
         if isinstance(self.beamcolor, (list, tuple, np.ndarray)):
             beamcolor = self.beamcolor[i]
@@ -696,7 +771,10 @@ class ModeShapePlot(object):
                         [self.geometry_data.nodes[node][0]  for node in line],
                         [self.geometry_data.nodes[node][1]  for node in line],
                         [self.geometry_data.nodes[node][2]  for node in line],
-                        color=beamcolor, linestyle=beamstyle,  linewidth = self.linewidth, visible = self.show_lines)[0]
+                        color=beamcolor, 
+                        linestyle=beamstyle,  
+                        linewidth = self.linewidth, 
+                        visible = self.show_lines)[0]
 
         while len(self.nd_lines_objects) < i + 1:
             self.nd_lines_objects.append(None)
@@ -713,7 +791,12 @@ class ModeShapePlot(object):
     #@pyqtSlot(tuple, int)
     def add_cn_line(self, i):
         '''
-
+        Draws a line between the displaced and the undisplaced node.
+        
+        Parameters
+        ----------
+            i: integer
+                Index of the node
         '''
 
         beamcolor = 'lightgray'
@@ -726,7 +809,10 @@ class ModeShapePlot(object):
                         [node[0],node[0]+disp_node[0]],
                         [node[1],node[1]+disp_node[1]],
                         [node[2],node[2]+disp_node[2]],
-                        color=beamcolor, linestyle=beamstyle,  linewidth = self.linewidth, visible = self.show_nd_lines)[0]
+                        color=beamcolor, 
+                        linestyle=beamstyle,  
+                        linewidth = self.linewidth, 
+                        visible = self.show_nd_lines)[0]
 
         if self.cn_lines_objects.get(i,None) is not None:
             try:
@@ -741,20 +827,29 @@ class ModeShapePlot(object):
     #@pyqtSlot(int, float, float, float, int, float, float, float, int)
     def add_master_slave(self, i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl, i):
         '''
-        receive master-slave definitions from a signal
+        Takes master-slave definitions and adds these definitions to the 
+        internal master-slave table. Draws an arrow indicating the DOF 
+        at each node of master and slave. Arrows at equal positions and 
+        direction will be offset to avoid overlapping. Stores the two 
+        arrow objects in a table and removes any objects that might be 
+        in the table at the desired index i.e. avoid duplicate arrows
         
-        add these definitions to the internal master-slave table
+        Parameters
+        ----------
+            i_m: integer
+                Index of the master node
+            x_m,y_m,z_m: float
+                Scale factor for each master DOF.
+            i_sl: integer
+                Index of the slave node
+            x_sl,y_sl,z_sl: float
+                Scale factor for each slave DOF.
         
-        draw an arrow indicating the DOF at each node of master and slave
-        as a specialty arrows at equal positions and direction will 
-        be offset to avoid overlapping
-        
-        arrow length's do not scale with the total dimensions of the plot
-        
-        store the two arrow objects in a table
-        
-        remove any objects that might be in the table at the desired place
-        i.e. avoid duplicate arrows
+        .. TODO::
+             * Arrow length's do not scale with the total dimensions of the plot
+             * There have been concerns about the "master" and "slave" 
+               terminology. Rename every appearance of the terms by an 
+               appropriate alternative in the whole project, e.g. parent-child
         '''
         
         def offset_arrows(verts3d_new, all_arrows_list):
@@ -799,10 +894,6 @@ class ModeShapePlot(object):
                     break
             return ((x_s, x_e), (y_s, y_e), (z_s, z_e))
 
-
-        #self.undraw_lines()  # do not show beams, as they are distracting
-        #self.undraw_chan_dofs()
-
         color = "bgrcmyk"[int(np.fmod(i, 7))]  # equal colors for both arrows
 
         x_s, y_s, z_s = self.geometry_data.nodes[i_m]
@@ -811,7 +902,8 @@ class ModeShapePlot(object):
 
         # point the arrow towards the resulting direction
         arrow_m = Arrow3D([x_s, x_s + x_m], [y_s, y_s + y_m], [z_s, z_s + z_m],
-                          mutation_scale=5, lw=1, arrowstyle="-|>", color=color, visible = self.show_master_slaves)
+                          mutation_scale=5, lw=1, arrowstyle="-|>", 
+                          color=color, visible = self.show_master_slaves)
         arrow_m = self.subplot.add_artist(arrow_m)
 
         x_s, y_s, z_s = self.geometry_data.nodes[i_sl]
@@ -820,7 +912,8 @@ class ModeShapePlot(object):
 
         # point the arrow towards the resulting direction
         arrow_sl = Arrow3D([x_s, x_s + x_sl], [y_s, y_s + y_sl], [z_s, z_s + z_sl],
-                           mutation_scale=5, lw=1, arrowstyle="-|>", color=color, visible = self.show_master_slaves)
+                           mutation_scale=5, lw=1, arrowstyle="-|>", 
+                           color=color, visible = self.show_master_slaves)
         
         arrow_sl = self.subplot.add_artist(arrow_sl)
 
@@ -833,42 +926,36 @@ class ModeShapePlot(object):
 
         self.canvas.draw_idle()
         
-    def calc_xyz(self,az, elev, r=1):
-        if np.abs(az)>2*np.pi:
-            print('You forgot to convert to radians ',az)
-        if np.abs(elev)>2*np.pi:
-            print('You forgot to convert to radians ', elev)
-        x=r*np.cos(elev)*np.cos(az) # for elevation angle defined from XY-plane up
-        #x=r*np.sin(elev)*np.cos(az) # for elevation angle defined from Z-axis down
-        y=r*np.cos(elev)*np.sin(az) # for elevation angle defined from XY-plane up
-        #y=r*np.sin(elev)*np.sin(az)# for elevation angle defined from Z-axis down
-        z=r*np.sin(elev)# for elevation angle defined from XY-plane up
-        #z=r*np.cos(elev)# for elevation angle defined from Z-axis down
-        
-        #correct numerical noise
-        for a in (x,y,z):
-            if np.allclose(a,0): a*=0
-        
-        return x,y,z
     
     #@pyqtSlot(int, int, tuple, int)
     def add_chan_dof(self, chan, node, az, elev, chan_name, i):
         '''
-        draw an arrow indicating the DOF 
-        arrow lengths do not scale with the total dimension of the plot
-        add the channel number to the arrow
-        store the two objects in a table
-        remove any objects that might be in the table at the desired place
-        i.e. avoid duplicate arrows/texts
+        Draws an arrow indicating a channel-DOF assignment. Annotates the
+        arrow with the the channel name. Stores the two plot objects in a 
+        table and removes any objects that might be in the table at the 
+        desired index i.e. avoid duplicate arrows/texts.
+        
+        Parameters
+        ----------
+            chan: integer
+                Index of the channel.
+            node: integer
+                Index of the node in the internal node table
+            az, elev: float
+                Azimuth and elevation of the DOF assignment
+            chan_name: str
+                Name of the channel to annotate
+            i: integer
+                Table index for the plot objects.
+                
+        .. TODO:: 
+            * arrow lengths do not scale with the total dimension of the plot
         '''
 
         x_s, y_s, z_s = self.geometry_data.nodes[node]
         
-        x_m, y_m, z_m = self.calc_xyz(az/180*np.pi, elev/180*np.pi,r=self.scale)
+        x_m, y_m, z_m = calc_xyz(az/180*np.pi, elev/180*np.pi,r=self.scale)
         
-        #print(chan_name, node, x_m,y_m,z_m)
-        
-
         # point the arrow towards the resulting direction
         arrow = Arrow3D([x_s, x_s + x_m], [y_s, y_s + y_m],
                         [z_s, z_s + z_m], mutation_scale=5, lw=1, arrowstyle="-|>", visible = self.show_chan_dofs)
@@ -888,10 +975,22 @@ class ModeShapePlot(object):
     #@pyqtSlot(float, float, float, int)
     def take_node(self, x, y, z, node):
         '''
-        take a node at coordinates received by a signal
-        take any objects connected to this node first (there should not be any)
-        remove the patch objects from the plot
-        remove the coordinates from the node and displacement tables
+        Remove a node at given coordinates and all objects connected to 
+        this node first (there should not be any). Remove the patch 
+        objects from the plot and remove the coordinates from the node 
+        and displacement tables.
+        
+        Parameters
+        ----------
+            x,y,z: float
+                Coordinates of the node
+            node: integer
+                Index of the node
+                
+        .. TODO::
+            * Function presumably breaks in the second for loop, because 
+              geometry_data and the internal tables become out of sync.
+            
         '''
     
         d_x, d_y, d_z = self.disp_nodes.get(node, [0,0,0])
@@ -912,7 +1011,7 @@ class ModeShapePlot(object):
                 break
         else:  # executed when for loop runs through
             if self.patches_objects:
-                print('patches_object not found')
+                logging.warning('patches_object not found')
 
         for j in [node] + list(range(max(len(self.geometry_data.nodes), node))):
 
@@ -921,22 +1020,28 @@ class ModeShapePlot(object):
                 break
         else:  # executed when for loop runs through
             if self.patches_objects:
-                print('node not found')
+                logging.warning('node not found')
 
         self.canvas.draw_idle()
 
     #@pyqtSlot(tuple)
     def take_line(self, line):
         '''
-        remove a line between to node received by a signal
-        if the plot objects are already in there displaced state
-        the comparison between the actual coordinates and these
-        objects have to account for this by comparing to an interval
-        of coordinates
-        remove the line nodes from the internal table, too
+        Remove a line between to nodes. If the plot objects are already 
+        in their displaced state, the comparison between the actual 
+        coordinates and these objects have to account for  displacement 
+        by comparing to an interval of coordinates. Remove the non-displaced
+        lines, too.
+        
+        Parameters
+        ----------
+            line: 2-tuple of integers
+                Tuple containg the indices of the start- and end-nodes
+        
         '''
         assert isinstance(line, (tuple, list))
         assert len(line) == 2
+        
         node_s, node_e = self.geometry_data.nodes[line[0]], self.geometry_data.nodes[line[1]]
         x_s, y_s, z_s = node_s
         x_e, y_e, z_e = node_e
@@ -973,7 +1078,7 @@ class ModeShapePlot(object):
                 break
         else:
             if self.lines_objects:
-                print('line_object not found')
+                logging.warning('line_object not found')
                 
         for j in range(len(self.nd_lines_objects)):
             (x_s_, x_e_), (y_s_, y_e_), (z_s_, z_e_) = self.nd_lines_objects[
@@ -1000,15 +1105,24 @@ class ModeShapePlot(object):
                 break
         else:
             if self.nd_lines_objects:
-                print('line_object not found')
+                logging.warning('line_object not found')
         self.canvas.draw_idle()
 
     #@pyqtSlot(int, float, float, float, int, float, float, float)
     def take_master_slave(self, i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl):
         '''
-        remove the two arrows associated with the master-slave definition
-        received by a signal
-        remove the master-slave definition from the internal table, too
+        Remove the two arrows associated with the master-slave definition.
+        
+        Parameters
+        ----------
+            i_m: integer
+                Index of the master node
+            x_m,y_m,z_m: float
+                Scale factor for each master DOF.
+            i_sl: integer
+                Index of the slave node
+            x_sl,y_sl,z_sl: float
+                Scale factor for each slave DOF.
         '''
         arrow_m = (i_m, x_m, y_m, z_m)
         arrow_sl = (i_sl, x_sl, y_sl, z_sl)
@@ -1060,19 +1174,30 @@ class ModeShapePlot(object):
                 continue
         else:
             if self.arrows_objects:
-                print('arrows_object not found')
+                logging.warning('arrows_object not found')
 
         self.canvas.draw_idle()
 
     #@pyqtSlot(int, int, tuple, int)
     def take_chan_dof(self, chan, node, dof):
         '''
-        remove the arrow and text objects associated with the channel -
-        DOF assignement received by a signal
-        remove the channel - DOF assignement from the internal table, too
+        Remove the arrow and text objects associated with the channel -
+        DOF assignment. 
+        
+        Parameters
+        ----------
+            chan: integer
+                Index of the channel.
+            node: integer
+                Index of the node in the internal node table
+            dof: 3-tuple {az,elev,chan_name}
+                az, elev: float
+                    Azimuth and elevation of the DOF assignment
+                chan_name: str
+                    Name of the channel to annotate
+        
         '''
         assert isinstance(node, int)
-        assert isinstance(chan, int)
         assert isinstance(dof, (tuple, list))
         assert len(dof) == 3
 
@@ -1091,16 +1216,14 @@ class ModeShapePlot(object):
                 break
         else:
             if self.channels_objects:
-                print('chandof_object not found')
-
+                logging.warning('chandof_object not found')
 
         self.canvas.draw_idle()
 
     def draw_axis(self):
         '''
-        draw the axis arrows
-        length is based on the current datalimits
-        removes the current arrows if the exist
+        Draw the axis arrows. Length is based on the current data limits.
+        Removes the current arrows if the exist.
         '''
         
         for axis in ['X', 'Y', 'Z']:
@@ -1140,7 +1263,16 @@ class ModeShapePlot(object):
         self.canvas.draw_idle()
         
     def refresh_axis(self, visible=None):
+        '''
+        Refresh the axis arrows and make them visible/invisible, e.g.
+        after programmatically changing visibility flags.
         
+        Parameters
+        ----------
+            visible: bool, ooptional
+                Visibility flag for the axis arrows
+            
+        '''
         visible = bool(visible)
 
         if visible is not None:
@@ -1154,13 +1286,24 @@ class ModeShapePlot(object):
     #@pyqtSlot()
     def draw_nodes(self):
         ''''
-        draw gridpoints from self.geometry_data.nodes
-        the currently stored displacement values are used for moving the nodes
+        Draws nodes from the node list of PreprocessingTools.GeometryData
+        The currently stored displacement values are used for moving the 
+        nodes.
         '''
         for key, node  in self.geometry_data.nodes.items():
             self.add_node(*node, i=key)
 
     def refresh_nodes(self, visible=None):
+        '''
+        Refresh the nodes and make them visible/invisible, e.g.
+        after programmatically changing visibility flags.
+        
+        Parameters
+        ----------
+            visible: bool, ooptional
+                Visibility flag for the nodes
+            
+        '''
         
         if visible is not None:
             visible=bool(visible)
@@ -1191,10 +1334,9 @@ class ModeShapePlot(object):
         
     def draw_lines(self):
         '''
-        draw all the beams in self.geometry_data.lines
-        self.geometry_data.lines=[line1, line2,....]
-        line = [node_start, node_end]
-        node numbering refers to elements in self.nodes
+        Draws all line from the line list of PreprocessingTools.GeometryProcessor
+        The currently stored displacement values are used for moving the 
+        nodes.
         '''
         for i, line in enumerate(self.geometry_data.lines):            
             self.add_line(line, i)
@@ -1207,6 +1349,16 @@ class ModeShapePlot(object):
             
         
     def refresh_lines(self, visible=None):
+        '''
+        Refresh the lines and make them visible/invisible, e.g.
+        after programmatically changing visibility flags.
+        
+        Parameters
+        ----------
+            visible: bool, ooptional
+                Visibility flag for the lines
+            
+        '''
         
         if visible is not None:
             visible=bool(visible)
@@ -1246,6 +1398,16 @@ class ModeShapePlot(object):
         self.canvas.draw_idle()    
         
     def refresh_nd_lines(self, visible=None):
+        '''
+        Refresh the non-displaced lines and make them visible/invisible, e.g.
+        after programmatically changing visibility flags.
+        
+        Parameters
+        ----------
+            visible: bool, ooptional
+                Visibility flag for the non-displaced lines
+            
+        '''
         
         if visible is not None:
             visible=bool(visible)
@@ -1281,17 +1443,25 @@ class ModeShapePlot(object):
         
     def draw_master_slaves(self):
         '''
-        draw arrows for all master-slave definitions stored in the
-        internal master-slave definition table
+        Draw arrows for all master-slave definitions stored in the
+        internal master-slave definition table.
         '''
         for i, (i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl) in enumerate(self.geometry_data.master_slaves):
             self.add_master_slave(i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl, i)
             
     def refresh_master_slaves(self, visible=None):
         '''
-        will not be shown in displaced mode (modeshape)
-        '''
+        Refresh the master-slave arrows and make them visible/invisible, e.g.
+        after programmatically changing visibility flags.
         
+        Will not be shown in displaced mode (modeshape)
+        
+        Parameters
+        ----------
+            visible: bool, ooptional
+                Visibility flag for the master-slave arrows
+            
+        '''        
         if visible is not None:
             visible=bool(visible)
             self.show_master_slaves = visible
@@ -1303,8 +1473,8 @@ class ModeShapePlot(object):
             
     def draw_chan_dofs(self):
         '''
-        draw arrows and numbers for all channel-DOF assignments stored 
-        in the internal channel - DOF assignment table
+        Draw arrows and numbers for all channel-DOF assignments stored 
+        in the channel - DOF assignment table of PreprocessingTools.GeometrProcessor
         '''
         for i, chan_dof in enumerate(self.chan_dofs):
             
@@ -1317,8 +1487,18 @@ class ModeShapePlot(object):
             
     def refresh_chan_dofs(self, visible = None):
         '''
-        will not be shown in displaced mode (modeshape)
-        '''
+        Refresh the arrows indicating the channel-dof assignments 
+        and make them visible/invisible, e.g. after programmatically 
+        changing visibility flags.
+        
+        Will not be shown in displaced mode (modeshape)
+        
+        Parameters
+        ----------
+            visible: bool, ooptional
+                Visibility flag for the channel-dof assignment arrows
+            
+        '''        
         if visible is not None:
             visible=bool(visible)
             self.show_chan_dofs = visible
@@ -1330,10 +1510,15 @@ class ModeShapePlot(object):
     
     def draw_msh(self):
         '''
-        assigns displacement values to the
+        Draw mode shapes by assigning displacement values to the
         nodes based on the channel - DOF assignments and the master - 
-        slave definitions
-        draws the displaced nodes and beams
+        slave definitions. Draws the displaced nodes and beams.
+        
+        .. Todo::
+            * The computation of resulting magnitude and phase angles for 
+              displacements based on master-slave definitions is currently
+              more or less broken. It should be possible, even in 3D to 
+              compute exact solutions. 
         '''
         
         def to_phase_mag(disp):
@@ -1369,7 +1554,7 @@ class ModeShapePlot(object):
                 if node_ == node:
                     disp = mode_shape[chan]
                         
-                    x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180, r=1)# radius 1 is needed for the coordinate transformation to work
+                    x,y,z = calc_xyz(az*np.pi/180, elev*np.pi/180, r=1)# radius 1 is needed for the coordinate transformation to work
                     
                     this_chan_dofs.append([chan,x,y,z,disp])
                     
@@ -1431,8 +1616,8 @@ class ModeShapePlot(object):
                         disp_vec[i] =disp
 
                     if i ==1: # only two sensors were present
-                        #print('Not enough sensors for a full 3D transformation at node {}, '
-                        #      'will complement vectors with a zero displacement assumption in orthogonal direction.'.format(node))
+                        logging.info('Not enough sensors for a full 3D transformation at node {}, '
+                              'will complement vectors with a zero displacement assumption in orthogonal direction.'.format(node))
                         c=np.cross(normal_matrix[0,:],normal_matrix[1,:]) # vector c is perpendicular to the first two vectors
                         c/=np.linalg.norm(c) # if angle between first two vectors is different from 90° vector c has to be normalized
                         #print(node, c)
@@ -1455,80 +1640,16 @@ class ModeShapePlot(object):
                         self.phi_nodes[node][i] = phase
                         self.disp_nodes[node][i] =  mag * ampli
 
-#         for chan, disp in enumerate(mode_shape):
-#             if isinstance(disp, np.complex):
-#                 if self.real:
-#                     phase = np.angle(disp, True) 
-#                     disp = np.abs(disp)
-#                     if phase < 0 : 
-#                         phase += 180
-#                         disp = -disp                    
-#                     if phase > 90 and phase < 270:
-#                         disp = - disp
-#                     phase = 0
-#                 else:
-#                     phase = np.angle(disp)
-#                     disp = np.abs(disp)
-#             else:
-#                 phase = 0   
-#             found = False 
-#             for chan_dof in self.chan_dofs:
-#                 chan_, node, az, elev, chan_name = chan_dof[0:4]+chan_dof[-1:]
-#                 if node is None:
-#                     continue
-#                 if not node in self.geometry_data.nodes.keys():
-#                     continue
-#                 if chan_ == chan:
-#                     x,y,z = self.calc_xyz(az*np.pi/180, elev*np.pi/180)
-#                     if 'PIV' in chan_name:
-#                         print(chan_name,x,y,z)
-#                         print(node, self.disp_nodes[node],self.phi_nodes[node])
-#                     #print(chan_, chan, node, x,y,disp,np.degrees(phase))
-#                     #print(x,y,z)
-#                     
-#                     # TODO: Account for skewed measurement angles
-#                     # assumes vectors have components in one direction (x,y,z) only
-#                     
-#                     
-#                     
-#                     
-#                     
-#                     if not np.allclose(x,0):
-#                         #print(x, phase)
-#                         if self.disp_nodes[node][0] != 0:
-#                             print('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
-#                             
-#                         self.phi_nodes[node][0] = phase
-#                         self.disp_nodes[node][0] = x * disp * ampli #/ norm
-#                     if not np.allclose(y,0):
-#                         #print(y,phase)
-#                         if self.disp_nodes[node][1] != 0:
-#                             print('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
-#                         self.phi_nodes[node][1] = phase
-#                         self.disp_nodes[node][1] = y * disp * ampli #/ norm
-#                     if not np.allclose(z,0):
-#                         #print(z,phase)
-#                         if self.disp_nodes[node][2] != 0:
-#                             print('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
-#                         self.phi_nodes[node][2] = phase
-#                         self.disp_nodes[node][2] = z * disp * ampli #/ norm
-#                     
-#                     found=True
             
         for chan, found in enumerate(chan_found):
             if not found:
-                print('Could not find channel - DOF assignment for '
+                logging.warning('Could not find channel - DOF assignment for '
                       'channel {}!'.format(chan))
-        '''
-        .. TODO::
-             * change master_slave assignment to skewed coordinate 
-             * change master_slaves to az, elev
-        '''
         
         for i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl in self.geometry_data.master_slaves:
                         
             if (x_m>0+y_m>0+z_m>0)>1:
-                print('Master DOF includes more than one cartesian direction. Phase angles will be distorted.')
+                logging.warning('Master DOF includes more than one cartesian direction. Phase angles will be distorted.')
             
             master_disp =   self.disp_nodes[i_m][0] * x_m + \
                             self.disp_nodes[i_m][1] * y_m + \
@@ -1541,20 +1662,20 @@ class ModeShapePlot(object):
             if not np.allclose(x,0):
                 #print(x, phase)
                 if self.disp_nodes[i_sl][0] > 0:
-                    print('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
-                self.phi_nodes[i_sl][0] = phase
+                    logging.warning('A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
+                self.phi_nodes[i_sl][0] = master_phase
                 self.disp_nodes[i_sl][0] += master_disp * x_sl
             if not np.allclose(y,0):
                 #print(y,phase)
                 if self.disp_nodes[i_sl][1] > 0:
-                    print('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
-                self.phi_nodes[i_sl][1] = phase
+                    logging.warning('A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
+                self.phi_nodes[i_sl][1] = master_phase
                 self.disp_nodes[i_sl][1] += master_disp * y_sl
             if not np.allclose(z,0):
                 #print(z,phase)
                 if self.disp_nodes[i_sl][2] > 0:
-                    print('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
-                self.phi_nodes[i_sl][2] = phase
+                    logging.warning('A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
+                self.phi_nodes[i_sl][2] = master_phase
                 self.disp_nodes[i_sl][2] += master_disp * z_sl
 
 #             if self.draw_trace:
@@ -1587,7 +1708,7 @@ class ModeShapePlot(object):
 #                          * np.cos(np.linspace(0,359,360) / 360 * 2 * np.pi  + self.phi_nodes[node][2]), 
 #                          #marker = ',', s=1, edgecolor='none', 
 #                          color = next(clist)))
-        #print(self.disp_nodes, self.phi_nodes)       
+
         self.refresh_nodes()
         self.refresh_lines()
         self.refresh_chan_dofs(False)
@@ -1600,7 +1721,7 @@ class ModeShapePlot(object):
     #@pyqtSlot()
     def stop_ani(self):
         '''
-        convenience method to stop the animation and restore the still plot
+        Convenience method to stop the animation and restore the still plot
         '''
         if self.animated or self.data_animated:
             self.seq_num = next(self.line_ani.frame_seq)
@@ -1620,18 +1741,18 @@ class ModeShapePlot(object):
     #@pyqtSlot()
     def animate(self):
         '''
-        create necessary objects to animate the currently displayed
-        deformed structure
+        Create necessary objects to animate the currently displayed
+        deformed structure.
+        
+        If self.save_ani is True, the animation will be saved to a folder
+        which is currently hardcoded here. The **numbering** of the **files** 
+        follows the order in which the modes were selected in the 
+        stabilization diagram.
+        
         '''
         
         self.save_ani = False
-        '''
-        !!!
         
-        The NUMBERING of the FILES follows the order in which the modes were selected in the stabilization diagramm
-        
-        !!!
-        '''
         if self.save_ani:
             self.cwd = '/vegas/users/staff/womo1998/Projects/2019_Schwabach/tex/figures/ani_high/'#os.getcwd()
             #for i in range(len(self.select_modes)):
@@ -1639,8 +1760,9 @@ class ModeShapePlot(object):
                 
         self.draw_trace=True
         def init_lines():
-            #print('init')
-            #self.clear_plot()
+            '''
+            Initialize line objects for later update.
+            '''
             minx, maxx, miny, maxy, minz, maxz = self.subplot.get_w_lims()
             
             self.subplot.cla()
@@ -1702,7 +1824,7 @@ class ModeShapePlot(object):
                         
                 moving_nodes = set()
                 for chan_dof in self.chan_dofs:#
-                    chan_, node, az, elev, = chan_dof[0:4]
+                    _, node, _, _, = chan_dof[0:4]
                     if node is None:
                         continue
                     if not node in self.geometry_data.nodes.keys():
@@ -1728,7 +1850,7 @@ class ModeShapePlot(object):
         
         def update_lines(num):
             '''
-            subfunction to calculate displacements based on magnitude and phase angle
+            Subfunction to calculate displacements based on magnitude and phase angle
             '''
             #print(num)
             
@@ -1798,31 +1920,21 @@ class ModeShapePlot(object):
         self.button_pressed = None
         
         
-        
         self.line_ani = matplotlib.animation.FuncAnimation(fig=self.fig,
                                       func=update_lines,
                                       init_func=init_lines,
                                       interval=50,
                                       save_count=50,
                                       blit=True)
-        #for i in range(self.seq_num+1): next(self.line_ani.frame_seq)
         
-        #print(self.fig.get_size_inches())
-        # Set up formatting for the movie files
-        #Writer = matplotlib.animation.writers['ffmpeg']
-        #writer = Writer(fps=25, metadata=dict(artist='Me'), bitrate=1800)
-        #self.line_ani.save('lines.mp4', writer=writer)
-        #print(self.fig.get_size_inches())
         self.canvas.draw()
         
-        #self.line_ani._start()
-        #print(self.animated, self.line_ani)
         
     #@pyqtSlot()
     def filter_and_animate_data(self, callback=None):
         '''
-        create necessary objects to animate the currently displayed
-        deformed structure
+        Animate the acquired vibration data to check the real vibration
+        displacement of the structure against the identified modes.
         '''
         def init_lines():
             #print('init')
@@ -1849,7 +1961,7 @@ class ModeShapePlot(object):
             #return self.lines_objects#, self.nd_lines_objects
         def update_lines(num):
             '''
-            subfunction to calculate displacements based on magnitude and phase angle
+            Subfunction to calculate displacements.
             '''
             self.callback(f'{num/self.prep_data.sampling_rate:.4f}')
             disp_nodes={ i : [0,0,0] for i in self.geometry_data.nodes.keys() } 
@@ -1959,7 +2071,7 @@ class ModeShapePlot(object):
         #self.line_ani._start()   
         
 
-class Arrow3D(FancyArrowPatch):
+class Arrow3D(matplotlib.patches.FancyArrowPatch):
     '''
     credit goes to (don't know the original author):
     http://pastebin.com/dWvFxb1Q
@@ -1967,10 +2079,10 @@ class Arrow3D(FancyArrowPatch):
     '''
     def __init__(self, xs, ys, zs, *args, **kwargs):
         '''
-        inherit from FancyArrowPatch
+        inherit from matplotlib.patches.FancyArrowPatch
         and set self._verts3d class variable
         '''
-        FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
+        super().__init__(self, (0, 0), (0, 0), *args, **kwargs)
         self._verts3d = xs, ys, zs
 
     def draw(self, renderer):
@@ -1978,9 +2090,9 @@ class Arrow3D(FancyArrowPatch):
         get the projection from the 3D point to 2D point to draw the arrow
         '''
         xs3d, ys3d, zs3d = self._verts3d
-        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+        xs, ys, zs = mpl_toolkits.mplot3d.axes3d.proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
-        FancyArrowPatch.draw(self, renderer)
+        super().draw(self, renderer)
 
 
 if __name__ == "__main__":

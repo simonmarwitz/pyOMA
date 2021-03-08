@@ -42,7 +42,7 @@ def nearly_equal(a,b,sig_fig=5):
            )
 class GeometryProcessor(object):
     '''
-        conventions:
+    conventions:
 
         * chan_dofs=[(chan, node, (x_amplif,y_amplif,z_amplif)),...]
 
@@ -54,13 +54,12 @@ class GeometryProcessor(object):
 
         * master_slaves = [(node_master, x_master, y_master, z_master, 
                             node_slave, x_slave, y_slave, z_slave),...], unordered
-
-        (Load it into VisualizeGui for browsing the dict's structure!)
-        (If you get an error bad_magic_number or segmentation fault you 
-        cannot open the shelves on the computer you are currently using
-        It has been tested to work on arwen.bauing.uni-weimar.de, but this
-        depends on were the shelve file was created and may not always work)
+        
+    .. TODO::
+         * change master_slave assignment to skewed coordinate 
+         * change master_slaves to az, elev
     '''
+    
     def __init__(self):
         super().__init__()
         self.nodes = {}

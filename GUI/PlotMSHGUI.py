@@ -29,7 +29,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backend_bases import FigureCanvasBase
 
 #tools
-from GUI.Helpers import DelayedDoubleSpinBox, my_excepthook
+from GUI.HelpersGUI import DelayedDoubleSpinBox, my_excepthook
 sys.excepthook = my_excepthook
 NoneType = type(None)
 

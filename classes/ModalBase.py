@@ -40,11 +40,13 @@ class ModalBase(object):
     @staticmethod
     def remove_conjugates(eigval, eigvec_r, eigvec_l=None, inds_only=False):
         '''
-        finds conjugates: :math:`\\lambda_i = \\overline{\\lambda_j} for i \\neq j`
+        finds conjugates: :math:`\\lambda_i = \\overline{\\lambda_j} \\text{for} i \\neq j`
         
-        unstable poles i.e. negatively damped poles :math:`[ln(|\lambda|)<0]: |\lambda_i|> 1`
-        overdamped poles :math:`[atan(Im/Re)=0]` i.e. real poles: :math:`Im(\lambda_i)==0`  
-        imaginary poles i.e. nyquist frequency: :math:`Re(\lambda_i)==0`
+        unstable poles i.e. negatively damped poles :math:`[\\ln(|\lambda|)<0]: |\lambda_i|> 1`
+        
+        overdamped poles :math:`[\\operatorname{atan}(\\Im/\\Re)=0]` i.e. real poles: :math:`\\Im(\\lambda_i)==0`  
+        
+        imaginary poles i.e. nyquist frequency: :math:`\\Re(\\lambda_i)==0`
         
         keeps the second occurance of a conjugate pair (usually the one with the negative imaginary part)
         

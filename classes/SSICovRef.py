@@ -1165,7 +1165,7 @@ class PogerSSICovRef(ModalBase):
         '''
         This is PoGer Rescaling
         
-        walks over setups, 
+         * walks over setups 
          * extracts setup's part from the modeshape, and 
          * compute rescaling factor from this setup's reference channels with respect to the first setup
          * rescales this setup's roving channels and assembles final modeshape vector
@@ -1173,42 +1173,43 @@ class PogerSSICovRef(ModalBase):
         reference channel_pairs and final channel-dof-assignments have been determined by function pair_channels
         note: reference channels for SSI need not necessarily be reference channels for rescaling and vice versa
         
-        TODO:
-        * rescale all setups jointly using a least-squares approach
+        .. TODO::
+            * rescale all setups jointly using a least-squares approach
         
-        :math:`S_\phi * \Alpha = [n*1, 0 .. 0]`
         
-        :math:`\phi^{ref}_i` : Reference-sensor part of modeshape estimated from setup :math:`i = 0 .. n`
-        :matH:`j_{max} = argmax(\Pi_i |\phi^{ref}_i|)` : maximal modal component in all setups → will be approximately scaled to 1, must belong to the same sensor in each setup
+        :math:`S_\\phi \\times \\alpha = [n \\times 1, 0 .. 0]`
         
-        ..math::
+        :math:`\\phi^{ref}_i` : Reference-sensor part of modeshape estimated from setup :math:`i = 0 .. n`
+        :matH:`j_{max} = \\operatorname{argmax}(\\Pi_i |\\phi^{ref}_i|)` : maximal modal component in all setups → will be approximately scaled to 1, must belong to the same sensor in each setup
         
-            S_\phi =  \begin{bmatrix}
-            \phi^{ref}_{0,j_{max}}&  \phi^{ref}_{1,j_{max}}& ..&            ..&               \phi^{ref}_{n,j_{max}} \\
-            \phi^{ref}_0&            -\phi^{ref}_1&          0&             ..&               0                      \\
-            \phi^{ref}_0&            0&                      -\phi^{ref}_2& ..&               0                      \\
-            .                        &.                       &.             & .             & .                      \\
-            .                        &.                       &.             & .             & .                      \\
-            \phi^{ref}_0&            0&                      0&             ..&               -\phi^{ref}_n          \\
-            0&                       \phi^{ref}_1&           -\phi^{ref}_2& ..&               0                      \\
-            .                        &.                      & .             & .             & .                      \\
-            .                        &.                      & .             & .             & .                      \\
-            0&                       \phi^{ref}_1&           0&             ..&               -\phi^{ref}_n          \\
-            .                        &.                      & .             & .             & .                      \\
-            .                        &.                      & .             & .             & .                      \\
-            0&                       0&                      \phi^{ref}_2&  ..&               -\phi^{ref}_n          \\
-            .                        &.                      & .             & .             & .                      \\
-            .                        &.                      & .             & .            &  .                      \\
-            0&                       0&                      0&             \phi^{ref}_{n-1}& -\phi^{ref}_n            
-            \end{bmatrix}
+        .. math::
+        
+            S_\\phi =  \\begin{bmatrix}
+            \\phi^{ref}_{0,j_{max}}&  \\phi^{ref}_{1,j_{max}}& ..&            ..&               \\phi^{ref}_{n,j_{max}} \\\\
+            \\phi^{ref}_0&            -\\phi^{ref}_1&          0&             ..&               0                      \\\\
+            \\phi^{ref}_0&            0&                      -\\phi^{ref}_2& ..&               0                      \\\\
+            .                        &.                       &.             & .             & .                      \\\\
+            .                        &.                       &.             & .             & .                      \\\\
+            \\phi^{ref}_0&            0&                      0&             ..&               -\\phi^{ref}_n          \\\\
+            0&                       \\phi^{ref}_1&           -\\phi^{ref}_2& ..&               0                      \\\\
+            .                        &.                      & .             & .             & .                      \\\\
+            .                        &.                      & .             & .             & .                      \\\\
+            0&                       \\phi^{ref}_1&           0&             ..&               -\\phi^{ref}_n          \\\\
+            .                        &.                      & .             & .             & .                      \\\\
+            .                        &.                      & .             & .             & .                      \\\\
+            0&                       0&                      \\phi^{ref}_2&  ..&               -\\phi^{ref}_n          \\\\
+            .                        &.                      & .             & .             & .                      \\\\
+            .                        &.                      & .             & .            &  .                      \\\\
+            0&                       0&                      0&             \\phi^{ref}_{n-1}& -\\phi^{ref}_n            
+            \\end{bmatrix}
         
         if references are the same in all setups
         
-        dimensions :math:`= 1 + (n_setups ! )* n_ref_channels x n_setups` 
+        dimensions :math:`= 1 + (n_{setups} ! )* n_{ref_{channels}} \\times n_{setups}` 
         
         not quite exact, since different setups may share different references
         
-        → list based assembly of the :math:`S_\phi` matrix
+        → list based assembly of the :math:`S_\\phi` matrix
         
         '''
         

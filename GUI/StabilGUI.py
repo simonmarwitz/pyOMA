@@ -44,7 +44,7 @@ from classes.ModalBase import ModalBase
 from classes.PlotMSH import ModeShapePlot
 from classes.StabilDiagram import StabilPlot, StabilCluster
 from GUI.PlotMSHGUI import ModeShapeGUI
-from GUI.Helpers import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
+from GUI.HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
 
 sys.excepthook = my_excepthook
 
