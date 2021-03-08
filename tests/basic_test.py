@@ -139,7 +139,7 @@ def merge_poser_test():
     
     merger = MergePoSER()
     
-    skip_existing = True
+    skip_existing = False
     save_results = False
     interactive = True
     
@@ -151,13 +151,13 @@ def merge_poser_test():
             result_folder = result_folder, 
             setup_info = result_folder+'setup_info.txt', 
             meas_file = result_folder+meas_name+'.npy', 
-            conf_file = working_dir+'ssi_config.txt', 
-            method = BRSSICovRef, 
+            conf_file = working_dir+'varssi_config.txt', 
+            method = VarSSIRef, 
             geometry_data = geometry_data, 
             chan_dofs_file = result_folder+"channel_dofs.txt", 
             skip_existing = skip_existing, 
             save_results = save_results, 
-            interactive = False)
+            interactive = True)
         
         merger.add_setup(prep_data, modal_data, stabil_calc)
         

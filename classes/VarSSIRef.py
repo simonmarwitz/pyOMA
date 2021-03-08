@@ -9,6 +9,7 @@ import ctypes as c
 from collections import deque
 
 from classes.PreprocessingTools import PreprocessData
+from classes.ModalBase import ModalBase
 
 '''
 ..todo::
@@ -50,7 +51,7 @@ def vectorize(matrix):
     return np.reshape(matrix,(np.product(matrix.shape),1),'F')
 
 import scipy.sparse as sparse
-import scipy.sparse.linalg
+#import scipy.sparse.linalg
 
 def permutation(a,b):
     P = sparse.lil_matrix((a*b, a*b))#zeros((a*b,a*b))     
@@ -99,17 +100,14 @@ def lq_decomp(a, mode='full', unique=True):
     else:
         return r.T, q.T
 
-class VarSSIRef(object):
+class VarSSIRef(ModalBase):
     
     def __init__(self,prep_data):    
         '''
         channel definition: channels start at 0
         '''
-        super().__init__()
-        assert isinstance(prep_data, PreprocessData)
-        self.prep_data =prep_data
-        self.setup_name = prep_data.setup_name
-        self.start_time = prep_data.start_time
+        super().__init__(prep_data)
+        
         #             0         1           2         
         #self.state= [Hankel, State Mat., Modal Par.
         self.state  =[False,    False,      False]
@@ -125,9 +123,6 @@ class VarSSIRef(object):
         self.state_matrix = None
         self.output_matrix = None
         
-        self.modal_damping = None
-        self.modal_frequencies = None
-        self.mode_shapes = None
             
     @classmethod
     def init_from_config(cls,conf_file, prep_data):
@@ -1008,7 +1003,7 @@ class VarSSIRef(object):
             
             eigval, eigvec_l, eigvec_r = scipy.linalg.eig(a=state_matrix,b=None,left=True,right=True)
             #eigvec_r = eigvec_r.T
-            eigval, eigvec_l, eigvec_r = self.remove_conjugates_new(eigval, eigvec_l, eigvec_r)      
+            eigval, eigvec_l, eigvec_r = self.remove_conjugates(eigval, eigvec_l, eigvec_r)      
                    
             if variance_algo == 'slow':
                 # J_AO for pinv based
@@ -1297,7 +1292,7 @@ class VarSSIRef(object):
 #                 #J_AOHT = np.dot(J_AO, self.J_OHT)
 #                 
 #             eigval, eigvec_l, eigvec_r = scipy.linalg.eig(a=state_matrix,b=None,left=True,right=True)
-#             eigval, eigvec_l, eigvec_r = self.remove_conjugates_new(eigval, eigvec_l, eigvec_r) 
+#             eigval, eigvec_l, eigvec_r = self.remove_conjugates(eigval, eigvec_l, eigvec_r) 
 # 
 #             # K_i, B_i,1; 
 #             
@@ -1436,63 +1431,63 @@ class VarSSIRef(object):
 #         
 #         #return sigma_AC, eigval, eigvec_l, eigvec_r
 #         
-                    
-    @staticmethod
-    def remove_conjugates_new (eigval, eigvec_l, eigvec_r):
-        '''
-        removes conjugates
-        
-        eigvec_l.shape = [order+1, order+1]
-        eigval.shape = [order+1,1]
-        '''
-        #return vectors, eigval
-        num_val=len(eigval)
-        conj_indices=deque()
-        
-        for i in range(num_val):
-            this_val=eigval[i]
-            this_conj_val = np.conj(this_val)
-            if this_val == this_conj_val: #remove real eigvals
-                conj_indices.append(i)
-            #ind=np.argmax(eigval[i+1:]==this_conj_val)
-            #if ind: conj_indices.append(ind+i+1)
-            for j in range(i+1, num_val): #catches unordered conjugates but takes slightly longer
-                if eigval[j] == this_conj_val:
-        
-                    #if not np.allclose(eigvec_l[j],eigvec_l[i].conj()):
-                    #    print('eigval is complex conjugate but eigvec_l is not')
-                    #    continue
-        
-                    #if not np.allclose(eigvec_r[j],eigvec_r[i].conj()):
-                    #    print('eigval is complex conjugate but eigvec_r is not')
-                    #    continue
-                    
-                    conj_indices.append(j)
-                    break
-                
-        #print('indices of complex conjugate: {}'.format(conj_indices))
-        conj_indices=list(set(range(num_val)).difference(conj_indices))
-        #print('indices to keep and return: {}'.format(conj_indices))
-        
-        
-        eigvec_l = eigvec_l[:,conj_indices]
-        eigvec_r = eigvec_r[:,conj_indices]
-        eigval = eigval[conj_indices]
-
-        return eigval,eigvec_l,eigvec_r
-    
-    @staticmethod
-    def integrate_quantities(vector, accel_channels, velo_channels, omega):
-        # input quantities = [a, v, d]
-        # output quantities = [d, d, d]
-        # converts amplitude and phase
-        #                     phase + 180; magn / omega^2
-        
-        vector[accel_channels] *= -1       / (omega ** 2)
-        #                    phase + 90; magn / omega
-        vector[velo_channels] *=  1j        / omega
-        
-        return vector   
+#                     
+#     @staticmethod
+#     def remove_conjugates_new (eigval, eigvec_l, eigvec_r):
+#         '''
+#         removes conjugates
+#         
+#         eigvec_l.shape = [order+1, order+1]
+#         eigval.shape = [order+1,1]
+#         '''
+#         #return vectors, eigval
+#         num_val=len(eigval)
+#         conj_indices=deque()
+#         
+#         for i in range(num_val):
+#             this_val=eigval[i]
+#             this_conj_val = np.conj(this_val)
+#             if this_val == this_conj_val: #remove real eigvals
+#                 conj_indices.append(i)
+#             #ind=np.argmax(eigval[i+1:]==this_conj_val)
+#             #if ind: conj_indices.append(ind+i+1)
+#             for j in range(i+1, num_val): #catches unordered conjugates but takes slightly longer
+#                 if eigval[j] == this_conj_val:
+#         
+#                     #if not np.allclose(eigvec_l[j],eigvec_l[i].conj()):
+#                     #    print('eigval is complex conjugate but eigvec_l is not')
+#                     #    continue
+#         
+#                     #if not np.allclose(eigvec_r[j],eigvec_r[i].conj()):
+#                     #    print('eigval is complex conjugate but eigvec_r is not')
+#                     #    continue
+#                     
+#                     conj_indices.append(j)
+#                     break
+#                 
+#         #print('indices of complex conjugate: {}'.format(conj_indices))
+#         conj_indices=list(set(range(num_val)).difference(conj_indices))
+#         #print('indices to keep and return: {}'.format(conj_indices))
+#         
+#         
+#         eigvec_l = eigvec_l[:,conj_indices]
+#         eigvec_r = eigvec_r[:,conj_indices]
+#         eigval = eigval[conj_indices]
+# 
+#         return eigval,eigvec_l,eigvec_r
+#     
+#     @staticmethod
+#     def integrate_quantities(vector, accel_channels, velo_channels, omega):
+#         # input quantities = [a, v, d]
+#         # output quantities = [d, d, d]
+#         # converts amplitude and phase
+#         #                     phase + 180; magn / omega^2
+#         
+#         vector[accel_channels] *= -1       / (omega ** 2)
+#         #                    phase + 90; magn / omega
+#         vector[velo_channels] *=  1j        / omega
+#         
+#         return vector   
     
     def save_state(self, fname):
         
@@ -1662,16 +1657,16 @@ class VarSSIRef(object):
             print('Modal Parameters Computed')
         return ssi_object
     
-    @staticmethod
-    def rescale_mode_shape(modeshape, doehler_style=False):
-        #scaling of mode shape
-        if doehler_style:
-            k = np.argmax(np.abs(modeshape))
-            alpha = np.angle(modeshape[k])
-            return modeshape * np.exp(-1j*alpha)
-        else:
-            modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
-            return modeshape
+#     @staticmethod
+#     def rescale_mode_shape(modeshape, doehler_style=False):
+#         #scaling of mode shape
+#         if doehler_style:
+#             k = np.argmax(np.abs(modeshape))
+#             alpha = np.angle(modeshape[k])
+#             return modeshape * np.exp(-1j*alpha)
+#         else:
+#             modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
+#             return modeshape
 # def update_svd():
 #     '''
 #     A is the full matrix

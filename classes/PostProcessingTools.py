@@ -34,10 +34,7 @@ poser multi-setup (merged_data)
 import numpy as np
 import datetime
 from classes.PreprocessingTools import PreprocessData
-from classes.SSICovRef import BRSSICovRef
-from classes.PLSCF import PLSCF
-from classes.PRCE import PRCE
-from classes.SSIData import SSIData, SSIDataMC
+from classes.ModalBase import ModalBase
 from classes.StabilDiagram import StabilCalc
 import os
 
@@ -73,7 +70,7 @@ class MergePoSER(object):
             raise RuntimeWarning('This function is not implemented yet!')
         
         assert isinstance(prep_data, PreprocessData)
-        assert isinstance(modal_data, (BRSSICovRef, PLSCF, PRCE, SSIData, SSIDataMC))
+        assert isinstance(modal_data, ModalBase)
         assert isinstance(stabil_data, StabilCalc)
         
         # assure objects belong to the same setup
@@ -351,7 +348,7 @@ class MergePoSER(object):
     
     def save_state(self, fname):
         
-        dirname, filename = os.path.split(fname)
+        dirname, _ = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
         

@@ -120,13 +120,18 @@ class ModalBase(object):
         #                    phase + 90; magn / omega
         vector[velo_channels] *=  1j        / omega
         
-        return vector   
+        return vector     
     
     @staticmethod
-    def rescale_mode_shape(modeshape):
+    def rescale_mode_shape(modeshape, doehler_style=False):
         #scaling of mode shape
-        modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
-        return modeshape 
+        if doehler_style:
+            k = np.argmax(np.abs(modeshape))
+            alpha = np.angle(modeshape[k])
+            return modeshape * np.exp(-1j*alpha)
+        else:
+            modeshape = modeshape / modeshape[np.argmax(np.abs(modeshape))]
+            return modeshape
     
     def save_state(self, fname):
         '''
