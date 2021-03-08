@@ -1,5 +1,5 @@
-Pre-processing
-==============
+Signal processing
+=================
 
 .. currentmodule:: classes
 

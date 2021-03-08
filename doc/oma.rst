@@ -1,5 +1,5 @@
-Operational Modal Analysis
-==========================
+System Identification / Modal Analysis
+======================================
 
 .. currentmodule:: classes
 
