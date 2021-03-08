@@ -4,3 +4,4 @@
 doc/_build/*
 doc/build/*
 **/__pycache__/*
+doc/classes/*
