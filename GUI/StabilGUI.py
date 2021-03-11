@@ -4,6 +4,21 @@ Based on previous works by Andrei Udrea 2014 and Volkmar Zabel 2015
 Modified and Extended by Simon Marwitz 2015
 '''
 
+import logging
+import warnings
+from classes.PreprocessingTools import PreprocessData
+from GUI.HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
+from GUI.PlotMSHGUI import ModeShapeGUI
+from classes.StabilDiagram import StabilPlot, StabilCluster
+from classes.PlotMSH import ModeShapePlot
+from classes.ModalBase import ModalBase
+from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QObject, qInstallMessageHandler, QTimer, QEventLoop
+from PyQt5.QtGui import QIcon, QPalette
+from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
+    QCheckBox, QButtonGroup, QLabel, QComboBox, \
+    QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction,\
+    QFileDialog, QMessageBox, QApplication, QRadioButton,\
+    QLineEdit, QSizePolicy, QDoubleSpinBox
 import numpy as np
 import sys
 import os
@@ -30,32 +45,14 @@ plot.rc('ytick.major', width=0.2)
 plot.ioff()
 
 
-from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
-    QCheckBox, QButtonGroup, QLabel, QComboBox, \
-    QTextEdit, QGridLayout, QFrame, QVBoxLayout, QAction,\
-    QFileDialog,  QMessageBox, QApplication, QRadioButton,\
-    QLineEdit, QSizePolicy, QDoubleSpinBox
-from PyQt5.QtGui import QIcon, QPalette
-from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot,  QObject, qInstallMessageHandler, QTimer, QEventLoop
-
 NoneType = type(None)
 
-from classes.ModalBase import ModalBase
-from classes.PlotMSH import ModeShapePlot
-from classes.StabilDiagram import StabilPlot, StabilCluster
-from GUI.PlotMSHGUI import ModeShapeGUI
-from GUI.HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
 
 sys.excepthook = my_excepthook
 
-    
-from classes.PreprocessingTools import PreprocessData
 
-
-
-import warnings
-import logging
 logger = logging.getLogger('')
+
 
 def resizeEvent_(self, event):
     w = event.size().width()
@@ -74,7 +71,8 @@ def resizeEvent_(self, event):
     self.draw()
     self.update()
     QWidget.resizeEvent(self, event)
-    
+
+
 '''
 ..TODO::
  * scale markers right on every platform
@@ -84,7 +82,7 @@ def resizeEvent_(self, event):
  * distinguish beetween stabilization criteria and filtering criteria
  * add zoom and sliders (horizontal/vertical) for the main figure
  * distinguish between  "export results" and "save state"
- 
+
 '''
 
 
@@ -93,8 +91,10 @@ class StabilGUI(QMainWindow):
     def __init__(self, stabil_plot, cmpl_plot, msh_plot=None):
 
         QMainWindow.__init__(self)
-        self.setWindowTitle('Stabilization Diagram: {} - {}'.format(
-            stabil_plot.stabil_calc.setup_name, stabil_plot.stabil_calc.start_time))
+        self.setWindowTitle(
+            'Stabilization Diagram: {} - {}'.format(
+                stabil_plot.stabil_calc.setup_name,
+                stabil_plot.stabil_calc.start_time))
 
         self.stabil_plot = stabil_plot
         self.stabil_calc = stabil_plot.stabil_calc
@@ -117,14 +117,14 @@ class StabilGUI(QMainWindow):
             self.mode_selector_add(mode)
 
         self.setGeometry(0, 0, 1800, 1000)
-        
+
         self.show()
 
         for widg in [self.mode_val_view, self.current_value_view]:
             widg.setText('\n \n \n \n \n \n \n')
             height = widg.document().size().toSize().height() + 3
             widg.setFixedHeight(height)
-        #self.plot_selector_msh.setChecked(True)
+        # self.plot_selector_msh.setChecked(True)
         self.update_stabil_view()
 
     def create_main_frame(self, cmpl_plot, msh_plot):
@@ -141,7 +141,7 @@ class StabilGUI(QMainWindow):
         mpd_max = self.stabil_calc.mpd_max
 
         self.fig = self.stabil_plot.fig
-        
+
         self.canvas = FigureCanvasQTAgg(self.fig)
 
         self.canvas.setParent(main_frame)
@@ -167,9 +167,14 @@ class StabilGUI(QMainWindow):
 
         fra_1 = QFrame()
         fra_1.setFrameShape(QFrame.Panel)
-        fra_1.setLayout(self.create_stab_val_widget(df_max=df_max,
-                                                    dd_max=dd_max, d_mac=dmac_max, d_range=d_range, mpc_min=mpc_min,
-                                                    mpd_max=mpd_max))
+        fra_1.setLayout(
+            self.create_stab_val_widget(
+                df_max=df_max,
+                dd_max=dd_max,
+                d_mac=dmac_max,
+                d_range=d_range,
+                mpc_min=mpc_min,
+                mpd_max=mpd_max))
         left_pane_layout.addWidget(fra_1)
 
         left_pane_layout.addStretch(2)
@@ -204,17 +209,17 @@ class StabilGUI(QMainWindow):
         self.cmpl_plot = cmpl_plot
         #fig = self.cmpl_plot.fig
         #canvas1 = FigureCanvasQTAgg(fig)
-        #canvas1.setParent(self.cmplx_plot_widget)
+        # canvas1.setParent(self.cmplx_plot_widget)
 
         self.msh_plot = msh_plot
 
         lay = QHBoxLayout()
-        #lay.addWidget(canvas1)
+        # lay.addWidget(canvas1)
         self.cmplx_plot_widget.setLayout(lay)
         self.cmpl_plot.plot_diagram()
 
         lay = QHBoxLayout()
-        #lay.addWidget(canvas2)
+        # lay.addWidget(canvas2)
         self.mode_plot_widget.setLayout(lay)
 
         self.mode_val_view = QTextEdit()
@@ -237,7 +242,7 @@ class StabilGUI(QMainWindow):
         main_layout.addLayout(left_pane_layout)
         main_layout.addWidget(self.canvas)
         main_layout.setStretchFactor(self.canvas, 1)
-        #main_layout.addLayout(right_pane_layout)
+        # main_layout.addLayout(right_pane_layout)
         vbox = QVBoxLayout()
         vbox.addLayout(main_layout)
         vbox.addLayout(self.create_buttons())
@@ -280,12 +285,24 @@ class StabilGUI(QMainWindow):
         '''
         # print('here')
         array = self.stabil_calc.freq_diffs
-        self.histo_plot_f = self.create_histo_plot(array,
-                                                   self.histo_plot_f, title='Frequency Differences (percent)',
-                                                   ranges=(0, 1),
-                                                   select_ranges=[
-                                                       float(self.df_edit.text()) / 100],
-                                                   select_callback=[lambda x: [self.df_edit.setText(str(x * 100)), self.update_stabil_view()]])
+        self.histo_plot_f = self.create_histo_plot(
+            array,
+            self.histo_plot_f,
+            title='Frequency Differences (percent)',
+            ranges=(
+                0,
+                1),
+            select_ranges=[
+                float(
+                    self.df_edit.text()) /
+                100],
+            select_callback=[
+                lambda x: [
+                    self.df_edit.setText(
+                        str(
+                            x *
+                            100)),
+                    self.update_stabil_view()]])
 
     def create_histo_plot_sf(self):
         '''
@@ -294,13 +311,26 @@ class StabilGUI(QMainWindow):
         update stable
         '''
         array = np.ma.array(
-            self.stabil_calc.modal_data.std_frequencies / self.stabil_calc.modal_data.modal_frequencies)
-        self.histo_plot_sf = self.create_histo_plot(array,
-                                                    self.histo_plot_sf, title='CoV Frequencies (percent)',
-                                                    ranges=(0, 1),
-                                                    select_ranges=[
-                                                        float(self.stdf_edit.text()) / 100],
-                                                    select_callback=[lambda x: [self.stdf_edit.setText(str(x * 100)), self.update_stabil_view()]])
+            self.stabil_calc.modal_data.std_frequencies /
+            self.stabil_calc.modal_data.modal_frequencies)
+        self.histo_plot_sf = self.create_histo_plot(
+            array,
+            self.histo_plot_sf,
+            title='CoV Frequencies (percent)',
+            ranges=(
+                0,
+                1),
+            select_ranges=[
+                float(
+                    self.stdf_edit.text()) /
+                100],
+            select_callback=[
+                lambda x: [
+                    self.stdf_edit.setText(
+                        str(
+                            x *
+                            100)),
+                    self.update_stabil_view()]])
 
     def create_histo_plot_d(self):
         '''
@@ -309,13 +339,24 @@ class StabilGUI(QMainWindow):
         update stable
         '''
         array = self.stabil_calc.damp_diffs
-        self.histo_plot_d = self.create_histo_plot(array,
-                                                   self.histo_plot_d,
-                                                   title='Damping Differences (percent)',
-                                                   ranges=(0, 1),
-                                                   select_ranges=[
-                                                       float(self.dd_edit.text()) / 100],
-                                                   select_callback=[lambda x: [self.dd_edit.setText(str(x * 100)), self.update_stabil_view()]])
+        self.histo_plot_d = self.create_histo_plot(
+            array,
+            self.histo_plot_d,
+            title='Damping Differences (percent)',
+            ranges=(
+                0,
+                1),
+            select_ranges=[
+                float(
+                    self.dd_edit.text()) /
+                100],
+            select_callback=[
+                lambda x: [
+                    self.dd_edit.setText(
+                        str(
+                            x *
+                            100)),
+                    self.update_stabil_view()]])
 
     def create_histo_plot_sd(self):
         '''
@@ -324,13 +365,26 @@ class StabilGUI(QMainWindow):
         update stable
         '''
         array = np.ma.array(
-            self.stabil_calc.modal_data.std_damping / self.stabil_calc.modal_data.modal_damping)
-        self.histo_plot_sd = self.create_histo_plot(array,
-                                                    self.histo_plot_sd, title='CoV Damping (percent)',
-                                                    ranges=(0, 1),
-                                                    select_ranges=[
-                                                        float(self.stdd_edit.text()) / 100],
-                                                    select_callback=[lambda x: [self.stdd_edit.setText(str(x * 100)), self.update_stabil_view()]])
+            self.stabil_calc.modal_data.std_damping /
+            self.stabil_calc.modal_data.modal_damping)
+        self.histo_plot_sd = self.create_histo_plot(
+            array,
+            self.histo_plot_sd,
+            title='CoV Damping (percent)',
+            ranges=(
+                0,
+                1),
+            select_ranges=[
+                float(
+                    self.stdd_edit.text()) /
+                100],
+            select_callback=[
+                lambda x: [
+                    self.stdd_edit.setText(
+                        str(
+                            x *
+                            100)),
+                    self.update_stabil_view()]])
 
     def create_histo_plot_dr(self):
         '''
@@ -339,12 +393,17 @@ class StabilGUI(QMainWindow):
         update stable
         '''
         array = np.ma.array(self.stabil_calc.modal_data.modal_damping)
-        self.histo_plot_dr = self.create_histo_plot(array,
-                                                    self.histo_plot_dr, title='Damping range ',
-                                                    ranges=(0, 10),
-                                                    select_ranges=[
-                                                        float(self.d_min_edit.text()), float(self.d_max_edit.text())],
-                                                    select_callback=[lambda x: [self.d_min_edit.setText(str(x)), self.update_stabil_view()], lambda x: [self.d_max_edit.setText(str(x)), self.update_stabil_view()]])
+        self.histo_plot_dr = self.create_histo_plot(
+            array, self.histo_plot_dr, title='Damping range ', ranges=(
+                0, 10), select_ranges=[
+                float(
+                    self.d_min_edit.text()), float(
+                    self.d_max_edit.text())], select_callback=[
+                        lambda x: [
+                            self.d_min_edit.setText(
+                                str(x)), self.update_stabil_view()], lambda x: [
+                                    self.d_max_edit.setText(
+                                        str(x)), self.update_stabil_view()]])
 
     def create_histo_plot_mac(self):
         '''
@@ -353,12 +412,24 @@ class StabilGUI(QMainWindow):
         update stable
         '''
         array = self.stabil_calc.MAC_diffs
-        self.histo_plot_mac = self.create_histo_plot(array,
-                                                     self.histo_plot_mac, title='MAC Diffs (percent)',
-                                                     ranges=(0, 1),
-                                                     select_ranges=[
-                                                         float(self.mac_edit.text()) / 100],
-                                                     select_callback=[lambda x: [self.mac_edit.setText(str(x * 100)), self.update_stabil_view()]])
+        self.histo_plot_mac = self.create_histo_plot(
+            array,
+            self.histo_plot_mac,
+            title='MAC Diffs (percent)',
+            ranges=(
+                0,
+                1),
+            select_ranges=[
+                float(
+                    self.mac_edit.text()) /
+                100],
+            select_callback=[
+                lambda x: [
+                    self.mac_edit.setText(
+                        str(
+                            x *
+                            100)),
+                    self.update_stabil_view()]])
 
     def create_histo_plot_mpc(self):
         '''
@@ -367,12 +438,14 @@ class StabilGUI(QMainWindow):
         update stable
         '''
         array = self.stabil_calc.MPC_matrix
-        self.histo_plot_mpc = self.create_histo_plot(array,
-                                                     self.histo_plot_mpc, title='MPC',
-                                                     ranges=(0, 1),
-                                                     select_ranges=[
-                                                         float(self.mpc_edit.text()), None],
-                                                     select_callback=[lambda x: [self.mpc_edit.setText(str(x)), self.update_stabil_view()], str])
+        self.histo_plot_mpc = self.create_histo_plot(
+            array, self.histo_plot_mpc, title='MPC', ranges=(
+                0, 1), select_ranges=[
+                float(
+                    self.mpc_edit.text()), None], select_callback=[
+                    lambda x: [
+                        self.mpc_edit.setText(
+                            str(x)), self.update_stabil_view()], str])
 
     def create_histo_plot_mpd(self):
         '''
@@ -381,22 +454,31 @@ class StabilGUI(QMainWindow):
         update stable
         '''
         array = self.stabil_calc.MPD_matrix
-        self.histo_plot_mpd = self.create_histo_plot(array,
-                                                     self.histo_plot_mpd, title='MPD',
-                                                     ranges=(0, 90),
-                                                     select_ranges=[
-                                                         float(self.mpd_edit.text())],
-                                                     select_callback=[lambda x: [self.mpd_edit.setText(str(x)), self.update_stabil_view()]])
- 
+        self.histo_plot_mpd = self.create_histo_plot(
+            array, self.histo_plot_mpd, title='MPD', ranges=(
+                0, 90), select_ranges=[
+                float(
+                    self.mpd_edit.text())], select_callback=[
+                    lambda x: [
+                        self.mpd_edit.setText(
+                            str(x)), self.update_stabil_view()]])
+
     def show_MC_plot(self):
 
-        b=self.sender().isChecked()
+        b = self.sender().isChecked()
         self.stabil_plot.show_MC(b)
 
-    def create_histo_plot(self, array, plot_obj, title='', ranges=None, select_ranges=[None], select_callback=[None]):
+    def create_histo_plot(
+            self,
+            array,
+            plot_obj,
+            title='',
+            ranges=None,
+            select_ranges=[None],
+            select_callback=[None]):
         '''
-        should work like following:: 
-        
+        should work like following::
+
             button press    if None        → visible = True, create
                             if visible     → visible = False, hide
                             if not visible → visible = True, show
@@ -404,11 +486,11 @@ class StabilGUI(QMainWindow):
                             if visible     → visible = visible, update
                             if not visible → visible = visible, update
             close button                   → visible = False, hide
-            
-        
-        but doesn't, since the function can not distinguish between 
+
+
+        but doesn't, since the function can not distinguish between
         "button press" and "update stabil"
-        
+
         '''
         old_mask = np.copy(array.mask)
         array.mask = np.ma.nomask
@@ -438,8 +520,13 @@ class StabilGUI(QMainWindow):
                 array.mask = mask_pre
                 all_data = array.compressed()
 
-            plot_obj = HistoPlot(all_data, stable_data, title, ranges,
-                                 select_ranges=select_ranges, select_callback=select_callback)
+            plot_obj = HistoPlot(
+                all_data,
+                stable_data,
+                title,
+                ranges,
+                select_ranges=select_ranges,
+                select_callback=select_callback)
         else:  # update
             plot_obj.update_histo(stable_data, select_ranges)
 
@@ -455,30 +542,32 @@ class StabilGUI(QMainWindow):
         # display information about currently selected mode
         i = self.stabil_calc.select_modes[index]
 
-        n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC,ex_1,ex_2 = self.stabil_calc.get_modal_values(
+        n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC, ex_1, ex_2 = self.stabil_calc.get_modal_values(
             i)
         if self.stabil_calc.capabilities['std']:
             import scipy.stats
             num_blocks = self.stabil_calc.modal_data.num_blocks
-            stdf = scipy.stats.t.ppf(0.975,num_blocks)*stdf/np.sqrt(num_blocks)
-            stdd = scipy.stats.t.ppf(0.975,num_blocks)*stdd/np.sqrt(num_blocks)
-            
+            stdf = scipy.stats.t.ppf(
+                0.975, num_blocks) * stdf / np.sqrt(num_blocks)
+            stdd = scipy.stats.t.ppf(
+                0.975, num_blocks) * stdd / np.sqrt(num_blocks)
+
         self.current_mode = i
         s = ''
-        for text, val in [('Frequency=%1.3fHz, \n' % (f),       f   ),
+        for text, val in [('Frequency=%1.3fHz, \n' % (f), f),
                           ('CI Frequency ± %1.3e, \n' % (stdf), stdf),
-                          ('Order=%1.0f, \n' % (n),             n   ),
-                          ('Damping=%1.3f%%,  \n' % ( d),       d   ),
-                          ('CI Damping ± %1.3e,  \n' % (stdd),  stdd),
-                          ('MPC=%1.5f, \n' % (mpc),             mpc ),
-                          ('MP=%1.3f\u00b0, \n' % (mp),         mp  ),
-                          ('MPD=%1.5f\u00b0, \n' % (mpd),       mpd ),
-                          ('dMP=%1.3f\u00b0, \n' % (dmp),       dmp ),
+                          ('Order=%1.0f, \n' % (n), n),
+                          ('Damping=%1.3f%%,  \n' % (d), d),
+                          ('CI Damping ± %1.3e,  \n' % (stdd), stdd),
+                          ('MPC=%1.5f, \n' % (mpc), mpc),
+                          ('MP=%1.3f\u00b0, \n' % (mp), mp),
+                          ('MPD=%1.5f\u00b0, \n' % (mpd), mpd),
+                          ('dMP=%1.3f\u00b0, \n' % (dmp), dmp),
                           #('dMPD=%1.5f\u00b0, \n' % (dmpd),     dmpd),
-                          ('MTN=%1.5f, \n' % (mtn),             mtn ),
-                          ('MC=%1.5f, \n' % (MC),               MC  ),
-                          ('Ext=%1.5f\u00b0, \n' % (ex_1),      ex_1),
-                          ('Ext=%1.3f\u00b0, \n' % (ex_2),      ex_2)
+                          ('MTN=%1.5f, \n' % (mtn), mtn),
+                          ('MC=%1.5f, \n' % (MC), MC),
+                          ('Ext=%1.5f\u00b0, \n' % (ex_1), ex_1),
+                          ('Ext=%1.3f\u00b0, \n' % (ex_2), ex_2)
                           ]:
             if val is not np.nan:
                 s += text
@@ -490,7 +579,7 @@ class StabilGUI(QMainWindow):
     @pyqtSlot(tuple)
     def mode_selector_add(self, i):
         # add mode tomode_selector and select it
-        n, f, stdf, d, stdd, mpc, mp, mpd,dmp, dmpd, mtn, MC, ex_1, ex_2 = self.stabil_calc.get_modal_values(
+        n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC, ex_1, ex_2 = self.stabil_calc.get_modal_values(
             i)
         index = self.stabil_calc.select_modes.index(i)
         #print(n,f,d,mpc, mp, mpd)
@@ -520,7 +609,7 @@ class StabilGUI(QMainWindow):
         self.mode_selector.clear()
 
         for index, i in enumerate(self.stabil_calc.select_modes):
-            n,  f, stdf,  d, stdd, mpc, mp, mpd,dmp, dmpd, mtn, MC, ex_1, ex_2  = self.stabil_calc.get_modal_values(
+            n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC, ex_1, ex_2 = self.stabil_calc.get_modal_values(
                 i)
             text = '{} - {:2.3f}'.format(index, f)
             self.mode_selector.addItem(text)
@@ -561,89 +650,95 @@ class StabilGUI(QMainWindow):
             self.cmpl_plot.show()
         else:
             self.cmpl_plot.hide()
-            
+
     def init_cursor(self):
         stabil_plot = self.stabil_plot
         #print(self.stabil_calc.select_modes, type(self.stabil_calc.select_modes))
-        self.cursor = DataCursor(ax=stabil_plot.ax, order_data=stabil_plot.stabil_calc.order_dummy,
-                                 f_data=stabil_plot.stabil_calc.masked_frequencies, datalist=stabil_plot.stabil_calc.select_modes,
-                                 color='black')
- 
-        stabil_plot.fig.canvas.mpl_connect('button_press_event', self.cursor.onmove)
-        stabil_plot.fig.canvas.mpl_connect('resize_event', self.cursor.fig_resized)
+        self.cursor = DataCursor(
+            ax=stabil_plot.ax,
+            order_data=stabil_plot.stabil_calc.order_dummy,
+            f_data=stabil_plot.stabil_calc.masked_frequencies,
+            datalist=stabil_plot.stabil_calc.select_modes,
+            color='black')
+
+        stabil_plot.fig.canvas.mpl_connect(
+            'button_press_event', self.cursor.onmove)
+        stabil_plot.fig.canvas.mpl_connect(
+            'resize_event', self.cursor.fig_resized)
         # self.cursor.add_datapoints(self.stabil_calc.select_modes)
         self.stabil_calc.select_callback = self.cursor.add_datapoint
-    
-    #@pyqtSlot(bool)
+
+    # @pyqtSlot(bool)
     def snap_frequency(self, b=True):
         if b:
             mask = self.stabil_calc.get_stabilization_mask('mask_df')
             self.cursor.set_mask(mask, 'mask_df')
 
-    #@pyqtSlot(bool)
+    # @pyqtSlot(bool)
     def snap_damping(self, b=True):
         if b:
             mask = self.stabil_calc.get_stabilization_mask('mask_dd')
             self.cursor.set_mask(mask, 'mask_dd')
 
-    #@pyqtSlot(bool)
+    # @pyqtSlot(bool)
     def snap_vector(self, b=True):
         if b:
             mask = self.stabil_calc.get_stabilization_mask('mask_dmac')
             self.cursor.set_mask(mask, 'mask_dmac')
 
-    #@pyqtSlot(bool)
+    # @pyqtSlot(bool)
     def snap_stable(self, b=True):
         if b:
             mask = self.stabil_calc.get_stabilization_mask('mask_stable')
             self.cursor.set_mask(mask, 'mask_stable')
 
-    #@pyqtSlot(bool)
+    # @pyqtSlot(bool)
     def snap_all(self, b=True):
         if b:
             mask = self.stabil_calc.get_stabilization_mask('mask_pre')
             self.cursor.set_mask(mask, 'mask_pre')
 
-    #@pyqtSlot(bool)
+    # @pyqtSlot(bool)
     def snap_clear(self, b=True):
         if b:
             mask = self.stabil_calc.get_stabilization_mask('mask_autoclear')
             self.cursor.set_mask(mask, 'mask_autoclear')
 
-    #@pyqtSlot(bool)
+    # @pyqtSlot(bool)
     def snap_select(self, b=True):
         if b:
             mask = self.stabil_calc.get_stabilization_mask('mask_autoselect')
             self.cursor.set_mask(mask, 'mask_autoselect')
-    
+
     def update_value_view(self, i):
 
-        n, f, stdf, d, stdd, mpc, mp, mpd,dmp, dmpd, mtn, MC, ex_1, ex_2 = self.stabil_calc.get_modal_values(
+        n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC, ex_1, ex_2 = self.stabil_calc.get_modal_values(
             i)
-        
 
         if self.stabil_calc.capabilities['std']:
             import scipy.stats
             num_blocks = self.stabil_calc.modal_data.num_blocks
-            stdf = scipy.stats.t.ppf(0.975,num_blocks)*stdf/np.sqrt(num_blocks)
-            stdd = scipy.stats.t.ppf(0.975,num_blocks)*stdd/np.sqrt(num_blocks)
-            
+            stdf = scipy.stats.t.ppf(
+                0.975, num_blocks) * stdf / np.sqrt(num_blocks)
+            stdd = scipy.stats.t.ppf(
+                0.975, num_blocks) * stdd / np.sqrt(num_blocks)
+
         self.current_mode = i
         s = ''
-        for text, val in [('Frequency=%1.3fHz, \n' % (f),       f   ),
+        for text, val in [('Frequency=%1.3fHz, \n' % (f), f),
                           ('CI Frequency ± %1.3e, \n' % (stdf), stdf),
-                          ('Order=%1.0f, \n' % (n),             n   ),
-                          ('Damping=%1.3f%%,  \n' % ( d),       d   ),
-                          ('CI Damping ± %1.3e,  \n' % (stdd),  stdd),
-                          ('MPC=%1.5f, \n' % (mpc),             mpc ),
-                          ('MP=%1.3f\u00b0, \n' % (mp),         mp  ),
-                          ('MPD=%1.5f\u00b0, \n' % (mpd),       mpd ),
-                          ('dMP=%1.3f\u00b0, \n' % (dmp),       dmp ),
+                          ('Order=%1.0f, \n' % (n), n),
+                          ('Damping=%1.3f%%,  \n' % (d), d),
+                          ('CI Damping ± %1.3e,  \n' % (stdd), stdd),
+                          ('MPC=%1.5f, \n' % (mpc), mpc),
+                          ('MP=%1.3f\u00b0, \n' % (mp), mp),
+                          ('MPD=%1.5f\u00b0, \n' % (mpd), mpd),
+                          ('dMP=%1.3f\u00b0, \n' % (dmp), dmp),
                           #('dMPD=%1.5f\u00b0, \n' % (dmpd),     dmpd),
-                          ('MTN=%1.5f, \n' % (mtn),             mtn ),
-                          ('MC=%1.5f, \n' % (MC),               MC  ),
-                          ('Ext=%1.5f\u00b0, \n' % (ex_1),      ex_1),
-                          ('Ext=%1.3f\u00b0, \n' % (ex_2),      ex_2)
+                          ('MTN=%1.5f, \n' % (mtn), mtn),
+                          ('MC=%1.5f, \n' % (MC), MC),
+                          ('Ext=%1.5f\u00b0, \n' % (ex_1), ex_1),
+                          ('Ext=%1.3f\u00b0, \n' % (ex_2), ex_2)
                           ]:
             if val is not np.nan:
                 s += text
@@ -681,7 +776,7 @@ class StabilGUI(QMainWindow):
         else:
             mpc_min = None
             mpd_max = None
-            
+
         if self.stabil_calc.capabilities['MC']:
             MC_min = float(self.MC_edit.text())
         else:
@@ -691,9 +786,17 @@ class StabilGUI(QMainWindow):
         order_range = (int(self.n_low.text()), int(
             self.n_step.text()), int(self.n_high.text()))
 
-        self.stabil_plot.update_stabilization(df_max=df_max, stdf_max=stdf_max, dd_max=dd_max, stdd_max=stdd_max,
-                                              dmac_max=dmac_max, d_range=d_range, mpc_min=mpc_min, mpd_max=mpd_max,
-                                              MC_min = MC_min, order_range=order_range)
+        self.stabil_plot.update_stabilization(
+            df_max=df_max,
+            stdf_max=stdf_max,
+            dd_max=dd_max,
+            stdd_max=stdd_max,
+            dmac_max=dmac_max,
+            d_range=d_range,
+            mpc_min=mpc_min,
+            mpd_max=mpd_max,
+            MC_min=MC_min,
+            order_range=order_range)
         self.stabil_plot.update_xlim(f_range)
         self.stabil_plot.update_ylim((order_range[0], order_range[2]))
 
@@ -874,7 +977,7 @@ class StabilGUI(QMainWindow):
             button.released.connect(self.create_histo_plot_mtn)
             layout.addWidget(button, i, 4)
             i += 1
-            
+
         if self.stabil_calc.capabilities['MC']:
             layout.addWidget(QLabel('MC_min []'), i, 1)
             self.MC_edit = QLineEdit('0')
@@ -926,7 +1029,6 @@ class StabilGUI(QMainWindow):
         assert self.stabil_calc.capabilities['auto']
         num_iter = int(self.num_iter_edit.text())
 
-
         if isinstance(self.stabil_calc, StabilCluster):
             self.stabil_calc.automatic_clearing(num_iter)
             self.threshold_box.setPlaceholderText(
@@ -964,12 +1066,25 @@ class StabilGUI(QMainWindow):
 
         if isinstance(self.stabil_calc, StabilCluster):
             self.stabil_calc.automatic_selection(num_modes)
-            #self.stabil_plot.update_stabilization()
+            # self.stabil_plot.update_stabilization()
             # self.stabil_calc.plot_selection()
 
-    def create_diag_val_widget(self, show_sf=True, show_sd=True,
-                               show_sv=True, show_sa=True, show_all=True,
-                               show_psd=False, snap_to='sa', f_range=(0, 0), n_range=(0, 1, 0)):
+    def create_diag_val_widget(
+        self,
+        show_sf=True,
+        show_sd=True,
+        show_sv=True,
+        show_sa=True,
+        show_all=True,
+        show_psd=False,
+        snap_to='sa',
+        f_range=(
+            0,
+            0),
+        n_range=(
+            0,
+            1,
+            0)):
         layout = QGridLayout()
 
         layout.addWidget(QLabel('View Settings'), 1, 1, 1, 2)
@@ -1031,8 +1146,7 @@ class StabilGUI(QMainWindow):
             self.stabil_plot.plot_fft(show_psd)
             psd_check.stateChanged.connect(self.stabil_plot.plot_fft)
             layout.addWidget(psd_check, i, 1, 1, 2)
-            i += 1        
-
+            i += 1
 
         lay = QHBoxLayout()
         lay.addWidget(QLabel('Freq. range:'))
@@ -1053,7 +1167,9 @@ class StabilGUI(QMainWindow):
         lay.addWidget(QLabel('Order. range (low:step:high):'))
         if n_range[2] == 0:
             n_range = (
-                n_range[0], n_range[1], self.stabil_calc.modal_data.max_model_order)
+                n_range[0],
+                n_range[1],
+                self.stabil_calc.modal_data.max_model_order)
         self.n_low = QLineEdit('{:2d}'.format(n_range[0]))
         self.n_low.setFixedWidth(60)
         self.n_step = QLineEdit('{:2d}'.format(n_range[1]))
@@ -1075,8 +1191,7 @@ class StabilGUI(QMainWindow):
         canvas = self.stabil_plot.ax.figure.canvas
 
         filetypes = canvas.get_supported_filetypes_grouped()
-        sorted_filetypes = list(filetypes.items())
-        sorted_filetypes.sort()
+        sorted_filetypes = sorted(filetypes.items())
         default_filetype = canvas.get_default_filetype()
 
         startpath = rcParams.get('savefig.directory', '')
@@ -1093,8 +1208,8 @@ class StabilGUI(QMainWindow):
         filters = ';;'.join(filters)
 
         if fname is None:
-            fname, ext = QFileDialog.getSaveFileName(self, caption="Choose a filename to save to",
-                                                     directory=start, filter=filters)
+            fname, ext = QFileDialog.getSaveFileName(
+                self, caption="Choose a filename to save to", directory=start, filter=filters)
             # print(fname)
         self.stabil_plot.save_figure(fname)
 
@@ -1132,12 +1247,12 @@ class StabilGUI(QMainWindow):
         self.deleteLater()
 
         return QMainWindow.closeEvent(self, *args, **kwargs)
-    
+
     def keyPressEvent(self, e):
-        #print(e.key())
-        if e.key() == Qt.Key_Return or e.key()== Qt.Key_Enter:
+        # print(e.key())
+        if e.key() == Qt.Key_Return or e.key() == Qt.Key_Enter:
             self.update_stabil_view()
-            #print('2')
+            # print('2')
         super().keyPressEvent(e)
 
 
@@ -1150,16 +1265,16 @@ class ComplexPlot(QMainWindow):
         self.setGeometry(300, 300, 1000, 600)
         main_frame = QWidget()
         vbox = QVBoxLayout()
-        
-        self.fig = Figure(facecolor='white', dpi=100, figsize=(4,4))
+
+        self.fig = Figure(facecolor='white', dpi=100, figsize=(4, 4))
         self.canvas = FigureCanvasQTAgg(self.fig)
-        #self.canvas.setParent(main_frame)
-        
-        vbox.addWidget(self.canvas,10,Qt.AlignCenter)
+        # self.canvas.setParent(main_frame)
+
+        vbox.addWidget(self.canvas, 10, Qt.AlignCenter)
         main_frame.setLayout(vbox)
-        
+
         self.setCentralWidget(main_frame)
-        #self.show()
+        # self.show()
 
     def scatter_this(self, msh, mp=None):
 
@@ -1225,7 +1340,7 @@ class ComplexPlot(QMainWindow):
         self.ax.spines['bottom'].set_position(('data', 0))
         self.ax.spines['right'].set_position(('data', 0 - 1))
         self.ax.spines['top'].set_position(('data', 0 - 1))
-        
+
         self.ax.xaxis.set_label('Re')
         self.ax.yaxis.set_label('Im')
 
@@ -1241,20 +1356,20 @@ class ComplexPlot(QMainWindow):
 
 
 # class ModeShapeWidget(object):
-# 
+#
 #     def __init__(self, stabil_calc, modal_data, geometry_data, prep_data,**kwargs):
-#         
+#
 #         #print(kwargs)
 #         super().__init__()
-#         #sys.path.append("/vegas/users/staff/womo1998/Projects/2016_Burscheid") 
+#         #sys.path.append("/vegas/users/staff/womo1998/Projects/2016_Burscheid")
 #         #from main_Schwabach_2019 import print_mode_info
-#         
+#
 #         self.mode_shape_plot = ModeShapePlot(
-#             stabil_calc=stabil_calc, 
+#             stabil_calc=stabil_calc,
 #             modal_data=modal_data,
-#             geometry_data=geometry_data, 
-#             prep_data=prep_data, 
-#             amplitude=20, 
+#             geometry_data=geometry_data,
+#             prep_data=prep_data,
+#             amplitude=20,
 #             linewidth=0.5,
 #             #callback_fun=print_mode_info
 #             **kwargs)
@@ -1263,21 +1378,21 @@ class ComplexPlot(QMainWindow):
 #         self.mode_shape_plot.draw_lines()
 #         # self.mode_shape_plot.draw_master_slaves()
 #         # self.mode_shape_plot.draw_chan_dofs()
-# 
+#
 #         self.fig = self.mode_shape_plot.fig
 #         self.fig.set_size_inches((2, 2))
 #         self.canvas = self.fig.canvas.switch_backends(FigureCanvasQTAgg)
 #         self.mode_shape_plot.canvas = self.canvas
 #         self.fig.get_axes()[0].mouse_init()
 #         #self.canvas = self.mode_shape_plot.canvas
-# 
+#
 #         for axis in [self.mode_shape_plot.subplot.xaxis, self.mode_shape_plot.subplot.yaxis, self.mode_shape_plot.subplot.zaxis]:
 #             axis.set_minor_locator(ticker.NullLocator())
 #             axis.set_major_formatter(ticker.NullFormatter())
 #         self.mode_shape_plot.animate()
-#         
-#         
-#         
+#
+#
+#
 #     def plot_this(self, index):
 #         #self.mode_shape_plot.stop_ani()
 #         self.mode_shape_plot.change_mode(mode_index=index)
@@ -1286,7 +1401,14 @@ class ComplexPlot(QMainWindow):
 
 class HistoPlot(QMainWindow):
 
-    def __init__(self, all_data, stabil_data, title='', ranges=None, select_ranges=[None], select_callback=[None]):
+    def __init__(
+            self,
+            all_data,
+            stabil_data,
+            title='',
+            ranges=None,
+            select_ranges=[None],
+            select_callback=[None]):
         QMainWindow.__init__(self)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle(title)
@@ -1324,7 +1446,7 @@ class HistoPlot(QMainWindow):
         self.all_patches = None
         self.stabil_patches = None
         self.ranges = None
-        self.visible=True
+        self.visible = True
         self.select_ranges = select_ranges
         self.select_callback = select_callback
         self.selector_lines = []
@@ -1344,7 +1466,8 @@ class HistoPlot(QMainWindow):
         self.axes.set_xlim(self.ranges)
         self.axes.set_ylim((0, max(n) * 1.1))
         self.axes.set_yticks([])
-        if self.select_callback[0] is not None and (self.select_ranges[0] is not None or self.select_ranges[1] is not None) and not self.selector_lines:
+        if self.select_callback[0] is not None and (
+                self.select_ranges[0] is not None or self.select_ranges[1] is not None) and not self.selector_lines:
             for val in self.select_ranges:
                 if val is None:
                     self.selector_lines.append(None)
@@ -1438,7 +1561,15 @@ class DataCursor(Cursor, QObject):
     mode_selected = pyqtSignal(tuple)
     mode_deselected = pyqtSignal(tuple)
 
-    def __init__(self, ax, order_data, f_data, mask=None,  useblit=True, datalist=[], **lineprops):
+    def __init__(
+            self,
+            ax,
+            order_data,
+            f_data,
+            mask=None,
+            useblit=True,
+            datalist=[],
+            **lineprops):
 
         Cursor.__init__(self, ax, useblit=useblit, **lineprops)
         QObject.__init__(self)
@@ -1473,7 +1604,7 @@ class DataCursor(Cursor, QObject):
         if datapoint not in self.datalist:
             self.datalist.append(datapoint)
         x, y = self.x[datapoint], self.y[datapoint]
-        #print(x,y)
+        # print(x,y)
         self.scatter_objs.append(self.ax.scatter(
             x, y, facecolors='none', edgecolors='red', s=200, visible=False))
         self.mode_selected.emit(datapoint)
@@ -1530,7 +1661,7 @@ class DataCursor(Cursor, QObject):
         2. On a mouse-click, select the data item and append it to a list of selected items
         3. The second mouse-click on a previously selected item, removes it from the list
         '''
-        if (self.xpix.mask == True).all():  # i.e. no stable poles
+        if (self.xpix.mask).all():  # i.e. no stable poles
             return
 
         if event.name == "motion_notify_event":
@@ -1565,7 +1696,7 @@ class DataCursor(Cursor, QObject):
         # main plot
         if event.name == "button_press_event" and event.inaxes == self.ax and self.i is not None:
 
-            if not self.i in self.datalist:
+            if self.i not in self.datalist:
                 # self.linev.set_visible(False)
                 # self.lineh.set_visible(False)
                 #self.background = self.ax.figure.canvas.copy_from_bbox(self.ax.figure.bbox)
@@ -1613,14 +1744,14 @@ class DataCursor(Cursor, QObject):
     def findIndexNearestXY(self, x_point, y_point):
         '''
         Finds the nearest neighbour
-        
+
         .. TODO::
             currently a very inefficient brute force implementation
             should be replaced by e.g. a k-d-tree nearest neighbour search
             `https://en.wikipedia.org/wiki/K-d_tree`
-            
+
         '''
-        
+
         distance = np.square(
             self.ypix - y_point) + np.square(self.xpix - x_point)
         index = np.argmin(distance)
@@ -1634,36 +1765,40 @@ def nearly_equal(a, b, sig_fig=5):
             )
 
 
-def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None, select_modes=[],**kwargs):
-    #print(kwargs)
+def start_stabil_gui(
+        stabil_plot,
+        modal_data,
+        geometry_data=None,
+        prep_data=None,
+        select_modes=[],
+        **kwargs):
+    # print(kwargs)
     def handler(msg_type, msg_string):
         pass
 
-    if not 'app' in globals().keys():
+    if 'app' not in globals().keys():
         global app
         app = QApplication(sys.argv)
     if not isinstance(app, QApplication):
         app = QApplication(sys.argv)
-        
+
     assert isinstance(stabil_plot, StabilPlot)
     cmpl_plot = ComplexPlot()
-    if geometry_data is not None:# and prep_data is not None:
-       
+    if geometry_data is not None:  # and prep_data is not None:
+
         mode_shape_plot = ModeShapePlot(stabil_calc=stabil_plot.stabil_calc,
-                                                modal_data=modal_data, 
-                                                geometry_data=geometry_data, 
-                                                prep_data=prep_data,
-                                                **kwargs)
-        
+                                        modal_data=modal_data,
+                                        geometry_data=geometry_data,
+                                        prep_data=prep_data,
+                                        **kwargs)
+
         msh_plot = ModeShapeGUI(mode_shape_plot, reduced_gui=True)
         msh_plot.setGeometry(1000, 0, 800, 600)
         msh_plot.reset_view()
         msh_plot.hide()
-        
-        
+
     else:
         msh_plot = None
-
 
     # qInstallMessageHandler(handler) #suppress unimportant error msg
 
@@ -1674,7 +1809,6 @@ def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None
     loop.exec_()
     canvas = FigureCanvasBase(stabil_plot.fig)
     return
-
 
 
 if __name__ == '__main__':

@@ -120,7 +120,7 @@ def qr(a, overwrite_a=False, lwork=None, mode='full', pivoting=False,
     # 'raw' is used internally by qr_multiply
     if mode not in ['full', 'qr', 'r', 'economic', 'raw']:
         raise ValueError(
-                 "Mode argument should be one of ['full', 'r', 'economic', 'raw']")
+            "Mode argument should be one of ['full', 'r', 'economic', 'raw']")
 
     if check_finite:
         a1 = numpy.asarray_chkfinite(a)
@@ -138,7 +138,7 @@ def qr(a, overwrite_a=False, lwork=None, mode='full', pivoting=False,
     else:
         geqrf, = get_lapack_funcs(('geqrf',), (a1,))
         qr, tau = safecall(geqrf, "geqrf", a1, lwork=lwork,
-            overwrite_a=overwrite_a)
+                           overwrite_a=overwrite_a)
 
     if mode not in ['economic', 'raw'] or M < N:
         R = numpy.triu(qr)
@@ -159,10 +159,10 @@ def qr(a, overwrite_a=False, lwork=None, mode='full', pivoting=False,
 
     if M < N:
         Q, = safecall(gor_un_gqr, "gorgqr/gungqr", qr[:, :M], tau,
-            lwork=lwork, overwrite_a=1)
+                      lwork=lwork, overwrite_a=1)
     elif mode == 'economic':
         Q, = safecall(gor_un_gqr, "gorgqr/gungqr", qr, tau, lwork=lwork,
-            overwrite_a=1)
+                      overwrite_a=1)
     else:
         t = qr.dtype.char
         ####################################
@@ -171,13 +171,13 @@ def qr(a, overwrite_a=False, lwork=None, mode='full', pivoting=False,
         qqr = numpy.empty((M, M), dtype=t)
         qqr[:, :N] = qr
         Q, = safecall(gor_un_gqr, "gorgqr/gungqr", qqr, tau, lwork=lwork,
-            overwrite_a=1)
+                      overwrite_a=1)
 
     return (Q,) + Rj
 
 
 def qr_multiply(a, c, mode='right', pivoting=False, conjugate=False,
-    overwrite_a=False, overwrite_c=False):
+                overwrite_a=False, overwrite_c=False):
     """
     Calculate the QR decomposition and multiply Q with a matrix.
 
@@ -245,8 +245,8 @@ def qr_multiply(a, c, mode='right', pivoting=False, conjugate=False,
     a = numpy.asarray(a)  # chkfinite done in qr
     M, N = a.shape
     if not (mode == "left" and
-                (not overwrite_c and min(M, N) == c.shape[0] or
-                     overwrite_c and M == c.shape[0]) or
+            (not overwrite_c and min(M, N) == c.shape[0] or
+             overwrite_c and M == c.shape[0]) or
             mode == "right" and M == c.shape[1]):
         raise ValueError("objects are not aligned")
 
@@ -287,7 +287,7 @@ def qr_multiply(a, c, mode='right', pivoting=False, conjugate=False,
         else:
             lr = "R"
     cQ, = safecall(gor_un_mqr, "gormqr/gunmqr", lr, trans, Q, tau, cc,
-            overwrite_c=overwrite_c)
+                   overwrite_c=overwrite_c)
     if trans != "N":
         cQ = cQ.T
     if mode == "right":
@@ -364,7 +364,7 @@ def rq(a, overwrite_a=False, lwork=None, mode='full', check_finite=True):
     """
     if mode not in ['full', 'r', 'economic']:
         raise ValueError(
-                 "Mode argument should be one of ['full', 'r', 'economic']")
+            "Mode argument should be one of ['full', 'r', 'economic']")
 
     if check_finite:
         a1 = numpy.asarray_chkfinite(a)
@@ -379,7 +379,7 @@ def rq(a, overwrite_a=False, lwork=None, mode='full', check_finite=True):
     rq, tau = safecall(gerqf, 'gerqf', a1, lwork=lwork,
                        overwrite_a=overwrite_a)
     if not mode == 'economic' or N < M:
-        R = numpy.triu(rq, N-M)
+        R = numpy.triu(rq, N - M)
     else:
         R = numpy.triu(rq[-M:, -M:])
 
