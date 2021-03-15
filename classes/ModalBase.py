@@ -14,9 +14,10 @@ import os
 class ModalBase(object):
     '''
     Base Class from which all other modal analysis classes should be inherited
-    * provides commonly used functions s.t. these don't have to be copied to each class
-    * object type checks in post-processing functions can check for
-    modal base instead of each possible modal analysis class
+        * provides commonly used functions s.t. these don't have to be copied to
+          each class
+        * object type checks in post-processing functions can check for
+          modal base instead of each possible modal analysis class
     '''
 
     def __init__(self, prep_data=None):
@@ -40,15 +41,21 @@ class ModalBase(object):
     @staticmethod
     def remove_conjugates(eigval, eigvec_r, eigvec_l=None, inds_only=False):
         '''
-        finds conjugates: :math:`\\lambda_i = \\overline{\\lambda_j} \\text{for} i \\neq j`
+        finds conjugates:
+        :math:`\\lambda_i = \\overline{\\lambda_j} \\text{for} i \\neq j`
 
-        unstable poles i.e. negatively damped poles :math:`[\\ln(|\\lambda|)<0]: |\\lambda_i|> 1`
+        unstable poles i.e. negatively damped poles
+        :math:`[\\ln(|\\lambda|)<0]: |\\lambda_i|> 1`
 
-        overdamped poles :math:`[\\operatorname{atan}(\\Im/\\Re)=0]` i.e. real poles: :math:`\\Im(\\lambda_i)==0`
+        overdamped poles
+        :math:`[\\operatorname{atan}(\\Im/\\Re)=0]`
+        i.e. real poles: :math:`\\Im(\\lambda_i)==0`
 
-        imaginary poles i.e. nyquist frequency: :math:`\\Re(\\lambda_i)==0`
+        imaginary poles i.e. nyquist frequency:
+        :math:`\\Re(\\lambda_i)==0`
 
-        keeps the second occurance of a conjugate pair (usually the one with the negative imaginary part)
+        keeps the second occurance of a conjugate pair (usually the one
+        with the negative imaginary part)
 
         eigvec_l.shape = [order+1, order+1]
         eigval.shape = [order+1,1]
@@ -60,12 +67,14 @@ class ModalBase(object):
         for i in range(num_val):
             this_val = eigval[i]
             this_conj_val = np.conj(this_val)
-            if this_val == this_conj_val:  # remove overdamped poles  i.e. real eigvals
+            # remove overdamped poles  i.e. real eigvals
+            if this_val == this_conj_val:
                 conj_indices.append(i)
-            elif np.abs(this_val) > 1:  # remove negatively damped poles i.e. unstable poles
+            # remove negatively damped poles i.e. unstable poles
+            elif np.abs(this_val) > 1:
                 conj_indices.append(i)
-            for j in range(
-                    i + 1, num_val):  # catches unordered conjugates but takes slightly longer
+            # catches unordered conjugates but takes slightly longer
+            for j in range(i + 1, num_val):
                 if eigval[j] == this_conj_val:
                     conj_indices.append(j)
                     break
@@ -104,7 +113,7 @@ class ModalBase(object):
         assert os.path.exists(conf_file)
         assert isinstance(prep_data, PreprocessData)
 
-        with open(conf_file, 'r') as f:
+        with open(conf_file, 'r') as _:
             # read configuration parameters line by line
             pass
 
@@ -142,7 +151,7 @@ class ModalBase(object):
         This is only a stub for reimplementing the method in a derived class
         '''
 
-        dirname, filename = os.path.split(fname)
+        dirname, _ = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
 

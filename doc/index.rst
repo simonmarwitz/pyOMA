@@ -41,7 +41,7 @@ Getting started
  * (Learn GUI programming with PyQt5)
  * QT-Designer for GUI development
  * Install Eclipse with PyDev and Git, or any other development environment
- * Clone the code with git ``git clone ssh://ism_username1234@stratos.bauing.uni-weimar.de/vegas/projects/pyOMA/pyOMA.git/``
+ * Clone the code with git ``git clone ssh://ism_username1234@stratos.bauing.uni-weimar.de/vegas/projects/pyOMA/repository.git/``
 
 All of the above is available on the `VEGAS-cluster@ISM <https://santafe.bauing.uni-weimar.de/dokuwiki/doku.php?id=ism_it:comp_publ:digitallab:cluster:start>`_ (for working remotely)
 
@@ -111,6 +111,7 @@ The documentation is generated from the git repository by `Sphinx <https://www.s
         * Creating missing GUI parts for the PreProcessing and OMA classes
         * Setup jupyter notebooks for interactive analyses
         * Improvement of the documentation, where needed
+        * Add licensing statements to each file
     * Intermediate :
         * re-factoring of the StabilizationGUI class into the new GUI package using QtDesigner and proper python code
         * re-factoring of the PlotMSH GUI class into the new GUI package using QtDesigner and proper python code
