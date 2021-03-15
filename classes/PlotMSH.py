@@ -2193,7 +2193,7 @@ class Arrow3D(matplotlib.patches.FancyArrowPatch):
         inherit from matplotlib.patches.FancyArrowPatch
         and set self._verts3d class variable
         '''
-        super().__init__(self, (0, 0), (0, 0), *args, **kwargs)
+        super().__init__((0, 0), (0, 0), *args, **kwargs)
         self._verts3d = xs, ys, zs
 
     def draw(self, renderer):
@@ -2204,7 +2204,7 @@ class Arrow3D(matplotlib.patches.FancyArrowPatch):
         xs, ys, zs = mpl_toolkits.mplot3d.axes3d.proj3d.proj_transform(
             xs3d, ys3d, zs3d, renderer.M)
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
-        super().draw(self, renderer)
+        super().draw(renderer)
 
 
 if __name__ == "__main__":
