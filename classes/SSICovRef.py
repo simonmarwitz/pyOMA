@@ -646,6 +646,11 @@ class PogerSSICovRef(ModalBase):
     generated, regardless of the the definition in the setup. Rescaling
     is always done with respect to the first setup, so a "good" setup should
     always be added first.
+    
+    .. TODO::
+        * Think about ways, how this class could be instantiated from 
+          configuration files
+        * Implement PreGER merging with variance computation in a new class
     '''
 
     def __init__(self,):
@@ -1241,17 +1246,13 @@ class PogerSSICovRef(ModalBase):
         '''
         This is PoGer Rescaling
 
-         * walks over setups
-         * extracts setup's part from the modeshape, and
-         * compute rescaling factor from this setup's reference channels with respect to the first setup
-         * rescales this setup's roving channels and assembles final modeshape vector
+         
+         * extracts each setup's reference and roving parts of the modeshape
+         * compute rescaling factor from all setup's reference channels using a least-squares approach 
+         * rescales each setup's roving channels and assembles final modeshape vector
 
         reference channel_pairs and final channel-dof-assignments have been determined by function pair_channels
         note: reference channels for SSI need not necessarily be reference channels for rescaling and vice versa
-
-        .. TODO::
-            * rescale all setups jointly using a least-squares approach
-
 
         :math:`S_\\phi \\times \\alpha = [n \\times 1, 0 .. 0]`
 

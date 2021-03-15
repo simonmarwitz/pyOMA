@@ -79,8 +79,8 @@ def PlotMSHGUI_test():
     working_dir = './files/'
     result_folder = working_dir + 'merged_poser/'
     geometry_data = GeometryProcessor.load_geometry(
-        nodes_file=working_dir + 'macec/grid_full.asc',
-        lines_file=working_dir + 'macec/beam_full.asc')
+        nodes_file=working_dir + 'grid.txt',
+        lines_file=working_dir + 'lines.txt')
     merger = MergePoSER.load_state(result_folder + 'merged_setups.npz')
 
     modeshapeplot = ModeShapePlot(
@@ -88,6 +88,86 @@ def PlotMSHGUI_test():
         merged_data=merger,)
 
     start_msh_gui(modeshapeplot)
+
+
+def multi_setup_analysis():
+
+    PreprocessData.load_measurement_file = np.load
+
+    working_dir = './files/'
+
+    geometry_data = GeometryProcessor.load_geometry(
+        nodes_file=working_dir + 'grid.txt',
+        lines_file=working_dir + 'lines.txt')
+
+    meas_files = glob.glob(working_dir + 'measurement*/')
+
+    skip_existing = False
+    save_results = True
+    interactive = True
+
+    tau_max = 400
+
+    result_folder_merged = working_dir + 'merged_poger/'
+
+    if not os.path.exists(result_folder_merged + 'modal_data.npz') \
+            or not skip_existing:
+
+        modal_data = PogerSSICovRef()
+
+        for result_folder in meas_files:
+            meas_name = os.path.basename(result_folder[:-1])
+
+            if not os.path.exists(result_folder + 'prep_data.npz') \
+                    or not skip_existing:
+
+                prep_data = PreprocessData.init_from_config(
+                    conf_file=result_folder + 'setup_info.txt',
+                    meas_file=result_folder + meas_name + '.npy',
+                    chan_dofs_file=result_folder + "channel_dofs.txt",)
+                prep_data.compute_correlation_matrices(
+                    tau_max, num_blocks=False)
+
+                if save_results:
+                    prep_data.save_state(result_folder + 'prep_data.npz')
+            else:
+                prep_data = PreprocessData.load_state(
+                    result_folder + 'prep_data.npz')
+
+            modal_data.add_setup(prep_data)
+
+        modal_data.pair_channels()
+
+        modal_data.build_merged_subspace_matrix(199)
+        modal_data.compute_state_matrices(max_model_order=100)
+        modal_data.compute_modal_params()
+
+        if save_results:
+            modal_data.save_state(result_folder_merged + 'modal_data.npz')
+    else:
+        modal_data = PogerSSICovRef.load_state(
+            result_folder_merged + 'modal_data.npz',)
+
+    if os.path.exists(result_folder_merged + 'stabil_data.npz') and skip_existing:
+        stabil_calc = StabilCalc.load_state(
+            result_folder_merged + 'stabil_data.npz', modal_data, prep_data)
+    else:
+        stabil_calc = StabilCalc(modal_data, prep_data)
+
+    if interactive:
+        stabil_plot = StabilPlot(stabil_calc)
+        start_stabil_gui(stabil_plot, modal_data, geometry_data, prep_data)
+
+        if save_results:
+            stabil_calc.save_state(result_folder_merged + 'stabil_data.npz')
+
+    if interactive:
+
+        mode_shape_plot = ModeShapePlot(
+            stabil_calc=stabil_calc,
+            geometry_data=geometry_data,
+            modal_data=modal_data)
+        start_msh_gui(mode_shape_plot)
 
 
 def single_setup_analysis(
@@ -198,4 +278,5 @@ if __name__ == '__main__':
     # analysis_chain(tmpdir='/dev/shm/womo1998/')
     # PlotMSHGUI_test()
     # StabilGUI_test()
-    merge_poser_test()
+    # merge_poser_test()
+    multi_setup_analysis()
