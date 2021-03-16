@@ -1,6 +1,6 @@
 numpy
 scipy
-matplotlib
+matplotlib>=3.2.2
 PyQt5
 multiprocessing
 collections

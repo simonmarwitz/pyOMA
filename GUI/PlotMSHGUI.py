@@ -86,24 +86,43 @@ class ModeShapeGUI(QMainWindow):
         self.setWindowTitle('Plot Modeshapes')
         self.create_menu()
         self.create_main_frame(mode_shape_plot, reduced_gui)
-        self.setGeometry(300, 300, 1000, 600)
+        #self.setGeometry(300, 300, 1000, 600)
+        self.reset_view()
         self.show()
 
     def create_main_frame(self, mode_shape_plot, reduced_gui=False):
         '''
         set up all the widgets and other elements to draw the GUI
+        .. TODO ::
+             * create a resize event, that resizes the figure to the
+               current window space, instead of setting it to very 
+               large from the beginning
         '''
         main_frame = QWidget()
 
         # Create the mpl Figure and FigCanvas objects.
         fig = mode_shape_plot.fig
-        FigureCanvasQTAgg.resizeEvent = resizeEvent_
+        
+        # ugly Hack to force the figure to fill the window
+        fig.set_size_inches((100, 100))
+        
+        # FigureCanvasQTAgg.resizeEvent = resizeEvent_
         self.canvas = fig.canvas.switch_backends(FigureCanvasQTAgg)
-        #self.canvas.resize_event = resizeEvent_
-        #self.canvas.resize_event  = funcType(resizeEvent_, self.canvas, FigureCanvasQTAgg)
+        # self.canvas.resize_event = resizeEvent_
+        # self.canvas.resize_event  = funcType(resizeEvent_, self.canvas, FigureCanvasQTAgg)
         mode_shape_plot.canvas = self.canvas
+        
+        # restore mouse event connections for 3d axes
+        self.canvas.mpl_connect(
+            'motion_notify_event', mode_shape_plot.subplot._on_move),
+        self.canvas.mpl_connect(
+            'button_press_event', mode_shape_plot.subplot._button_press),
+        self.canvas.mpl_connect(
+            'button_release_event', mode_shape_plot.subplot._button_release),
+        
         self.canvas.mpl_connect('button_release_event', self.update_lims)
-        fig.get_axes()[0].mouse_init()
+        ax = mode_shape_plot.subplot
+        ax.mouse_init()
 
         # controls for changing what to draw
         view_layout = QHBoxLayout()
@@ -416,7 +435,7 @@ class ModeShapeGUI(QMainWindow):
         sep2 = QFrame()
         sep2.setFrameShape(QFrame.HLine)
 
-        vbox.addWidget(self.canvas, 10, Qt.AlignCenter)
+        vbox.addWidget(self.canvas, 100, Qt.AlignCenter)
 
         vbox.addWidget(sep1)
         vbox.addLayout(view_layout)
@@ -476,6 +495,7 @@ class ModeShapeGUI(QMainWindow):
                     (load_file_action, None, quit_action))
 
         help_menu = self.menuBar().addMenu("&Help")
+        
 
     def reset_view(self):
         self.stop_ani()
@@ -552,8 +572,8 @@ class ModeShapeGUI(QMainWindow):
             lims = self.mode_shape_plot.subplot.get_w_lims()
             for row, dir in enumerate(['X', 'Y', 'Z']):
                 [r_but, r_val, l_val, l_but] = self.val_widgets[dir]
-                r_val.setText(str(lims[row * 2 + 0]))
-                l_val.setText(str(lims[row * 2 + 1]))
+                r_val.setText(f'{lims[row * 2 + 0]:.3f}')
+                l_val.setText(f'{lims[row * 2 + 1]:.3f}')
 
     # @pyqtSlot()
 

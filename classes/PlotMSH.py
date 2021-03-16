@@ -85,8 +85,11 @@ old_draw = mpl_toolkits.mplot3d.axes3d.Axes3D.draw
 def draw_axes(self, renderer=None):
     '''
     monkeypatch draw method to always enforce an aspect ratio of 1 on all axis'
+    This is __not__ forcing an aspect ratio on the figure canvas, only 
+    on the axis'
     '''
-
+    #self.set_box_aspect((1,1,1))
+    
     minx, maxx, miny, maxy, minz, maxz = self.get_w_lims()
     dx, dy, dz = (maxx - minx), (maxy - miny), (maxz - minz)
 
@@ -99,6 +102,9 @@ def draw_axes(self, renderer=None):
         self.set_xlim3d(midx - hrange, midx + hrange)
         self.set_ylim3d(midy - hrange, midy + hrange)
         self.set_zlim3d(midz - hrange, midz + hrange)
+
+        #self.set_box_aspect((hrange, hrange, hrange))
+        
     old_draw(self, renderer)
 
 
@@ -154,7 +160,8 @@ class ModeShapePlot(object):
                  beamcolor='blue',
                  beamstyle='-',
                  linewidth=1,
-                 callback_fun=None
+                 callback_fun=None,
+                 fig=None,
                  ):
         '''
         Initializes the class object and automatically checks, which of
@@ -246,6 +253,10 @@ class ModeShapePlot(object):
                     mode, allows to print mode information or change some
                     other behaviour of the class. It takes the class itself
                     and the mode index as its parameters.
+
+            fig : matplotlib.figure.Figure, optional
+                    A matplotlib figure created externally to draw
+                    the mode shapes, if an external GUI is used.
         '''
         if stabil_calc is not None:
             assert isinstance(stabil_calc, StabilCalc)
@@ -411,17 +422,28 @@ class ModeShapePlot(object):
         self.axis_obj = {}
         self.seq_num = 0
 
-        self.fig = matplotlib.figure.Figure(
-            (10, 10), dpi=dpi, facecolor='white')
-        self.fig.set_tight_layout(True)
-        self.canvas = matplotlib.backend_bases.FigureCanvasBase(self.fig)
+        if fig is None:
+            fig = matplotlib.figure.Figure(
+                 dpi=dpi, facecolor='lightgrey')
+            
+            # remove all whitespace around the axes
+            fig.subplots_adjust(0,0,1,1,0,0)
+            #fig.set_tight_layout(True)
+            self.canvas = matplotlib.backend_bases.FigureCanvasBase(fig)
+        else:
+            assert isinstance(fig, matplotlib.figure.Figure)
+            self.canvas = fig.canvas
 
-        try:  # mpl 1.4
+        self.fig = fig
+
+        try: # mpl 1.4
             self.subplot = self.fig.add_subplot(1, 1, 1, projection='3d')
         except ValueError:  # mpl 1.3
             self.subplot = mpl_toolkits.mplot3d.axes3d.Axes3D(self.fig)
         mpl_toolkits.mplot3d.axes3d.Axes3D.draw = draw_axes
-
+        self.subplot.set_box_aspect((1,1,1))
+        
+        
         self.subplot.grid(False)
         self.subplot.set_axis_off()
 
@@ -1444,8 +1466,8 @@ class ModeShapePlot(object):
                  * np.cos(self.seq_num / 25 * 2 * np.pi + self.phi_nodes[node][2])
                  for node in line_node]
             line.set_visible(self.show_lines)
-            line.set_data([x, y])
-            line.set_3d_properties(z)
+            line.set_data_3d([x, y, z])
+            #line.set_3d_properties(z)
 
         for key in self.geometry_data.nodes.keys():
             node = self.geometry_data.nodes[key]
@@ -1462,8 +1484,8 @@ class ModeShapePlot(object):
             z = [node[2], node[2] + disp_node[2]
                  * np.cos(self.seq_num / 25 * 2 * np.pi + phi_node[2])]
             line.set_visible(self.show_nd_lines)
-            line.set_data([x, y])
-            line.set_3d_properties(z)
+            line.set_data_3d([x, y, z])
+            #line.set_3d_properties(z)
 
         self.canvas.draw_idle()
 
@@ -1492,8 +1514,8 @@ class ModeShapePlot(object):
             z = [self.geometry_data.nodes[node][2]
                  for node in line_node]
             line.set_visible(self.show_nd_lines)
-            line.set_data([x, y])
-            line.set_3d_properties(z)
+            line.set_data_3d([x, y, z])
+            #line.set_3d_properties(z)
 
         for key, node in self.geometry_data.nodes.items():
             disp_node = self.disp_nodes.get(key, [0, 0, 0])
@@ -1507,8 +1529,8 @@ class ModeShapePlot(object):
                 z = [node[2], node[2] + disp_node[2]
                      * np.cos(self.seq_num / 25 * 2 * np.pi + phi_node[2])]
                 line.set_visible(self.show_nd_lines)
-                line.set_data([x, y])
-                line.set_3d_properties(z)
+                line.set_data_3d([x, y, z])
+                #line.set_3d_properties(z)
 
         self.canvas.draw_idle()
 
@@ -1966,7 +1988,7 @@ class ModeShapePlot(object):
 
                 # NOTE: there is no .set_data() for 3 dim data...
                 line.set_visible(self.show_lines)
-                line.set_data([x, y])
+                line.set_data_3d([x, y, z])
                 if isinstance(self.beamcolor, (list, tuple, np.ndarray)):
                     beamcolor = self.beamcolor[i]
                 else:
@@ -1977,7 +1999,7 @@ class ModeShapePlot(object):
                     beamstyle = self.beamstyle
                 line.set_color(beamcolor)
                 line.set_linestyle(beamstyle)
-                line.set_3d_properties(z)
+                #line.set_3d_properties(z)
 
             for line in self.nd_lines_objects:
                 line.set_visible(self.show_nd_lines)
@@ -2093,9 +2115,9 @@ class ModeShapePlot(object):
                      for node in line_node]
                 # NOTE: there is no .set_data() for 3 dim data...
                 line.set_visible(self.show_lines)
-                line.set_data([x, y])
+                line.set_data_3d([x, y, z])
                 line.set_color('b')
-                line.set_3d_properties(z)
+                #line.set_3d_properties(z)
 
             for line in self.nd_lines_objects:
                 line.set_visible(self.show_nd_lines)
@@ -2108,9 +2130,9 @@ class ModeShapePlot(object):
                 z = [node[2], node[2] + disp_node[2]]
                 line = self.cn_lines_objects.get(key, None)
                 if line is not None:
-                    line.set_data([x, y])
+                    line.set_data_3d([x, y, z])
                     line.set_visible(self.show_nd_lines)
-                    line.set_3d_properties(z)
+                    #line.set_3d_properties(z)
 
             return self.lines_objects + \
                 self.nd_lines_objects + \
@@ -2159,14 +2181,16 @@ class ModeShapePlot(object):
         # self.line_ani._start()
         #print(self.animated, self.line_ani)
     def _button_press(self, event):
+        print('ModeShapePlot._button_press')
         if event.inaxes == self.subplot:
             self.button_pressed = event.button
 
     def _button_release(self, event):
+        print('ModeShapePlot._button_release')
         self.button_pressed = None
 
     def _on_move(self, event):
-
+        print('ModeShapePlot._on_move')
         if not self.button_pressed:
             return
 
