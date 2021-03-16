@@ -650,6 +650,7 @@ class PogerSSICovRef(ModalBase):
     .. TODO::
         * Think about ways, how this class could be instantiated from 
           configuration files
+        * Add modal contributions
         * Implement PreGER merging with variance computation in a new class
     '''
 

@@ -5,6 +5,8 @@ Created on 04.03.2021
 '''
 import numpy as np
 import glob
+import matplotlib.pyplot as plt
+import PyQt5
 
 from classes.PreprocessingTools import *
 
@@ -75,19 +77,23 @@ def analysis_chain(tmpdir):
 
 
 def PlotMSHGUI_test():
-
+    
     working_dir = './files/'
-    result_folder = working_dir + 'merged_poser/'
+    result_folder = working_dir + 'merged_poger/'
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir + 'grid.txt',
         lines_file=working_dir + 'lines.txt')
-    merger = MergePoSER.load_state(result_folder + 'merged_setups.npz')
 
+    modal_data = PogerSSICovRef.load_state(result_folder + 'modal_data.npz')
+    stabil_data = StabilCalc.load_state(result_folder + 'stabil_data.npz', modal_data)
+    
     modeshapeplot = ModeShapePlot(
         geometry_data,
-        merged_data=merger,)
-
+        modal_data=modal_data,
+        stabil_calc=stabil_data)
+    
     start_msh_gui(modeshapeplot)
+    
 
 
 def multi_setup_analysis():
@@ -103,7 +109,7 @@ def multi_setup_analysis():
     meas_files = glob.glob(working_dir + 'measurement*/')
 
     skip_existing = False
-    save_results = True
+    save_results = False
     interactive = True
 
     tau_max = 400
@@ -141,7 +147,7 @@ def multi_setup_analysis():
         modal_data.build_merged_subspace_matrix(199)
         modal_data.compute_state_matrices(max_model_order=100)
         modal_data.compute_modal_params()
-
+        
         if save_results:
             modal_data.save_state(result_folder_merged + 'modal_data.npz')
     else:
@@ -254,7 +260,7 @@ def merge_poser_test():
             setup_info=result_folder + 'setup_info.txt',
             meas_file=result_folder + meas_name + '.npy',
             conf_file=working_dir + 'varssi_config.txt',
-            method=VarSSIRef,
+            method=BRSSICovRef,
             geometry_data=geometry_data,
             chan_dofs_file=result_folder + "channel_dofs.txt",
             skip_existing=skip_existing,
@@ -265,7 +271,7 @@ def merge_poser_test():
 
     merger.merge()
 
-    merger.save_state(result_folder + 'merged_setups.npz')
+    merger.save_state(working_dir + 'merged_poser.npz')
 
     if interactive:
 
@@ -276,7 +282,7 @@ def merge_poser_test():
 
 if __name__ == '__main__':
     # analysis_chain(tmpdir='/dev/shm/womo1998/')
-    # PlotMSHGUI_test()
+    PlotMSHGUI_test()
     # StabilGUI_test()
     # merge_poser_test()
-    multi_setup_analysis()
+    # multi_setup_analysis()
