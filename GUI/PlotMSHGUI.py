@@ -93,10 +93,12 @@ class ModeShapeGUI(QMainWindow):
     def create_main_frame(self, mode_shape_plot, reduced_gui=False):
         '''
         set up all the widgets and other elements to draw the GUI
+        
         .. TODO ::
              * create a resize event, that resizes the figure to the
-               current window space, instead of setting it to very 
+               current window space, instead of setting it to very
                large from the beginning
+        
         '''
         main_frame = QWidget()
 
