@@ -51,61 +51,7 @@ if 'DISPLAY' in os.environ:
 NoneType = type(None)
 
 
-def orthogonal_proj(zfront, zback):
-    '''
-    monkeypatch to allow orthogonal projection in mplot3d
-    breaks automatic placement of axis
-    credit: https://github.com/matplotlib/matplotlib/issues/537
-    '''
-    a = (zfront + zback) / (zfront - zback)
-    b = -2 * (zfront * zback) / (zfront - zback)
-    return np.array([[1, 0, 0, 0],
-                     [0, 1, 0, 0],
-                     [0, 0, a, b],
-                     [0, 0, 0, zback]])
 
-
-def persp_transformation(zfront, zback):
-    '''
-    copy of mpl_toolkits.mplot3d.mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation
-    for restoring the projection in isonometriv view
-    '''
-    a = (zfront + zback) / (zfront - zback)
-    b = -2 * (zfront * zback) / (zfront - zback)
-    return np.array([[1, 0, 0, 0],
-                     [0, 1, 0, 0],
-                     [0, 0, a, b],
-                     [0, 0, -1, 0]
-                     ])
-
-
-old_draw = mpl_toolkits.mplot3d.axes3d.Axes3D.draw
-
-
-def draw_axes(self, renderer=None):
-    '''
-    monkeypatch draw method to always enforce an aspect ratio of 1 on all axis'
-    This is __not__ forcing an aspect ratio on the figure canvas, only 
-    on the axis'
-    '''
-    #self.set_box_aspect((1,1,1))
-    
-    minx, maxx, miny, maxy, minz, maxz = self.get_w_lims()
-    dx, dy, dz = (maxx - minx), (maxy - miny), (maxz - minz)
-
-    if dx != dy or dx != dz:
-        midx = 0.5 * (minx + maxx)
-        midy = 0.5 * (miny + maxy)
-        midz = 0.5 * (minz + maxz)
-
-        hrange = max(dy, dy, dz) * 0.5
-        self.set_xlim3d(midx - hrange, midx + hrange)
-        self.set_ylim3d(midy - hrange, midy + hrange)
-        self.set_zlim3d(midz - hrange, midz + hrange)
-
-        #self.set_box_aspect((hrange, hrange, hrange))
-        
-    old_draw(self, renderer)
 
 
 class ModeShapePlot(object):
@@ -115,7 +61,7 @@ class ModeShapePlot(object):
     (Bauhaus-Universität Weimar, Institut für Strukturmechanik).
 
 
-    Drawing abilities:
+    Drawing abilities (outdated):
         * creation of 3d plots using matplotlib's mplot3 from the
           matplotlib toolkit
         * adjusting axis limits for each of the three axis
@@ -126,15 +72,16 @@ class ModeShapePlot(object):
         * animate the currently displayed deformed structure
         * save the still frame
 
-    currently **not** supported:
+    currently **not** supported (outdated):
         * 3D surface plots, as they are not properly supported by the
           underlying matplotlib api
-        * combination of several modeshapes or sensor setups
-          (this could be done easily in an external script)
         * saving of the animation as a movie file
         * drawing multiple modeshapes into one plot
         * plot modeshape in a single call from a script i.e. use static methods
 
+    .. TODO ::
+         * implement trace drawing properly, currently the trace remains
+           after stopping an animation and cannot be removed
 
     '''
     # define this class's signals and the types of data they emit
@@ -152,7 +99,7 @@ class ModeShapePlot(object):
                  selected_mode=[0, 0],
                  amplitude=1,
                  real=False,
-                 scale=1,  # 0.1*10^x [m] where x=scale
+                 scale=0.2,  # 0.1*10^x [m] where x=scale
                  dpi=100,
                  nodecolor='blue',
                  nodemarker='o',
@@ -225,7 +172,8 @@ class ModeShapePlot(object):
                     of the complex modal coordinates
 
             scale : float, optional
-                    Scaling factor for other elements such as arrows, etc.
+                    Scaling factor for other elements such as arrows, etc. 
+                    as a fraction of the current view limits
 
             dpi : float, optional
                     Resolution of the drawing canvas
@@ -424,7 +372,7 @@ class ModeShapePlot(object):
 
         if fig is None:
             fig = matplotlib.figure.Figure(
-                 dpi=dpi, facecolor='lightgrey')
+                 dpi=dpi, facecolor='#ffffff00')
             
             # remove all whitespace around the axes
             fig.subplots_adjust(0,0,1,1,0,0)
@@ -435,12 +383,18 @@ class ModeShapePlot(object):
             self.canvas = fig.canvas
 
         self.fig = fig
-
-        try: # mpl 1.4
-            self.subplot = self.fig.add_subplot(1, 1, 1, projection='3d')
-        except ValueError:  # mpl 1.3
-            self.subplot = mpl_toolkits.mplot3d.axes3d.Axes3D(self.fig)
-        mpl_toolkits.mplot3d.axes3d.Axes3D.draw = draw_axes
+        
+        # Add another subplot below of the 3D subplot, to be able to set
+        # the clip path on all lines, etc. to a patch, that extends over
+        # the whole figure -> PlotMSHGUI.resizeEvent_
+        ax2d = self.fig.add_subplot(111, fc='#ffffff00')
+        ax2d.patch.set_edgecolor('#ffffff00')
+        
+        # the 3D axes must be added manually, becaus add_subplot would
+        # remove the other axes at the same position
+        self.subplot = mpl_toolkits.mplot3d.axes3d.Axes3D(fig,(0,0,1,1), anchor='C', fc='#ffffff00')
+        self.subplot.patch.set_edgecolor('#ffffff00')
+        #mpl_toolkits.mplot3d.axes3d.Axes3D.draw = draw_axes
         self.subplot.set_box_aspect((1,1,1))
         
         
@@ -460,7 +414,7 @@ class ModeShapePlot(object):
          * reset displacements values for all nodes
         '''
         self.stop_ani()
-        mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = persp_transformation
+        #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = persp_transformation
         self.subplot.view_init(30, -60)
         self.subplot.autoscale_view()
         xmin, xmax, ymin, ymax, zmin, zmax = None, None, None, None, None, None
@@ -493,7 +447,7 @@ class ModeShapePlot(object):
         self.draw_master_slaves()
         if self.mode_index[1]:
             self.draw_msh()
-
+        self.set_equal_aspect()
         #self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
 
         self.canvas.draw()
@@ -888,7 +842,6 @@ class ModeShapePlot(object):
                 Scale factor for each slave DOF.
 
         .. TODO::
-             * Arrow length's do not scale with the total dimensions of the plot
              * There have been concerns about the "master" and "slave"
                terminology. Rename every appearance of the terms by an
                appropriate alternative in the whole project, e.g. parent-child
@@ -910,7 +863,11 @@ class ModeShapePlot(object):
             dir_norm = (x_e / length, y_e / length, z_e / length)
             while True:
                 for arrow in itertools.chain.from_iterable(all_arrows_list):
-                    (x_a, x_b), (y_a, y_b), (z_a, z_b) = arrow._verts3d
+                    (x, y, z, dx, dy, dz) = arrow._verts3d
+                    (x_a, x_b) = x, x + dx
+                    (y_a, y_b) = y, y + dy
+                    (z_a, z_b) = z, z + dz
+                    #(x_a, x_b), (y_a, y_b), (z_a, z_b) = arrow._verts3d
                     # transform from position vector to direction vector
                     x_c, y_c, z_c = (x_b - x_a), (y_b - y_a), (z_b - z_a)
                     this_start_point = (x_a, y_a, z_b)
@@ -945,9 +902,9 @@ class ModeShapePlot(object):
             ((x_s, x_m), (y_s, y_m), (z_s, z_m)), self.arrows_objects)
 
         # point the arrow towards the resulting direction
-        arrow_m = Arrow3D([x_s, x_s + x_m], [y_s, y_s + y_m], [z_s, z_s + z_m],
-                          mutation_scale=5, lw=1, arrowstyle="-|>",
-                          color=color, visible=self.show_master_slaves)
+        arrow_m = LabeledArrow3D(x_s, y_s, z_s, x_m, y_m, z_m,
+                                 mutation_scale=5, lw=1, arrowstyle="-|>",
+                                 color=color, visible=self.show_master_slaves)
         arrow_m = self.subplot.add_artist(arrow_m)
 
         x_s, y_s, z_s = self.geometry_data.nodes[i_sl]
@@ -955,17 +912,9 @@ class ModeShapePlot(object):
             ((x_s, x_sl), (y_s, y_sl), (z_s, z_sl)), self.arrows_objects)
 
         # point the arrow towards the resulting direction
-        arrow_sl = Arrow3D([x_s,
-                            x_s + x_sl],
-                           [y_s,
-                            y_s + y_sl],
-                           [z_s,
-                            z_s + z_sl],
-                           mutation_scale=5,
-                           lw=1,
-                           arrowstyle="-|>",
-                           color=color,
-                           visible=self.show_master_slaves)
+        arrow_sl = LabeledArrow3D(x_s, y_s, z_s, x_sl, y_sl, z_sl,
+                                  mutation_scale=5, lw=1, arrowstyle="-|>",
+                                  color=color, visible=self.show_master_slaves)
 
         arrow_sl = self.subplot.add_artist(arrow_sl)
 
@@ -1010,23 +959,19 @@ class ModeShapePlot(object):
             az / 180 * np.pi, elev / 180 * np.pi, r=self.scale)
 
         # point the arrow towards the resulting direction
-        arrow = Arrow3D([x_s, x_s + x_m], [y_s, y_s + y_m], [z_s, z_s + z_m],
-                        mutation_scale=5, lw=1, arrowstyle="-|>", visible=self.show_chan_dofs)
+        arrow = LabeledArrow3D(x_s, y_s, z_s, x_m, y_m, z_m,
+                               mutation_scale=5, lw=1, arrowstyle="-|>", 
+                               visible=self.show_chan_dofs)
         arrow = self.subplot.add_artist(arrow)
-
-        text = self.subplot.text(
-            x_s + x_m,
-            y_s + y_m,
-            z_s + z_m,
-            chan_name,
-            visible=self.show_chan_dofs)
-
+        
+        arrow.add_label(chan_name, visible=self.show_chan_dofs)
+        
         while len(self.channels_objects) < i + 1:
             self.channels_objects.append(None)
         if self.channels_objects[i] is not None:
-            for obj in self.channels_objects[i]:
-                obj.remove()
-        self.channels_objects[i] = (arrow, text)
+            self.channels_objects[i].remove()
+            
+        self.channels_objects[i] = arrow
 
         self.canvas.draw_idle()
 
@@ -1301,52 +1246,58 @@ class ModeShapePlot(object):
         for axis in ['X', 'Y', 'Z']:
             if axis in self.axis_obj:
                 try:
-                    self.axis_obj[axis][0].remove()
-                    self.axis_obj[axis][1].remove()
+                    self.axis_obj[axis].remove()
                     del self.axis_obj[axis]
                 except ValueError:
                     continue
 
         self.scale
 
+        
         axis = self.subplot.add_artist(
-            Arrow3D([0, self.scale], [0, 0], [0, 0],
-                    mutation_scale=20, lw=1, arrowstyle="-|>", color="r", visible=self.show_axis))
-        text = self.subplot.text(
-            self.scale * 1.1,
-            0,
-            0,
-            'X',
-            zdir=None,
-            color='r',
-            visible=self.show_axis)
-        self.axis_obj['X'] = (axis, text)
+            LabeledArrow3D(0, 0, 0, self.scale, 0, 0,
+                           mutation_scale=20, lw=1, arrowstyle="-|>",
+                           color="r", visible=self.show_axis))
+        axis.add_label('X', color='r', visible=self.show_axis)
+#         text = self.subplot.text(
+#             self.scale * 1.1,
+#             0,
+#             0,
+#             'X',
+#             zdir=None,
+#             color='r',
+#             visible=self.show_axis)
+        self.axis_obj['X'] = axis
 
         axis = self.subplot.add_artist(
-            Arrow3D([0, 0], [0, self.scale], [0, 0],
-                    mutation_scale=20, lw=1, arrowstyle="-|>", color="g", visible=self.show_axis))
-        text = self.subplot.text(
-            0,
-            self.scale * 1.1,
-            0,
-            'Y',
-            zdir=None,
-            color='g',
-            visible=self.show_axis)
-        self.axis_obj['Y'] = (axis, text)
+            LabeledArrow3D(0, 0, 0, 0, self.scale, 0,
+                           mutation_scale=20, lw=1, arrowstyle="-|>", 
+                           color="g", visible=self.show_axis))
+        axis.add_label('Y', color='g', visible=self.show_axis)
+#         text = self.subplot.text(
+#             0,
+#             self.scale * 1.1,
+#             0,
+#             'Y',
+#             zdir=None,
+#             color='g',
+#             visible=self.show_axis)
+        self.axis_obj['Y'] = axis
 
         axis = self.subplot.add_artist(
-            Arrow3D([0, 0], [0, 0], [0, self.scale],
-                    mutation_scale=20, lw=1, arrowstyle="-|>", color="b", visible=self.show_axis))
-        text = self.subplot.text(
-            0,
-            0,
-            self.scale * 1.1,
-            'Z',
-            zdir=None,
-            color='b',
-            visible=self.show_axis)
-        self.axis_obj['Z'] = (axis, text)
+            LabeledArrow3D(0, 0, 0, 0, 0, self.scale,
+                           mutation_scale=20, lw=1, arrowstyle="-|>", 
+                           color="b", visible=self.show_axis))
+        axis.add_label('Z', color='b', visible=self.show_axis)
+#         text = self.subplot.text(
+#             0,
+#             0,
+#             self.scale * 1.1,
+#             'Z',
+#             zdir=None,
+#             color='b',
+#             visible=self.show_axis)
+        self.axis_obj['Z'] = axis
 
         self.canvas.draw_idle()
 
@@ -1366,9 +1317,8 @@ class ModeShapePlot(object):
         if visible is not None:
             self.show_axis = visible
 
-        for objs in self.axis_obj.values():
-            for obj in objs:
-                obj.set_visible(self.show_axis)
+        for axis in self.axis_obj.values():
+            axis.set_visible(self.show_axis)
         self.canvas.draw_idle()
 
     # @pyqtSlot()
@@ -1542,7 +1492,9 @@ class ModeShapePlot(object):
         for i, (i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl) in enumerate(
                 self.geometry_data.master_slaves):
             self.add_master_slave(
-                i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl, i)
+                i_m, x_m * self.scale, y_m * self.scale, z_m * self.scale,
+                i_sl, x_sl * self.scale, y_sl * self.scale, z_sl * self.scale,
+                i)
 
     def refresh_master_slaves(self, visible=None):
         '''
@@ -1599,8 +1551,7 @@ class ModeShapePlot(object):
             self.show_chan_dofs = visible
 
         for patch in self.channels_objects:
-            for obj in patch:
-                obj.set_visible(self.show_chan_dofs)
+            patch.set_visible(self.show_chan_dofs)
         self.canvas.draw_idle()
 
     def draw_msh(self):
@@ -1739,7 +1690,7 @@ class ModeShapePlot(object):
                     ⎣ n_3,x  n_3,y  n_3,z ⎦ ⎣ q_res_z ⎦   ⎣ d_3 ⎦
                     '''
                     # solve the well- or over-determined system of equations
-                    q_res = np.linalg.lstsq(normal_matrix, disp_vec)[0]
+                    q_res = np.linalg.lstsq(normal_matrix, disp_vec, rcond=None)[0]
 
                     for i in range(3):
                         disp = q_res[i]
@@ -1755,7 +1706,7 @@ class ModeShapePlot(object):
                                 'channel {}!'.format(chan))
 
         for i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl in self.geometry_data.master_slaves:
-
+            
             if (x_m > 0 + y_m > 0 + z_m > 0) > 1:
                 logging.warning(
                     'Master DOF includes more than one cartesian direction. Phase angles will be distorted.')
@@ -1767,29 +1718,29 @@ class ModeShapePlot(object):
             master_phase = self.phi_nodes[i_m][0] * x_m + \
                 self.phi_nodes[i_m][1] * y_m + \
                 self.phi_nodes[i_m][2] * z_m
-
-            if not np.allclose(x, 0):
+            
+            if not np.allclose(x_sl, 0):
                 #print(x, phase)
                 if self.disp_nodes[i_sl][0] > 0:
                     logging.warning(
-                        'A modal coordinate has already been assigned to this DOF x of node {}. Overwriting!'.format(node))
+                        'A modal coordinate of {} has already been assigned to this DOF x of node {}. Overwriting!'.format(self.disp_nodes[i_sl][0], i_sl))
                 self.phi_nodes[i_sl][0] = master_phase
                 self.disp_nodes[i_sl][0] += master_disp * x_sl
-            if not np.allclose(y, 0):
+            if not np.allclose(y_sl, 0):
                 # print(y,phase)
                 if self.disp_nodes[i_sl][1] > 0:
                     logging.warning(
-                        'A modal coordinate has already been assigned to this DOF y of node {}. Overwriting!'.format(node))
+                        'A modal coordinate of {} has already been assigned to this DOF y of node {}. Overwriting!'.format(self.disp_nodes[i_sl][1], i_sl))
                 self.phi_nodes[i_sl][1] = master_phase
                 self.disp_nodes[i_sl][1] += master_disp * y_sl
-            if not np.allclose(z, 0):
+            if not np.allclose(z_sl, 0):
                 # print(z,phase)
                 if self.disp_nodes[i_sl][2] > 0:
                     logging.warning(
-                        'A modal coordinate has already been assigned to this DOF z of node {}. Overwriting!'.format(node))
+                        'A modal coordinate of {} has already been assigned to this DOF z of node {}. Overwriting!'.format(self.disp_nodes[i_sl][2], i_sl))
                 self.phi_nodes[i_sl][2] = master_phase
                 self.disp_nodes[i_sl][2] += master_disp * z_sl
-
+            #print(i_m, master_disp, self.disp_nodes[i_sl])
 #             if self.draw_trace:
 #                 if self.trace_objects:
 #                     for i in range(len(self.trace_objects)-1,-1,-1):
@@ -1828,8 +1779,25 @@ class ModeShapePlot(object):
         if self.animated:
             self.stop_ani()
             self.animate()
+        self.set_equal_aspect()
         self.canvas.draw()
-
+        
+    def set_equal_aspect(self):
+        
+            
+        minx, maxx, miny, maxy, minz, maxz = self.subplot.get_w_lims()
+        dx, dy, dz = (maxx - minx), (maxy - miny), (maxz - minz)
+    
+        if dx != dy or dx != dz:
+            midx = 0.5 * (minx + maxx)
+            midy = 0.5 * (miny + maxy)
+            midz = 0.5 * (minz + maxz)
+    
+            hrange = max(dy, dy, dz) * 0.5
+            self.subplot.set_xlim3d(midx - hrange, midx + hrange)
+            self.subplot.set_ylim3d(midy - hrange, midy + hrange)
+            self.subplot.set_zlim3d(midz - hrange, midz + hrange)
+            
     # @pyqtSlot()
     def stop_ani(self):
         '''
@@ -1838,6 +1806,15 @@ class ModeShapePlot(object):
         if self.animated or self.data_animated:
             self.seq_num = next(self.line_ani.frame_seq)
             self.line_ani._stop()
+            if self.trace_objects:
+                for i in range(len(self.trace_objects) - 1, -1, -1):
+                    try:
+                        self.trace_objects[i].remove()
+                    except BaseException:
+                        pass
+
+                    del self.trace_objects[i]
+            self.draw_trace = False
             self.animated = False
             self.data_animated = False
             for c in self.connect_handles:
@@ -1933,7 +1910,9 @@ class ModeShapePlot(object):
                             pass
 
                         del self.trace_objects[i]
-
+                # assemble the list of moving nodes for which traces
+                # should be drawn, this currently does not account for 
+                # master-slave definitions
                 moving_nodes = set()
                 for chan_dof in self.chan_dofs:
                     _, node, _, _, = chan_dof[0:4]
@@ -1943,23 +1922,18 @@ class ModeShapePlot(object):
                         continue
                     moving_nodes.add(node)
 
-                # clist = itertools.cycle(list(matplotlib.cm.jet(np.linspace(0,
-                # 1, len(moving_nodes)))))#@UndefinedVariable
                 clist = itertools.cycle(
                     ['darkgray' for i in range(len(moving_nodes))])
                 for node in moving_nodes:
-                    self.trace_objects.append(self.subplot.plot(xs=self.geometry_data.nodes[node][0] + self.disp_nodes[node][0]
-                                                                * np.cos(np.linspace(0, 359, 360) / 360 * 2 * np.pi + self.phi_nodes[node][0]),
-                                                                ys=self.geometry_data.nodes[node][1] +
-                                                                self.disp_nodes[node][1]
-                                                                * np.cos(np.linspace(0, 359, 360) / 360 * 2 * np.pi + self.phi_nodes[node][1]),
-                                                                zs=self.geometry_data.nodes[node][2] +
-                                                                self.disp_nodes[node][2]
-                                                                * np.cos(np.linspace(0, 359, 360) / 360 * 2 * np.pi + self.phi_nodes[node][2]),
-                                                                # marker = ',',
-                                                                # s=1,
-                                                                # edgecolor='none',
-                                                                color=next(clist), linewidth=self.linewidth, linestyle=(0, (1, 1))))
+                    self.trace_objects.append(
+                        self.subplot.plot(
+                            xs=self.geometry_data.nodes[node][0] + self.disp_nodes[node][0] *
+                            np.cos(np.arange(0, 2 * np.pi, np.pi / 180) + self.phi_nodes[node][0]),
+                            ys=self.geometry_data.nodes[node][1] + self.disp_nodes[node][1] *
+                            np.cos(np.arange(0, 2 * np.pi, np.pi / 180) + self.phi_nodes[node][1]),
+                            zs=self.geometry_data.nodes[node][2] + self.disp_nodes[node][2] *
+                            np.cos(np.arange(0, 2 * np.pi, np.pi / 180) + self.phi_nodes[node][2]),
+                            color=next(clist), linewidth=self.linewidth, linestyle=(0, (1, 1))))
 
             return self.lines_objects + \
                 self.nd_lines_objects + \
@@ -2004,9 +1978,8 @@ class ModeShapePlot(object):
             for line in self.nd_lines_objects:
                 line.set_visible(self.show_nd_lines)
 
-            for objs in self.axis_obj.values():
-                for obj in objs:
-                    obj.set_visible(self.show_axis)
+            for axis in self.axis_obj.values():
+                axis.set_visible(self.show_axis)
 
             if self.save_ani:
                 self.fig.savefig(
@@ -2178,22 +2151,17 @@ class ModeShapePlot(object):
 
         self.canvas.draw()
 
-        # self.line_ani._start()
-        #print(self.animated, self.line_ani)
     def _button_press(self, event):
-        print('ModeShapePlot._button_press')
         if event.inaxes == self.subplot:
             self.button_pressed = event.button
 
     def _button_release(self, event):
-        print('ModeShapePlot._button_release')
         self.button_pressed = None
 
     def _on_move(self, event):
-        print('ModeShapePlot._on_move')
         if not self.button_pressed:
             return
-
+        
         for line in self.lines_objects:
             line.set_visible(False)
         for line in self.nd_lines_objects:
@@ -2204,27 +2172,66 @@ class ModeShapePlot(object):
         self.line_ani._setup_blit()
         # self.line_ani._start()
 
+import matplotlib.transforms as transforms
 
-class Arrow3D(matplotlib.patches.FancyArrowPatch):
+class LabeledArrow3D(matplotlib.patches.FancyArrowPatch):
     '''
     credit goes to (don't know the original author):
     http://pastebin.com/dWvFxb1Q
     draw an arrow in 3D space
     '''
 
-    def __init__(self, xs, ys, zs, *args, **kwargs):
+    def __init__(self, x, y, z, dx, dy, dz, *args, **kwargs):
         '''
         inherit from matplotlib.patches.FancyArrowPatch
         and set self._verts3d class variable
+        dx,dy,dz is understood as fractions of the axis'limits
         '''
-        super().__init__((0, 0), (0, 0), *args, **kwargs)
-        self._verts3d = xs, ys, zs
+        
+        self.text = None
+        self._verts3d = (x, y, z, dx, dy, dz)
+        super().__init__((x, x + dx), (y, y + dy), *args, **kwargs)
+        
+        
+    
+    def set_visible(self, b):
+        
+        if self.text is not None:
+            self.text.set_visible(b)
+        super().set_visible(b)
+        
+    def add_label(self, text, color=None, visible=True):
+        
+        if self.axes is None:
+            logging.warning('The arrow must be added to an axes, before a label can be added.')
+        
+        (x, y, z, dx, dy, dz) = self._verts3d
+        
+        self.text = self.axes.text(
+            x + dx,
+            y + dy,
+            z + dz,
+            text,
+            color=color,
+            visible=visible)
 
     def draw(self, renderer):
         '''
         get the projection from the 3D point to 2D point to draw the arrow
         '''
-        xs3d, ys3d, zs3d = self._verts3d
+        
+        # scale and direction of the arrow as fractions of axis limits
+        x, y, z, dx, dy, dz = self._verts3d
+        
+        minx, maxx, miny, maxy, minz, maxz = self.axes.get_w_lims()
+        lx, ly, lz = (maxx - minx), (maxy - miny), (maxz - minz)
+        
+        #rescale arrow to fraction axis limits
+        xs3d = [x, x + lx * dx]
+        ys3d = [y, y + ly * dy]
+        zs3d = [z, z + lz * dz]
+        if self.text:
+            self.text._position3d = np.array((x + lx * dx, y + ly * dy, z + lz * dz))
         xs, ys, zs = mpl_toolkits.mplot3d.axes3d.proj3d.proj_transform(
             xs3d, ys3d, zs3d, renderer.M)
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
