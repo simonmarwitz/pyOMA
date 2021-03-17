@@ -82,7 +82,8 @@ def PlotMSHGUI_test():
     result_folder = working_dir + 'merged_poger/'
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir + 'grid.txt',
-        lines_file=working_dir + 'lines.txt')
+        lines_file=working_dir + 'lines.txt',
+        master_slaves_file=working_dir + 'master_slaves.txt',)
 
     modal_data = PogerSSICovRef.load_state(result_folder + 'modal_data.npz')
     stabil_data = StabilCalc.load_state(result_folder + 'stabil_data.npz', modal_data)
@@ -93,7 +94,6 @@ def PlotMSHGUI_test():
         stabil_calc=stabil_data)
     
     start_msh_gui(modeshapeplot)
-    
 
 
 def multi_setup_analysis():
@@ -104,12 +104,13 @@ def multi_setup_analysis():
 
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir + 'grid.txt',
-        lines_file=working_dir + 'lines.txt')
+        lines_file=working_dir + 'lines.txt',
+        master_slaves_file = working_dir + 'master_slaves.txt')
 
     meas_files = glob.glob(working_dir + 'measurement*/')
 
     skip_existing = False
-    save_results = False
+    save_results = True
     interactive = True
 
     tau_max = 400
