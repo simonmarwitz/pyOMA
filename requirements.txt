@@ -2,5 +2,7 @@ numpy
 scipy
 matplotlib>=3.2.2
 PyQt5
-multiprocessing
-collections
+sphinx
+autoclasstoc
+sphinxcontrib-blockdiag
+sphinx_rtd_theme
