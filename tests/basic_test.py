@@ -3,25 +3,26 @@ Created on 04.03.2021
 
 @author: womo1998
 '''
+from pathlib import Path
+import os
+
 import numpy as np
-import glob
-import matplotlib.pyplot as plt
-import PyQt5
 
-from classes.PreprocessingTools import *
+from classes.PreprocessingTools import PreprocessData, GeometryProcessor
 
-from classes.PLSCF import *
-from classes.PRCE import *
-from classes.SSICovRef import *
-from classes.SSIData import *
-from classes.VarSSIRef import *
+from classes.ModalBase import ModalBase
+from classes.PLSCF import PLSCF
+from classes.PRCE import PRCE
+from classes.SSICovRef import BRSSICovRef,PogerSSICovRef
+from classes.SSIData import SSIData,SSIDataMC
+from classes.VarSSIRef import VarSSIRef
 #from classes.ERA import *
 
-from classes.StabilDiagram import *
-from classes.PostProcessingTools import *
-from classes.PlotMSH import *
+from classes.StabilDiagram import StabilCalc,StabilCluster,StabilPlot
+from classes.PostProcessingTools import MergePoSER
+from classes.PlotMSH import ModeShapePlot
 
-from GUI.PlotMSHGUI import *
+from GUI.PlotMSHGUI import start_msh_gui, ModeShapeGUI
 from GUI.StabilGUI import start_stabil_gui, StabilGUI
 
 
@@ -78,15 +79,15 @@ def analysis_chain(tmpdir):
 
 def PlotMSHGUI_test():
     
-    working_dir = './files/'
-    result_folder = working_dir + 'merged_poger/'
+    working_dir = Path.cwd()  / 'tests/files/'
+    result_folder = working_dir / 'merged_poger/'
     geometry_data = GeometryProcessor.load_geometry(
-        nodes_file=working_dir + 'grid.txt',
-        lines_file=working_dir + 'lines.txt',
-        master_slaves_file=working_dir + 'master_slaves.txt',)
+        nodes_file=working_dir / 'grid.txt',
+        lines_file=working_dir / 'lines.txt',
+        master_slaves_file=working_dir / 'master_slaves.txt',)
 
-    modal_data = PogerSSICovRef.load_state(result_folder + 'modal_data.npz')
-    stabil_data = StabilCalc.load_state(result_folder + 'stabil_data.npz', modal_data)
+    modal_data = PogerSSICovRef.load_state(result_folder / 'modal_data.npz')
+    stabil_data = StabilCalc.load_state(result_folder / 'stabil_data.npz', modal_data)
     
     modeshapeplot = ModeShapePlot(
         geometry_data,
@@ -100,14 +101,14 @@ def multi_setup_analysis():
 
     PreprocessData.load_measurement_file = np.load
 
-    working_dir = './files/'
+    working_dir = Path.cwd()  / 'tests/files/'
 
     geometry_data = GeometryProcessor.load_geometry(
-        nodes_file=working_dir + 'grid.txt',
-        lines_file=working_dir + 'lines.txt',
-        master_slaves_file = working_dir + 'master_slaves.txt')
+        nodes_file=working_dir / 'grid.txt',
+        lines_file=working_dir / 'lines.txt',
+        master_slaves_file = working_dir / 'master_slaves.txt')
 
-    meas_files = glob.glob(working_dir + 'measurement*/')
+    meas_files = working_dir.glob('measurement*/')
 
     skip_existing = False
     save_results = True
@@ -115,31 +116,31 @@ def multi_setup_analysis():
 
     tau_max = 400
 
-    result_folder_merged = working_dir + 'merged_poger/'
+    result_folder_merged = working_dir / 'merged_poger/'
 
-    if not os.path.exists(result_folder_merged + 'modal_data.npz') \
+    if not os.path.exists(result_folder_merged / 'modal_data.npz') \
             or not skip_existing:
 
         modal_data = PogerSSICovRef()
 
         for result_folder in meas_files:
-            meas_name = os.path.basename(result_folder[:-1])
+            meas_name = os.path.basename(result_folder)
 
-            if not os.path.exists(result_folder + 'prep_data.npz') \
+            if not os.path.exists(result_folder / 'prep_data.npz') \
                     or not skip_existing:
 
                 prep_data = PreprocessData.init_from_config(
-                    conf_file=result_folder + 'setup_info.txt',
-                    meas_file=result_folder + meas_name + '.npy',
-                    chan_dofs_file=result_folder + "channel_dofs.txt",)
+                    conf_file=result_folder / 'setup_info.txt',
+                    meas_file=result_folder / (meas_name + '.npy'),
+                    chan_dofs_file=result_folder / "channel_dofs.txt",)
                 prep_data.compute_correlation_matrices(
                     tau_max, num_blocks=False)
 
                 if save_results:
-                    prep_data.save_state(result_folder + 'prep_data.npz')
+                    prep_data.save_state(result_folder / 'prep_data.npz')
             else:
                 prep_data = PreprocessData.load_state(
-                    result_folder + 'prep_data.npz')
+                    result_folder / 'prep_data.npz')
 
             modal_data.add_setup(prep_data)
 
@@ -150,14 +151,14 @@ def multi_setup_analysis():
         modal_data.compute_modal_params()
         
         if save_results:
-            modal_data.save_state(result_folder_merged + 'modal_data.npz')
+            modal_data.save_state(result_folder_merged / 'modal_data.npz')
     else:
         modal_data = PogerSSICovRef.load_state(
-            result_folder_merged + 'modal_data.npz',)
+            result_folder_merged / 'modal_data.npz',)
 
-    if os.path.exists(result_folder_merged + 'stabil_data.npz') and skip_existing:
+    if os.path.exists(result_folder_merged / 'stabil_data.npz') and skip_existing:
         stabil_calc = StabilCalc.load_state(
-            result_folder_merged + 'stabil_data.npz', modal_data, prep_data)
+            result_folder_merged / 'stabil_data.npz', modal_data, prep_data)
     else:
         stabil_calc = StabilCalc(modal_data, prep_data)
 
@@ -166,7 +167,7 @@ def multi_setup_analysis():
         start_stabil_gui(stabil_plot, modal_data, geometry_data, prep_data)
 
         if save_results:
-            stabil_calc.save_state(result_folder_merged + 'stabil_data.npz')
+            stabil_calc.save_state(result_folder_merged / 'stabil_data.npz')
 
     if interactive:
 
@@ -192,10 +193,11 @@ def single_setup_analysis(
     assert issubclass(method, ModalBase)
 
     for f in [result_folder, setup_info, meas_file, conf_file, chan_dofs_file]:
-        assert os.path.exists(f)
+        if not os.path.exists(f):
+            raise RuntimeError(f"The path {f} does not exist. Check your definitions.")
 
     if not os.path.exists(
-            result_folder +
+            result_folder /
             'prep_data.npz') or not skip_existing:
         prep_data = PreprocessData.init_from_config(
             conf_file=setup_info,
@@ -203,25 +205,25 @@ def single_setup_analysis(
             chan_dofs_file=chan_dofs_file)
 
         if save_results:
-            prep_data.save_state(result_folder + 'prep_data.npz')
+            prep_data.save_state(result_folder / 'prep_data.npz')
     else:
-        prep_data = PreprocessData.load_state(result_folder + 'prep_data.npz')
+        prep_data = PreprocessData.load_state(result_folder / 'prep_data.npz')
 
     if not os.path.exists(
-            result_folder +
+            result_folder /
             'modal_data.npz') or not skip_existing:
 
         modal_data = method.init_from_config(conf_file, prep_data)
 
         if save_results:
-            modal_data.save_state(result_folder + 'modal_data.npz')
+            modal_data.save_state(result_folder / 'modal_data.npz')
     else:
         modal_data = method.load_state(
-            result_folder + 'modal_data.npz', prep_data)
+            result_folder / 'modal_data.npz', prep_data)
 
-    if os.path.exists(result_folder + 'stabil_data.npz') and skip_existing:
+    if os.path.exists(result_folder / 'stabil_data.npz') and skip_existing:
         stabil_calc = StabilCalc.load_state(
-            result_folder + 'stabil_data.npz', modal_data, prep_data)
+            result_folder / 'stabil_data.npz', modal_data, prep_data)
     else:
         stabil_calc = StabilCalc(modal_data, prep_data)
 
@@ -230,40 +232,40 @@ def single_setup_analysis(
         start_stabil_gui(stabil_plot, modal_data, geometry_data, prep_data)
 
     if save_results:
-        stabil_calc.save_state(result_folder + 'stabil_data.npz')
+        stabil_calc.save_state(result_folder / 'stabil_data.npz')
 
     return prep_data, modal_data, stabil_calc
 
 
-def merge_poser_test():
+def merge_poser_test(skip_existing = False,
+                     save_results = False,
+                     interactive = True):
 
     PreprocessData.load_measurement_file = np.load
 
-    working_dir = './files/'
+    working_dir = Path.cwd()  / 'tests/files/'
 
     geometry_data = GeometryProcessor.load_geometry(
-        nodes_file=working_dir + 'grid.txt',
-        lines_file=working_dir + 'lines.txt')
+        nodes_file=working_dir / 'grid.txt',
+        lines_file=working_dir / 'lines.txt')
 
-    meas_files = glob.glob(working_dir + 'measurement*/')
-
+    meas_files = working_dir.glob('measurement*/')
+    
     merger = MergePoSER()
 
-    skip_existing = False
-    save_results = False
-    interactive = True
 
     for result_folder in meas_files:
-        meas_name = os.path.basename(result_folder[:-1])
-
+        
+        meas_name = os.path.basename(result_folder)
+        
         prep_data, modal_data, stabil_calc = single_setup_analysis(
             result_folder=result_folder,
-            setup_info=result_folder + 'setup_info.txt',
-            meas_file=result_folder + meas_name + '.npy',
-            conf_file=working_dir + 'varssi_config.txt',
+            setup_info=result_folder / 'setup_info.txt',
+            meas_file=result_folder / (meas_name + '.npy'),
+            conf_file=working_dir / 'varssi_config.txt',
             method=BRSSICovRef,
             geometry_data=geometry_data,
-            chan_dofs_file=result_folder + "channel_dofs.txt",
+            chan_dofs_file=result_folder / "channel_dofs.txt",
             skip_existing=skip_existing,
             save_results=save_results,
             interactive=True)
@@ -272,7 +274,7 @@ def merge_poser_test():
 
     merger.merge()
 
-    merger.save_state(working_dir + 'merged_poser.npz')
+    merger.save_state(working_dir / 'merged_poser.npz')
 
     if interactive:
 
@@ -283,7 +285,6 @@ def merge_poser_test():
 
 if __name__ == '__main__':
     # analysis_chain(tmpdir='/dev/shm/womo1998/')
-    PlotMSHGUI_test()
-    # StabilGUI_test()
+    # PlotMSHGUI_test()
     # merge_poser_test()
-    # multi_setup_analysis()
+    multi_setup_analysis()
