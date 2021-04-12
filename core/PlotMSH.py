@@ -18,13 +18,13 @@ obtained from any of the classes derived from ModalBase of the pyOMA project
 import matplotlib.animation
 import matplotlib.patches
 import mpl_toolkits.mplot3d.axes3d
-from classes.PostProcessingTools import MergePoSER
-from classes.VarSSIRef import VarSSIRef
-from classes.SSICovRef import PogerSSICovRef
-from classes.ModalBase import ModalBase
-from classes.PreprocessingTools import PreprocessData, GeometryProcessor
-from classes.StabilDiagram import StabilCalc
-from classes.Helpers import calc_xyz, nearly_equal
+from core.PostProcessingTools import MergePoSER
+from core.VarSSIRef import VarSSIRef
+from core.SSICovRef import PogerSSICovRef
+from core.ModalBase import ModalBase
+from core.PreprocessingTools import PreprocessData, GeometryProcessor
+from core.StabilDiagram import StabilCalc
+from core.Helpers import calc_xyz, nearly_equal
 import itertools
 import numpy as np
 import matplotlib.markers

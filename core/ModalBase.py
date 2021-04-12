@@ -5,7 +5,7 @@ should be inherited.
 @author: womo1998
 '''
 
-from classes.PreprocessingTools import PreprocessData
+from core.PreprocessingTools import PreprocessData
 import numpy as np
 from collections import deque
 import os

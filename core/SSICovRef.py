@@ -11,8 +11,8 @@ import copy
 import numpy as np
 import scipy.linalg
 
-from classes.PreprocessingTools import PreprocessData
-from classes.ModalBase import ModalBase
+from core.PreprocessingTools import PreprocessData
+from core.ModalBase import ModalBase
 
 import matplotlib.pyplot as plt
 

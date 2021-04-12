@@ -19,8 +19,8 @@ import logging
 
 logger = logging.getLogger('')
 
-from classes.PreprocessingTools import PreprocessData
-from classes.ModalBase import ModalBase
+from core.PreprocessingTools import PreprocessData
+from core.ModalBase import ModalBase
 
 
 class PLSCF(ModalBase):

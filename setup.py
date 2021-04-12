@@ -20,5 +20,6 @@ setup(
     author_email='simon.jakob.marwitz@uni-weimar.de',
     url='https://santafe.bauing.uni-weimar.de/pyOMA',
     license=license,
-    packages=find_packages(exclude=('tests', 'docs'))
+    packages=find_packages(exclude=('tests', 'docs')),
+    include_package_data=True
 )

@@ -1,11 +1,11 @@
 Post-processing
 ===============
 
-.. currentmodule:: classes
+.. currentmodule:: core
 
 .. autosummary::
    :recursive:
-   :toctree: classes
+   :toctree: core
    :template: custom-module-template.rst
    
    PlotMSH
@@ -15,7 +15,7 @@ Post-processing
 .. currentmodule:: GUI
 .. autosummary::
    :recursive:
-   :toctree: classes
+   :toctree: core
    :template: custom-module-template.rst
    
    PlotMSHGUI

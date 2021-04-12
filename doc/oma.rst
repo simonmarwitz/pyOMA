@@ -1,11 +1,11 @@
 System Identification / Modal Analysis
 ======================================
 
-.. currentmodule:: classes
+.. currentmodule:: core
 
 .. autosummary::
    :recursive:
-   :toctree: classes
+   :toctree: core
    :template: custom-module-template.rst
    
    SSICovRef

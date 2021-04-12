@@ -16,9 +16,9 @@ Modified and Extended by Simon Marwitz 2015 ff.
 
 import logging
 import warnings
-from classes.PreprocessingTools import PreprocessData
-from classes.SSICovRef import PogerSSICovRef
-from classes.ModalBase import ModalBase
+from core.PreprocessingTools import PreprocessData
+from core.SSICovRef import PogerSSICovRef
+from core.ModalBase import ModalBase
 import numpy as np
 
 import scipy.cluster

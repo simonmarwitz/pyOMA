@@ -1,11 +1,11 @@
 Signal processing
 =================
 
-.. currentmodule:: classes
+.. currentmodule:: core
 
 .. autosummary::
    :recursive:
-   :toctree: classes
+   :toctree: core
    :template: custom-module-template.rst
    
    PreprocessingTools

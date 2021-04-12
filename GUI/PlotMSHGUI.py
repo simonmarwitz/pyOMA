@@ -9,7 +9,7 @@
 
 # system i/o
 from copy import deepcopy
-from classes.PlotMSH import ModeShapePlot
+from core.PlotMSH import ModeShapePlot
 from GUI.HelpersGUI import DelayedDoubleSpinBox, my_excepthook
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg

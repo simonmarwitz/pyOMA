@@ -3,27 +3,31 @@ Created on 04.03.2021
 
 @author: womo1998
 '''
+import sys
 from pathlib import Path
+import tests
+import matplotlib.pyplot as plt  # avoid import errors
 import os
 
 import numpy as np
 
-from classes.PreprocessingTools import PreprocessData, GeometryProcessor
+from core.PreprocessingTools import PreprocessData, GeometryProcessor
 
-from classes.ModalBase import ModalBase
-from classes.PLSCF import PLSCF
-from classes.PRCE import PRCE
-from classes.SSICovRef import BRSSICovRef,PogerSSICovRef
-from classes.SSIData import SSIData,SSIDataMC
-from classes.VarSSIRef import VarSSIRef
-#from classes.ERA import *
+from core.ModalBase import ModalBase
+from core.PLSCF import PLSCF
+from core.PRCE import PRCE
+from core.SSICovRef import BRSSICovRef, PogerSSICovRef
+from core.SSIData import SSIData, SSIDataMC
+from core.VarSSIRef import VarSSIRef
+#from core.ERA import *
 
-from classes.StabilDiagram import StabilCalc,StabilCluster,StabilPlot
-from classes.PostProcessingTools import MergePoSER
-from classes.PlotMSH import ModeShapePlot
+from core.StabilDiagram import StabilCalc, StabilCluster, StabilPlot
+from core.PostProcessingTools import MergePoSER
+from core.PlotMSH import ModeShapePlot
 
-from GUI.PlotMSHGUI import start_msh_gui, ModeShapeGUI
-from GUI.StabilGUI import start_stabil_gui, StabilGUI
+from GUI.PlotMSHGUI import start_msh_gui
+from GUI.StabilGUI import start_stabil_gui
+
 
 
 def analysis_chain(tmpdir):
@@ -78,8 +82,7 @@ def analysis_chain(tmpdir):
 
 
 def PlotMSHGUI_test():
-    
-    working_dir = Path.cwd()  / 'tests/files/'
+    working_dir = Path(sys.modules['tests'].__path__[0]) / 'files/'
     result_folder = working_dir / 'merged_poger/'
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir / 'grid.txt',
@@ -101,12 +104,12 @@ def multi_setup_analysis():
 
     PreprocessData.load_measurement_file = np.load
 
-    working_dir = Path.cwd()  / 'tests/files/'
+    working_dir = Path(sys.modules['tests'].__path__[0]) / 'files/'
 
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir / 'grid.txt',
         lines_file=working_dir / 'lines.txt',
-        master_slaves_file = working_dir / 'master_slaves.txt')
+        master_slaves_file=working_dir / 'master_slaves.txt')
 
     meas_files = working_dir.glob('measurement*/')
 
@@ -243,7 +246,7 @@ def merge_poser_test(skip_existing = False,
 
     PreprocessData.load_measurement_file = np.load
 
-    working_dir = Path.cwd()  / 'tests/files/'
+    working_dir = Path(sys.modules['tests'].__path__[0]) / 'files/'
 
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir / 'grid.txt',

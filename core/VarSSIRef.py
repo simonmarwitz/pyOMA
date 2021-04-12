@@ -9,8 +9,8 @@ import multiprocessing as mp
 import ctypes as c
 from collections import deque
 
-from classes.PreprocessingTools import PreprocessData
-from classes.ModalBase import ModalBase
+from core.PreprocessingTools import PreprocessData
+from core.ModalBase import ModalBase
 
 '''
 ..todo::

@@ -6,12 +6,12 @@ Modified and Extended by Simon Marwitz 2015
 
 import logging
 import warnings
-from classes.PreprocessingTools import PreprocessData
+from core.PreprocessingTools import PreprocessData
 from GUI.HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
 from GUI.PlotMSHGUI import ModeShapeGUI
-from classes.StabilDiagram import StabilPlot, StabilCluster
-from classes.PlotMSH import ModeShapePlot
-from classes.ModalBase import ModalBase
+from core.StabilDiagram import StabilPlot, StabilCluster
+from core.PlotMSH import ModeShapePlot
+from core.ModalBase import ModalBase
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QObject, qInstallMessageHandler, QTimer, QEventLoop
 from PyQt5.QtGui import QIcon, QPalette
 from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\

@@ -17,8 +17,8 @@ from collections import deque
 #import datetime
 #from copy import deepcopy
 
-from classes.PreprocessingTools import PreprocessData
-from classes.ModalBase import ModalBase
+from core.PreprocessingTools import PreprocessData
+from core.ModalBase import ModalBase
 #import pyximport
 # pyximport.install()
 

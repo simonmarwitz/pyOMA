@@ -53,7 +53,7 @@ The toolbox consists of four packages :
 ::
 
     pyOMA
-    ├── classes
+    ├── core
     │   ├── PreprocessingTools.py
     │   ├── ModalBase.py
     │   ├── PLSCF.py
@@ -84,15 +84,15 @@ The toolbox consists of four packages :
     └── setup.py
  
 
-Current development is focused on the ``classes`` package which contains all the algorithms.
+Current development is focused on the ``core`` package which contains all the algorithms.
 
 Major rework has to be done for the ``GUI``, using QTDesigner to design the GUIs and then only add functionality in the respective classes.
 
 The ``input_files`` packages provides templates for input files for automated and structured analysis of a dataset consisting of multiple measurements.
 
-The ``scripts`` package shall contain templates for certain recurring tasks, as well as commonly used functions, derived from the classes and GUI packages.
+The ``scripts`` package shall contain templates for certain recurring tasks, as well as commonly used functions, derived from the core and GUI packages.
 
-The ``tests`` package contains common use cases and files, which could be run to test if any changes in the classes result in breaking existing functionality.
+The ``tests`` package contains common use cases and files, which could be run to test if any changes in the modules result in breaking existing functionality.
 
 The documentation is generated from the git repository by `Sphinx <https://www.sphinx-doc.org/>`_  automatically and available on `<https://santafe.bauing.uni-weimar.de/pyOMA>`_
 
@@ -108,7 +108,7 @@ The documentation is generated from the git repository by `Sphinx <https://www.s
    
     * Beginner :
         * Creation and simplifaction of scripts on the basis of exemplary measurment campaigns
-        * Creating missing GUI parts for the PreProcessing and OMA classes
+        * Creating missing GUI parts for the PreProcessing and OMA modules
         * Setup jupyter notebooks for interactive analyses
         * Improvement of the documentation, where needed
         * Add licensing statements to each file

@@ -33,9 +33,9 @@ poser multi-setup (merged_data)
 
 import numpy as np
 import datetime
-from classes.PreprocessingTools import PreprocessData
-from classes.ModalBase import ModalBase
-from classes.StabilDiagram import StabilCalc
+from core.PreprocessingTools import PreprocessData
+from core.ModalBase import ModalBase
+from core.StabilDiagram import StabilCalc
 import os
 
 
@@ -536,10 +536,11 @@ class MergePoSER(object):
 
 
 def main():
-    from classes.PreprocessingTools import PreprocessData, GeometryProcessor
-    from classes.SSICovRef import BRSSICovRef
-    from classes.StabilDiagram import StabilCalc
-    from classes.PlotMSH import ModeShapePlot, start_msh_gui
+    from core.PreprocessingTools import PreprocessData, GeometryProcessor
+    from core.SSICovRef import BRSSICovRef
+    from core.StabilDiagram import StabilCalc
+    from core.PlotMSH import ModeShapePlot
+    from GUI.PlotMSHGUI import start_msh_gui
 
     working_dir = '/home/womo1998/Projects/2017_modal_merging_test_files/'
     interactive = False

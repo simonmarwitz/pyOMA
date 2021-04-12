@@ -3,7 +3,7 @@ import numpy as np
 import scipy.linalg
 from collections import deque
 import os
-from classes.PreprocessingTools import PreprocessData
+from core.PreprocessingTools import PreprocessData
 
 
 class ERA(object):
@@ -328,13 +328,13 @@ def main():
     os.chdir(
         '/ismhome/staff/womo1998/Projects/2018_eigensystem_realization_algorithm/code/')
     # Data Preprocessing Class
-    from PreprocessingTools import PreprocessData, GeometryProcessor
+    from core.PreprocessingTools import PreprocessData, GeometryProcessor
 
     # Modal Analysis PostProcessing Class e.g. Stabilization Diagram
-    from StabilDiagram import StabilCalc, StabilPlot, StabilGUI, start_stabil_gui
+    from core.StabilDiagram import StabilCalc, StabilPlot, StabilGUI, start_stabil_gui
 
     # Modeshape Plot
-    from PlotMSH import ModeShapePlot, start_msh_gui
+    from core.PlotMSH import ModeShapePlot, start_msh_gui
 
     '''
     - test files were generated from a simple 20 DOF spring-mass system (e.g. a uniform cantilever)
