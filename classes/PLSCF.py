@@ -4,7 +4,7 @@ Written by Volkmar Zabel 2016, refactored by Simon Marwitz 2021
 
 .. TODO::
      * Move the computation of half-spectra to PreProcessData and change this
-     class accordingly
+       class accordingly
      * Proper documentation of the code
      * Test functions should be added to the test package
      * Algorithm seems broken and a lot of overhead is reimplemented, that
