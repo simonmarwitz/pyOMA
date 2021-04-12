@@ -1,24 +1,26 @@
 # -*- coding: utf-8 -*-
 '''
 Written by Volkmar Zabel 2016, refactored by Simon Marwitz 2021
+
+.. TODO::
+     * Move the computation of half-spectra to PreProcessData and change this
+     class accordingly
+     * Proper documentation of the code
+     * Test functions should be added to the test package
+     * Algorithm seems broken and a lot of overhead is reimplemented, that
+       exists in standard libraries
+
 '''
 
 import numpy as np
 import os
 import scipy.signal
+import logging
+
+logger = logging.getLogger('')
 
 from classes.PreprocessingTools import PreprocessData
 from classes.ModalBase import ModalBase
-
-
-'''
-.. TODO::
- * Move the computation of half-spectra to PreProcessData and change this
- class accordingly
- * Proper documentation of the code
- *  Test functions should be added to the test package
-
-'''
 
 
 class PLSCF(ModalBase):
@@ -27,6 +29,8 @@ class PLSCF(ModalBase):
         '''
         channel definition: channels start at 0
         '''
+        
+        logging.warning('This implementation of the PLSCF algorithm seems broken, code must be re-verified and a working example added to the "tests" package.')
         super().__init__(*args, **kwargs)
         #             0             1
         # self.state= [Half_spectra, Modal Par.

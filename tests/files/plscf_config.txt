@@ -3,6 +3,6 @@ Begin Frequency:
 End Frequency:
 20
 Samples per time segment:
-2048
+4096
 Maximum Model Order:
-100
+50
