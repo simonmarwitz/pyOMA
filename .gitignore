@@ -1,5 +1,3 @@
-.project
-.pydevproject
 .settings/*
 doc/_build/*
 doc/build/*
