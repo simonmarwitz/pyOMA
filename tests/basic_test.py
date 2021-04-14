@@ -288,6 +288,6 @@ def merge_poser_test(skip_existing = False,
 
 if __name__ == '__main__':
     # analysis_chain(tmpdir='/dev/shm/womo1998/')
-    # PlotMSHGUI_test()
+    PlotMSHGUI_test()
     # merge_poser_test()
-    multi_setup_analysis()
+    # multi_setup_analysis()
