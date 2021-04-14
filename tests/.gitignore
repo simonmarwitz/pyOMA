@@ -1,2 +1,6 @@
 /guitest.py
+<<<<<<< HEAD
 **/files/*
+=======
+/__pycache__/
+>>>>>>> branch 'master' of ssh://womo1998@stratos.bauing.uni-weimar.de/vegas/projects/pyOMA/repository.git/
