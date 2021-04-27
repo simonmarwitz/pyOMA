@@ -124,6 +124,9 @@ The documentation is generated from the git repository by `Sphinx <https://www.s
         * Profiling and performance improvement of frequently executed code pieces
         * Implementation of variance estimation for PLSCF, PRCE?
         * Improvement of the documentation, where needed
+        * Implement MTN=Modal Contribution in Spectral Densities
+        * Correct Uncertainty Estimation for SSI-Data based on IOMAC Paper
+        * Implement PreGER with Uncertainty Bounds
 
 
 Indices and tables
