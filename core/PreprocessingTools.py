@@ -63,11 +63,19 @@ class GeometryProcessor(object):
          * change master_slaves to az, elev
     '''
 
-    def __init__(self):
+    def __init__(self, nodes={}, lines=[], master_slaves=[]):
         super().__init__()
         self.nodes = {}
+        assert isinstance(nodes, dict)
+        self.add_nodes(nodes)
+        
         self.lines = []
+        assert isinstance(lines, (list, tuple, np.ndarray))
+        self.add_lines(lines)
+        
         self.master_slaves = []
+        assert isinstance(master_slaves, (list, tuple, np.ndarray))
+        self.add_master_slaves(master_slaves)
 
     @staticmethod
     def nodes_loader(filename):
@@ -765,6 +773,10 @@ class PreprocessData(object):
     def add_chan_dofs(self, chan_dofs):
         '''
         chan_dofs = [ (chan_num, node_name, az, elev, chan_name) ,  ... ]
+        This function is not checking if channels or nodes actually exist
+        the former should be added
+        the latter might only be possible, if the geometry object is known to the class
+        
         '''
         for chan_dof in chan_dofs:
             chan_dof[0] = int(chan_dof[0])
