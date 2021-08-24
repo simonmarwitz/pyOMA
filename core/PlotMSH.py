@@ -35,7 +35,9 @@ import matplotlib
 from PyQt5.QtCore import pyqtSignal
 import os
 import logging
-logger = logging.getLogger('')
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 # Matplotlib
@@ -481,7 +483,7 @@ class ModeShapePlot(object):
             #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = persp_transformation
             self.subplot.set_proj_type('persp')
         else:
-            print('viewport not recognized: ', viewport)
+            logger.warning(f'viewport not recognized: {viewport}')
             azim, elev = -60, 30
             #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = persp_transformation
             self.subplot.set_proj_type('persp')
@@ -546,7 +548,7 @@ class ModeShapePlot(object):
             mode_index = selected_indices[index]
         if mode_index is None:
             raise RuntimeError('No arguments provided!')
-        # print(mode_index)
+        # print(logger.info(ndex)
         frequency = self.modal_frequencies[mode_index[0], mode_index[1]]
         damping = self.modal_damping[mode_index[0], mode_index[1]]
         if self.stabil_calc:
@@ -573,7 +575,7 @@ class ModeShapePlot(object):
             try:
                 self.callback_fun(self, mode_index)
             except Exception as e:
-                print(e)
+                logger.warning(repr(e))
                 pass
 
         # order, mode_num,....
@@ -1984,8 +1986,7 @@ class ModeShapePlot(object):
             if self.save_ani:
                 self.fig.savefig(
                     self.cwd + '/{}/ani_{}.pdf'.format(self.select_modes.index(self.mode_index), num))
-                print(
-                    self.cwd + '/{}/ani_{}.pdf'.format(self.select_modes.index(self.mode_index), num))
+                logger.debug('{}/{}/ani_{}.pdf'.format(self.cwd, self.select_modes.index(self.mode_index), num))
             return self.lines_objects + \
                 self.nd_lines_objects + \
                 list(self.cn_lines_objects.values())

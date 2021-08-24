@@ -14,13 +14,14 @@ Modified and Extended by Simon Marwitz 2015
      * implement windowing functions
      * Proper documentation
      * add test to tests package
-     * Remove multiprocessing routines, since numpy as paralelized already
+     * Remove multiprocessing routines, since numpy as parallelized already
        and proper vectorization of the code is better than just using multiprocessing to speed up bad code
-
+    
 '''
 
 import numpy as np
 import scipy.signal
+import matplotlib.pyplot as plt
 
 import os
 import csv
@@ -30,11 +31,10 @@ import time
 
 import multiprocessing as mp
 import ctypes as c
-import warnings
-
-import matplotlib.pyplot as plt
-#import matplotlib.pyplot as plot
-#import warnings
+import logging
+#logging.basicConfig(stream=sys.stdout)  # done at module level
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 
 def nearly_equal(a, b, sig_fig=5):
@@ -187,14 +187,14 @@ class GeometryProcessor(object):
             try:
                 self.add_node(*item)
             except BaseException:
-                print(
+                logger.warning(
                     'Something was wrong while adding node {}. Continuing!'.format(item))
                 continue
 
     def add_node(self, node_name, coordinate_list):
         node_name = str(node_name)
         if node_name in self.nodes.keys():
-            print('Node {} is already defined. Overwriting.'.format(node_name))
+            logger.warning('Node {} is already defined. Overwriting.'.format(node_name))
 
         if not isinstance(coordinate_list, (list, tuple)):
             raise RuntimeError(
@@ -219,7 +219,7 @@ class GeometryProcessor(object):
 
     def take_node(self, node_name):
         if node_name not in self.nodes:
-            print('Node not defined. Exiting')
+            logger.warning('Node not defined. Exiting')
             return
 
         while True:  # check if any line is connected to this node
@@ -241,7 +241,7 @@ class GeometryProcessor(object):
                 break
         del self.nodes[node_name]
 
-        print('Node {} removed.'.format(node_name))
+        logger.info('Node {} removed.'.format(node_name))
 
     def add_lines(self, lines):
 
@@ -249,7 +249,7 @@ class GeometryProcessor(object):
             try:
                 self.add_line(line)
             except BaseException:
-                print(
+                logger.warning(
                     'Something was wrong while adding line {}. Continuing!'.format(line))
                 continue
 
@@ -263,11 +263,11 @@ class GeometryProcessor(object):
 
         line = [str(line[0]), str(line[1])]
         if line[0] not in self.nodes or line[1] not in self.nodes:
-            print('One of the end-nodes of line {} not defined!'.format(line))
+            logger.warning('One of the end-nodes of line {} not defined!'.format(line))
         else:
             for line_ in self.lines:
                 if line_[0] == line[0] and line_[1] == line[1]:
-                    print('Line {} was defined, already.'.format(line))
+                    logger.info('Line {} was defined, already.'.format(line))
             else:
                 self.lines.append(line)
 
@@ -280,17 +280,17 @@ class GeometryProcessor(object):
                 if line[0] == line_[0] and line[1] == line_[1]:
                     break
             else:
-                print('Line {} was not found.'.format(line))
+                logger.warning('Line {} was not found.'.format(line))
                 return
         del self.lines[line_ind]
-        print('Line {} at index {} removed.'.format(line, line_ind))
+        logger.info('Line {} at index {} removed.'.format(line, line_ind))
 
     def add_master_slaves(self, master_slaves):
         for ms in master_slaves:
             try:
                 self.add_master_slave(ms)
             except BaseException:
-                print(
+                logger.warning(
                     'Something was wrong while adding master-slave-definition {}. Continuing!'.format(ms))
                 continue
 
@@ -312,7 +312,7 @@ class GeometryProcessor(object):
                                 ms[6]), float(
                                     ms[7]))
         if ms[0] not in self.nodes or ms[4] not in self.nodes:
-            print(
+            logger.warning(
                 'One of the nodes of master slave definition {} not defined!'.format(ms))
         else:
             for ms_ in self.master_slaves:
@@ -320,7 +320,7 @@ class GeometryProcessor(object):
                 for i in range(8):
                     b = b and ms_[i] == ms[i]
                 if b:
-                    print(
+                    logger.info(
                         'master slave definition {} was defined, already.'.format(ms))
             else:
                 self.master_slaves.append(ms)
@@ -337,11 +337,11 @@ class GeometryProcessor(object):
                 if b:
                     break
             else:
-                print('master slave definition {} was not found.'.format(ms))
+                logger.warning('master slave definition {} was not found.'.format(ms))
                 return
 
         del self.master_slaves[ms_ind]
-        print('master slave definition {} at index {} removed.'.format(ms, ms_ind))
+        logger.info('master slave definition {} at index {} removed.'.format(ms, ms_ind))
 
     def rescale_geometry(self, factor):
         pass
@@ -377,7 +377,9 @@ class PreprocessData(object):
         assert measurement.shape[0] > measurement.shape[1]
         self.measurement = measurement
         self.measurement_filt = measurement
-
+        
+        self.scaling_factors = None
+        
         assert isinstance(sampling_rate, (int, float))
         self.sampling_rate = sampling_rate
 
@@ -441,7 +443,7 @@ class PreprocessData(object):
             if (channel in accel_channels) + (channel in velo_channels) + \
                     (channel in disp_channels) != 1:
 
-                warnings.warn(
+                logger.warning(
                     'Measuring quantity of channel {} is not defined.'.format(channel))
 
         self.accel_channels = accel_channels
@@ -547,7 +549,7 @@ class PreprocessData(object):
             headers = ['Channel_{}'.format(i)
                        for i in range(measurement.shape[1])]
         if not sample_rate == sampling_rate:
-            warnings.warn(
+            logger.warning(
                 'Sampling Rate from file: {} does not correspond with specified Sampling Rate from configuration {}'.format(
                     sample_rate, sampling_rate))
         # print(headers)
@@ -567,7 +569,7 @@ class PreprocessData(object):
                     elif headers[chan] == 'Channel_{}'.format(chan):
                         headers[chan] = chan_name
                     elif headers[chan] != chan_name:
-                        print(
+                        logger.info(
                             'Different headers for channel {} in measurement file ({}) and in channel-DOF-assignment ({}).'.format(
                                 chan, headers[chan], chan_name))
                     else:
@@ -600,7 +602,7 @@ class PreprocessData(object):
             new_channel = 0
             for channel in range(num_all_channels):
                 if channel in delete_channels:
-                    print(
+                    logger.info(
                         'Now removing Channel {} (no. {})!'.format(
                             headers[channel], channel))
                     continue
@@ -614,7 +616,7 @@ class PreprocessData(object):
                                 cname = ''
                             break
                     else:
-                        print('Could not find channel in chan_dofs')
+                        logger.warning('Could not find channel in chan_dofs')
                         continue
 
                     new_chan_dofs.append([new_channel, node, az, elev, cname])
@@ -801,7 +803,7 @@ class PreprocessData(object):
                 break
         else:
             if self.chan_dofs:
-                print('chandof not found')
+                logger.warning('chandof not found')
 
     def save_state(self, fname):
 
@@ -843,7 +845,7 @@ class PreprocessData(object):
     @classmethod
     def load_state(cls, fname):
 
-        print('Now loading previous results from  {}'.format(fname))
+        logger.info('Now loading previous results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
 
@@ -884,7 +886,7 @@ class PreprocessData(object):
             try:
                 spectral_values[obj_num] = in_dict[name]
             except Exception as e:
-                print(e)
+                logger.warning(repr(e))
 
         #sum_ft = in_dict.get( 'self.sum_ft', None)
 
@@ -914,42 +916,24 @@ class PreprocessData(object):
         # preprocessor.add_geometry_data(in_dict['self.geometry_data'].item())
         return preprocessor
 
-    def filter_data(
-            self,
-            lowpass=None,
-            highpass=None,
-            overwrite=False,
-            order=4,
-            ftype='butter',
-            RpRs=[
-                None,
-                None],
-            plot_filter=False):
-        print('Filtering data in the band: {} .. {}.'.format(highpass, lowpass))
+    def filter_data(self, lowpass=None, highpass=None,
+                    overwrite=True,
+                    order=4, ftype='butter', RpRs=[3, 3],
+                    plot_ax=None):
+        logger.info('Filtering data in the band: {} .. {} with a {} order {} filter.'.format(highpass, lowpass, order, ftype))
 
-        ''' checks '''
-        error = 0
         if (highpass is None) and (lowpass is None):
-            error += 1
-        ftype_list = ['butter', 'cheby1', 'cheby2', 'ellip', 'bessel']
-        if not (
-            isinstance(
-                order, int) and (
-                ftype in ftype_list) and (
-                order > 1)):
-            error += 1
-        if (ftype == 'cheby1' or ftype == 'cheby2' or ftype ==
-                'ellip') and (RpRs[0] is None or RpRs[1] is None):
-            error += 1
-
-        if error > 0:
-            raise RuntimeError('Invalid arguments.')
-            return
-
-        #print("Filtering data...")
-
+            raise ValueError('Neither a lowpass or a highpass corner frequency was provided.')
+        
+        ftype_list = ['butter', 'cheby1', 'cheby2', 'ellip', 'bessel', 'moving_average', 'brickwall']
+        if not (ftype in ftype_list):
+            raise ValueError(f'Filter type {ftype} is not any of the available types: {ftype_list}')
+        
+        if order <= 1:
+            raise ValueError('Order must be greater than 1')
+        
         nyq = self.sampling_rate / 2
-
+        
         freqs = []
         if lowpass is not None:
             freqs.append(float(lowpass))
@@ -962,108 +946,311 @@ class PreprocessData(object):
             freqs.sort()
 
         freqs[:] = [x / nyq for x in freqs]
-
-        # print(freqs)
-        order = int(order)
         measurement = self.measurement
+        
+        if ftype in ftype_list[0:5]:  # IIR filter
+            #if order % 2:  # odd number
+            #    logger.warning(f'Odd filter order {order} will be rounded up to {order+1}, because of forward-backward filtering.')
+            #order = int(np.ceil(order / 2))  # reduce by factor 2 because of double filtering
+            order = int(order)
+            
+            sos = scipy.signal.iirfilter(
+                order, freqs, rp=RpRs[0], rs=RpRs[1],
+                btype=btype, ftype=ftype, output='sos')
+            
+            measurement_filt = scipy.signal.sosfiltfilt(
+                sos, measurement, axis=0)
+            if self.F is not None:
+                self.F_filt = scipy.signal.sosfiltfilt(sos, self.F, axis=0)
+        elif ftype in ftype_list[5:7]:  # FIR filter
+            if ftype == 'brickwall':
+                fir_irf = scipy.signal.firwin(numtaps=order, cutoff=freqs, fs=np.pi)
+            elif ftype == 'moving_average':
+                if freqs:
+                    logger.warning('For the moving average filter, no cutoff frequencies can be defined.')
+                fir_irf = np.ones((order)) / order
+            
+            measurement_filt = scipy.signal.lfilter(fir_irf, [1.0], measurement, axis=0)
+            if self.F is not None:
+                self.F_filt = scipy.signal.lfilter(fir_irf, [1.0], self.F, axis=0)
+            
+        if np.isnan(measurement_filt).any():
+            logger.warning('Your filtered data contains NaNs. Check your filter settings! Continuing...')
 
-        b, a = scipy.signal.iirfilter(
-            order, freqs, rp=RpRs[0], rs=RpRs[1], btype=btype, ftype=ftype)
-        self.measurement_filt = scipy.signal.filtfilt(
-            b, a, measurement, axis=0, padlen=0)
-        if self.F is not None:
-            self.F_filt = scipy.signal.filtfilt(b, a, self.F, axis=0, padlen=0)
-
-        if np.isnan(self.measurement_filt).any():
-            RuntimeWarning(
-                'Your filtered data contains NaNs. Check your filter settings! Continuing...')
-
-        if plot_filter:
-            w, h = scipy.signal.freqz(b, a, worN=2000)
-            _, f_plot = plt.subplots(2)
-            f_plot[0].set_title('Filter data')
-            f_plot[0].plot((nyq / np.pi) * w, abs(h))
-            f_plot[0].plot([0, nyq], [np.sqrt(0.5), np.sqrt(0.5)], '--')
-            f_plot[0].axvline(nyq, color='green')  # cutoff frequency
-            f_plot[1].plot(self.measurement[:, 1],
-                           label='Original signal (Hz)')
-            f_plot[1].plot(self.measurement_filt[:, 1],
-                           label='Filtered signal (Hz)')
-            plt.show()
+        if plot_ax is not None:
+            
+            N = 2048
+            
+            dt = 1 / self.sampling_rate
+                    
+            if isinstance(plot_ax, (list, np.ndarray)):
+                freq_ax = plot_ax[1]
+                tim_ax = plot_ax[0]
+            else:
+                freq_ax = plot_ax
+                tim_ax = None
+                
+            if ftype in ftype_list[0:5]:  # IIR Filter
+                
+                w, h = scipy.signal.sosfreqz(sos, worN=np.fft.rfftfreq(N) * 2 * np.pi)
+                
+                # convert to decibels
+                # the square comes from double filtering and has nothing to do with rms or such
+                # db factor 20 due to Root-Mean-Square not Mean-Square-Spectrum quantity
+                frf = 20 * np.log10(abs(h)**2)
+                freq_ax.plot((nyq / np.pi) * w, frf, color='lightgrey', ls='dashed')
+                if tim_ax is not None:
+                    irf = np.fft.irfft(h, n=10 * N)
+                    
+                    logger.debug(f'IRF Integral {np.sum(irf)*dt}')
+                    dur = N * dt
+                    t = np.linspace(0, dur - dt, 10 * N)
+                    #b, a = scipy.signal.sos2tf(sos)
+                    #tout, yout = scipy.signal.dimpulse((b, a, dt), n=N)
+                    #tim_ax.plot(tout, np.squeeze(yout))
+                    tim_ax.plot(t, irf, color='lightgrey')
+                    
+            else:  # FIR Filter
+                
+                dt = 1 / self.sampling_rate
+                dur = order * dt
+                
+                # zero-pad the FRF to achieve spectral-interpolated IRF
+                frf = np.fft.fft(fir_irf)
+                if order % 2:
+                    # if numtaps is odd, the maximum frequency is present additionally to the minimum,
+                    # which is just a conjugate in the case of real signals
+                    neg = frf[order // 2 + 1:order]
+                    pos = frf[:order // 2 + 1]
+                else:
+                    # if numtaps is even, only the mimimum frequency is present
+                    pos = frf[:order // 2]
+                    neg = frf[order // 2:order]
+                    # mirror the conjugate of the minimum frequency to the maximum frequency to ensure symmetry of the spectrum
+                    pos = np.hstack([pos, np.conj(neg[0:1])])
+                frf_pad = np.hstack([pos, np.zeros((N - order // 2 * 2 - 1,), dtype=complex), neg])
+                irf_fine = np.fft.ifft(frf_pad)
+                # ensure imaginary part of interpolated IRF is zero
+                assert np.max(irf_fine.imag) <= np.finfo(np.float64).eps
+                irf_fine = irf_fine.real
+                dt_new = dur / N
+                irf_fine /= dt_new / dt
+                
+                logger.debug(f'IRF Integral {np.sum(fir_irf) * dt}, {np.sum(irf_fine) * dt_new}')
+                # zero-pad the IRF to achieve high-resolution FRF
+                irf_pad = np.zeros((N,))
+                irf_pad[:order] = fir_irf
+                frf_fine = np.fft.fft(irf_pad)
+                
+                
+                # convert to decibels
+                frf_fine = 20 * np.log10(abs(frf_fine))
+                # plot FRF and IRF
+                freq_ax.plot(np.fft.fftshift(np.fft.fftfreq(N, dt)),
+                             np.fft.fftshift(frf_fine), color='lightgrey', ls='dashed')
+                if tim_ax is not None:
+                    t = np.linspace(-dur / 2, dur / 2 - dt_new, N)
+                    tim_ax.plot(t, irf_fine, color='lightgrey', )
 
         if overwrite:
-            self.measurement = self.measurement_filt
+            self.measurement = measurement_filt
             if self.F is not None:
                 self.F = self.F_filt
-
-        return self.measurement_filt
-
-    def plot_data(
-            self,
+        self.measurement_filt = measurement_filt
+        
+        return measurement_filt
+    
+    @property
+    def duration(self):
+        return self.total_time_steps / self.sampling_rate
+    
+    @property
+    def dt(self):
+        return 1 / self.sampling_rate
+    
+    def plot_data(self,
             channels=None,
             single_channels=False,
-            f_max=None,
-            NFFT=512,
-            timescale='time'):
-
-        t = np.linspace(
-            start=0,
-            stop=self.total_time_steps /
-            self.sampling_rate,
-            num=self.total_time_steps)
+            timescale='time',
+            svd_spect=False,
+            axest=None,
+            axesf=None,
+            **kwargs):
+        
+        '''
+        Plot time domain and/or frequency domain signals in various configurations:
+         1. time history and spectrum of a single channel in two axes -> set channels = [channel] goto 2
+         2. time history of multiple channels (all channels or specified) -> generate axes and arrange them in a list for each channel
+             if axes argument not None, check size etc. should be an ndarray of size (num_channels, 2) regardless of the actual figure layout, put flattened axes list into columns
+             
+            a. time domain overlay in a single axes -> single axes is repeated in the axes list
+                i. spectrum overlay in a single axes -> single axes is repeated in the axes list
+                ii. svd spectrum in a single axes -> needs an additional argument
+            b. in multiple axes' in a grid figure -> axes are generated as subplots
+                i. spectrum in multiple axes' -> axes are generated as subplots
+                ii. svd spectrum in a single axes -> needs an additional argument
+        
+        Parameters
+        ----------
+            channels : int, list, tuple, np.ndarray
+                    The channels to plot
+            single_channels: bool
+                    Whether to plot all channels into a single or multiple axes
+            timescale: str ['time', 'samples']
+                    Whether to display time or sample values on the horizontal axes
+            svd_spect: bool
+                    Whether to plot an SVD spectrum or regular spectra
+            axest: ndarray of size num_channels of matplotlib.axes.Axes objects
+                    User provided axes objects, into which to plot time domain signals
+            axesf: ndarray of size num_channels of matplotlib.axes.Axes objects
+                    User provided axes objects, into which to plot spectra
+            **kwargs:
+                     should contain figure/axes formatting options
+            
+        '''
+        
         if timescale == 'samples':
-            t = np.linspace(
-                start=0,
-                stop=self.total_time_steps,
-                num=self.total_time_steps)
+            t = np.linspace(start=0,
+                            stop=self.total_time_steps,
+                            num=self.total_time_steps)
+        elif timescale == 'time':
+            t = np.linspace(start=0,
+                            stop=self.total_time_steps /self.sampling_rate,
+                            num=self.total_time_steps)
         else:
-            assert timescale == 'time'
+            raise ValueError(f'Type of timescale={timescale} could not be understood.')
 
         if channels is None:
             channels = list(range(self.num_analised_channels))
-
-        if single_channels:
-            fig, axes = plt.subplots(
-                nrows=len(channels), ncols=2, sharey='col', sharex='col', tight_layout=True)
         else:
-            fig, axes = plt.subplots(
-                nrows=2, ncols=1, squeeze=False, tight_layout=True)
-
-        for i, channel in enumerate(channels):
-            if not single_channels:
-                i = 0
-            axes[i, 0].plot(t, self.measurement[:, channel],
-                            alpha=.5, label=str(channel))
-            axes[i, 0].grid(True, axis='y', ls='dotted')
-        axes[-1, 0].set_xlabel('t [s]')
-        axes[-1, 0].set_ylabel('')
+            if isinstance(channels, int):
+                channels = [channels]
+            assert isinstance(channels, (list, tuple, np.ndarray))
+        
+        num_channels = len(channels)
+        
+        if axest is None or axesf is None:
+            if single_channels:
+                if not svd_spect:
+                    # creates a subplot with side by side time and frequency domain plots for each channel
+                    _, axes = plt.subplots(nrows=num_channels,
+                                           ncols=2,
+                                           sharey='col',
+                                           sharex='col',
+                                           tight_layout=True)
+                    if axest is None:
+                        axest = axes[:, 0]
+                    if axesf is None:
+                        axesf = axes[:, 1]
+                else:
+                    if axest is None:
+                        # creates a subplot for time domain plots of each channel
+                        nxn = int(np.ceil(np.sqrt(num_channels)))
+                        _, axest = plt.subplots(nrows=nxn,
+                                                ncols=nxn,
+                                                sharey=True,
+                                                sharex=True,
+                                                tight_layout=True)
+                        axest = axest.flatten()
+                    if axesf is None:
+                        # creates a separate figure for the svd spectrum
+                        _, axesf = plt.subplots(nrows=1,
+                                                ncols=1,
+                                                tight_layout=True)
+                        axesf = np.repeat(axesf, num_channels)
+            else:
+                if axest is None:
+                    # create a single figure for overlaying all time domain plots
+                    _, axest = plt.subplots(nrows=1,
+                                            ncols=1,
+                                            tight_layout=True)
+                    axest = np.repeat(axest, num_channels)
+                    
+                if axesf is None:
+                    # create a single figure for overlaying all spectra  or svd spectrum
+                    _, axesf = plt.subplots(nrows=1,
+                                            ncols=1,
+                                            tight_layout=True)
+                    axesf = np.repeat(axesf, num_channels)
+        
+        # Check the provided axes objects
+        if single_channels:
+            if len(axest) < num_channels:
+                raise ValueError(f'The number of provided axes objects '
+                                 '(time domain) = {len(axest} does not match the '
+                                 'number of channels={num_channels}')
+        if single_channels and not svd_spect:
+            if len(axesf) < num_channels:
+                raise ValueError(f'The number of provided axes objects '
+                                 '(frequency domain) = {len(axesf} does not match the '
+                                 'number of channels={num_channels}')
         if not single_channels:
-            axes[0, 0].set_xlabel('Time [\\si{\\second}]')
-            axes[0, 0].set_ylabel(
-                'Magnitude [\\si{\\metre\\per\\second\\squared}]')
-            axes[0, 0].set_ylim([-0.15, 0.15])
-            axes[0, 0].set_xlim([0, 1800])
-
-        if single_channels:
-            psd_mats, freqs = self.psd_welch(NFFT, False)
-            for i, channel in enumerate(channels):
-                axes[i, 1].plot(freqs, np.abs(
-                    psd_mats[channel, channel, :]), alpha=.5, label=str(channel))
-                axes[i, 1].grid(True, axis='x', ls='dotted')
-            axes[-1, 1].set_xlabel('f [Hz]')
-            axes[-1, 1].set_ylabel('')
-            axes[-1, 1].set_yscale('log')
+            if not isinstance(axest, (tuple, list, np.ndarray)):
+                axest = np.repeat(axest, num_channels)
+            elif len(axest) == 1:
+                axest = np.repeat(axest, num_channels)
+            elif len(axest) < num_channels:
+                raise ValueError(f'The number of provided axes objects '
+                                 '(time domain) = {len(axest} does not match the '
+                                 'number of channels={num_channels}')
+                
+        if not single_channels or svd_spect:
+            if not isinstance(axesf, (tuple, list, np.ndarray)):
+                axesf = np.repeat(axesf, num_channels)
+            elif len(axesf) == 1:
+                axesf = np.repeat(axesf, num_channels)
+            elif len(axesf) < num_channels:
+                raise ValueError(f'The number of provided axes objects '
+                                 '(frequency domain) = {len(axesf} does not match the '
+                                 'number of channels={num_channels}')
+        
+        f_max = kwargs.pop('f_max', False)
+        NFFT = kwargs.pop('NFFT', min(512, int(np.floor(0.5*self.total_time_steps))))
+        window = kwargs.pop('window', 'hamm')
+        psd_mats, freqs = self.psd_welch(NFFT, False, window)
+        #psd_mats, freqs = self.psd_blackman_tukey(NFFT)
+        auto_psd = np.diagonal(psd_mats)
+        
+        for axt, axf, channel in zip(axest, axesf, channels):
+            alpha = kwargs.pop('alpha', .5)
+            axt.plot(t, self.measurement[:, channel], alpha=alpha,
+                     label=self.channel_headers[channel], **kwargs)
+            axt.grid(True, axis='y', ls='dotted')
+            
+            if not svd_spect:
+                #normalize psd to match with filter response plots
+                this_psd = np.copy(auto_psd[:, channel])
+                factor = self.scaling_factors[channel, channel]
+                this_psd /= factor
+                
+                # compute RMS spectrum in decibel (factor 20 for RMS)
+                this_psd = 20 * np.log10(np.sqrt(np.abs(this_psd)))
+                axf.plot(freqs, this_psd, alpha=alpha,
+                         label=self.channel_headers[channel], **kwargs)
+                axf.grid(True, axis='x', ls='dotted')
+                #axf.set_yscale('log')
+        if svd_spect:
+            self.plot_svd_spectrum(NFFT, log_scale=True, ax=axesf[0])
             if f_max:
-                axes[-1, 1].set_xlim((0, f_max))
+                axesf[0].set_xlim((0, f_max))
+        
+        
+        # label the last axes (which  may be a single axes repeated multiple times)
+        axest[-1].set_xlabel('Time [\\si{\\second}]')
+        axest[-1].set_ylabel('Amplitude [\\si{\\metre\\per\\second\\squared}]')
+        axesf[-1].set_xlabel('Frequency [\\si{\\hertz}]')
+        axesf[-1].set_ylabel('Magnitude [\\si{\\decibel}]')
+        
+        if not single_channels:
+            axest[-1].legend()
+            axesf[-1].legend()
         else:
-            self.plot_svd_spectrum(NFFT, log_scale=True, ax=axes[1, 0])
-            axes[1, 0].set_ylim([-80, 0])
-            if f_max:
-                axes[1, 0].set_xlim((0, f_max))
-        # for ax in axes.flat:
-        #    ax.legend()
-
-        return fig
+            figt = axest[0].get_figure()
+            figt.legend()
+            figf = axesf[0].get_figure()
+            figf.legend()
+            
+        return axest, axesf
 
     def correct_offset(self, x=None):
         '''
@@ -1072,7 +1259,7 @@ class PreprocessData(object):
         by subtracting the average value of the x first measurements from every
         value
         '''
-        print('Correcting offset of measurements.')
+        logger.info('Correcting offset of measurements.')
         # print(self.measurement.mean(axis=0))
         self.measurement -= self.measurement.mean(axis=0)
         # print(self.measurement.mean(axis=0))
@@ -1113,11 +1300,11 @@ class PreprocessData(object):
         '''
 
         if highpass:
-            print(
+            logger.info(
                 'Decimating data with factor {} and additional highpass filtering at {}!'.format(
                     decimate_factor, highpass))
         else:
-            print('Decimating data with factor {}!'.format(decimate_factor))
+            logger.info('Decimating data with factor {}!'.format(decimate_factor))
 
         # input validation
         decimate_factor = abs(decimate_factor)
@@ -1143,10 +1330,8 @@ class PreprocessData(object):
 
         nyq = self.sampling_rate / 2
 
-        meas_decimated = self.filter_data(
-            lowpass=nyq *
-            0.8 /
-            decimate_factor,
+        meas_filtered = self.filter_data(
+            lowpass=nyq * 0.8 / decimate_factor,
             highpass=highpass,
             overwrite=False,
             order=order,
@@ -1155,7 +1340,18 @@ class PreprocessData(object):
             plot_filter=False)
 
         self.sampling_rate /= decimate_factor
-        meas_decimated = meas_decimated[slice(None, None, decimate_factor)]
+        meas_decimated = meas_filtered[slice(None, None, decimate_factor)]
+        
+        
+        N_dec = int(np.floor(self.total_time_steps / decimate_factor))
+        # ceil would also work, but breaks indexing for aliasing noise estimation
+        # with floor though, care must be taken to shorten the time domain signal to N_dec full blocks before slicing
+        #decimate signal
+        meas_decimated = np.copy(meas_filtered[:, 0:N_dec * decimate_factor:decimate_factor])
+        # correct for power loss due to decimation
+        # https://en.wikipedia.org/wiki/Downsampling_(signal_processing)#Anti-aliasing_filter
+        meas_decimated *= decimate_factor
+        
         if self.F is not None:
             F_decimated = self.F_filt[slice(None, None, decimate_factor)]
             self.F = F_decimated
@@ -1170,7 +1366,7 @@ class PreprocessData(object):
 
         '''
 
-        print("Estimating Correlation Function and Power Spectral Density by Welch's method...")
+        logger.info("Estimating Correlation Function and Power Spectral Density by Welch's method...")
 
         measurement = self.measurement
         sampling_rate = self.sampling_rate
@@ -1179,23 +1375,36 @@ class PreprocessData(object):
             num_ref_channels = self.num_ref_channels
         else:
             num_ref_channels = num_analised_channels
-
+        
+        if 2*n_lines > self.total_time_steps:
+            raise ValueError(f'Number of frequency lines {n_lines} must not be larger than half the number of timesteps {self.total_timesteps}')
+        
         psd_mats_shape = (num_analised_channels, num_ref_channels, n_lines + 1)
         psd_mats = np.zeros(psd_mats_shape, dtype=complex)
-
+        #now = time.time()
         for channel_1 in range(num_analised_channels):
             for channel_2 in range(num_ref_channels):
                 _, Pxy_den = scipy.signal.csd(measurement[:, channel_1], measurement[:, channel_2], sampling_rate,
                                               nperseg=2 * n_lines, window=window, scaling='spectrum', return_onesided=True)
+                #print(2*n_lines, Pxy_den.shape, measurement.shape)
                 Pxy_den *= n_lines
                 psd_mats[channel_1, channel_2, :] = Pxy_den
+                #then = time.time()
+                #print(f'{channel_1}, {channel_2}, ({then-now} s)')
+                #now = then
 
         freqs = np.fft.rfftfreq(2 * n_lines, 1 / sampling_rate)
 
+        if self.scaling_factors is None:
+            # obtain the scaling factors for the PSD which remain,
+            # even after filtering or any DSP other operation
+            self.scaling_factors = psd_mats.max(axis=2)
+        
         self.psd_mats = psd_mats
         self.freqs = freqs
         self.n_lines = n_lines
-
+        
+        
         return psd_mats, freqs
 
     def corr_welch(self, tau_max, window='hamming'):
@@ -1235,7 +1444,7 @@ class PreprocessData(object):
 
         '''
 
-        print("Estimating Correlation Function and Power Spectral Density by Blackman-Tukey's method...")
+        logger.info("Estimating Correlation Function and Power Spectral Density by Blackman-Tukey's method...")
 
         num_analised_channels = self.num_analised_channels
         num_ref_channels = self.num_ref_channels
@@ -1292,7 +1501,12 @@ class PreprocessData(object):
                 psd_mats[channel_1, channel_2, :] = fft
 
         freqs = np.fft.rfftfreq(2 * tau_max - 1, 1 / self.sampling_rate)
-
+        
+        if self.scaling_factors is None:
+            # obtain the scaling factors for the PSD which remain,
+            # even after filtering or any DSP other operation
+            self.scaling_factors = psd_mats.max(axis=2)
+            
         self.psd_mats = psd_mats
         self.freqs = freqs
         self.n_lines = tau_max
@@ -1300,7 +1514,7 @@ class PreprocessData(object):
         return psd_mats, freqs
 
     def welch(self, n_lines):
-        print("Estimating Correlation Function and Power Spectral Density by Welch's method...")
+        logger.info("Estimating Correlation Function and Power Spectral Density by Welch's method...")
 
         num_analised_channels = self.num_analised_channels
         num_ref_channels = self.num_ref_channels
@@ -1386,7 +1600,7 @@ class PreprocessData(object):
         i.e. blocks may not overlap and therefore for the higher lags, less samples
         are used for the estimation of the correlation
         '''
-        print('Computing Correlation Matrices with tau_max {}...'.format(tau_max))
+        logger.info('Computing Correlation Matrices with tau_max {}...'.format(tau_max))
         total_time_steps = self.total_time_steps
         num_analised_channels = self.num_analised_channels
         num_ref_channels = self.num_ref_channels
@@ -1563,7 +1777,7 @@ class PreprocessData(object):
         return np.sqrt(np.mean(np.square(self.measurement), axis=0))
 
     def add_noise(self, amplitude=0, snr=0):
-        print(
+        logger.info(
             'Adding Noise with Amplitude {} and {} percent RMS'.format(
                 amplitude,
                 snr *
@@ -1594,7 +1808,7 @@ class PreprocessData(object):
                 self.sum_ft = np.zeros(
                     (self.num_analised_channels, len(self.ft_freq)))
                 for i in range(len(self.ft_freq)):
-                    # might use only real parts of psd o account for slightly asynchronous data
+                    # might use only real parts of psd to account for slightly asynchronous data
                     # see [Au (2017): OMA, Chapter 7.5]
                     u, s, vt = np.linalg.svd(ft[:, :, i])
                     self.sum_ft[:, i] = 10 * np.log(s)
