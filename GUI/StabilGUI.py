@@ -9,7 +9,7 @@ import warnings
 from core.PreprocessingTools import PreprocessData
 from GUI.HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
 from GUI.PlotMSHGUI import ModeShapeGUI
-from core.StabilDiagram import StabilPlot, StabilCluster
+from core.StabilDiagram import StabilPlot, StabilCluster, DataCursor
 from core.PlotMSH import ModeShapePlot
 from core.ModalBase import ModalBase
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QObject, qInstallMessageHandler, QTimer, QEventLoop
@@ -33,7 +33,6 @@ from matplotlib import ticker
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.figure import Figure
-from matplotlib.widgets import Cursor
 import matplotlib.pyplot as plot
 
 plot.rc('figure', figsize=[8.5039399474194, 5.255723925793184], dpi=100,)
@@ -147,11 +146,6 @@ class StabilGUI(QMainWindow):
         self.canvas.setParent(main_frame)
 
         self.init_cursor()
-        self.cursor.show_current_info.connect(
-            self.update_value_view)
-        self.cursor.mode_selected.connect(self.mode_selector_add)
-        self.cursor.mode_deselected.connect(
-            self.mode_selector_take)
         main_layout = QHBoxLayout()
 
         left_pane_layout = QVBoxLayout()
@@ -250,7 +244,9 @@ class StabilGUI(QMainWindow):
         self.stabil_plot.fig.set_facecolor('none')
         self.setCentralWidget(main_frame)
         self.current_mode = (0, 0)
-
+        
+        self.stabil_calc.add_callback('add_mode', self.mode_selector_add)
+        self.stabil_calc.add_callback('remove_mode', self.mode_selector_take)
         return
 
     def create_buttons(self):
@@ -652,22 +648,30 @@ class StabilGUI(QMainWindow):
             self.cmpl_plot.hide()
 
     def init_cursor(self):
-        stabil_plot = self.stabil_plot
+        self.cursor = self.stabil_plot.init_cursor()
         #print(self.stabil_calc.select_modes, type(self.stabil_calc.select_modes))
-        self.cursor = DataCursor(
-            ax=stabil_plot.ax,
-            order_data=stabil_plot.stabil_calc.order_dummy,
-            f_data=stabil_plot.stabil_calc.masked_frequencies,
-            datalist=stabil_plot.stabil_calc.select_modes,
-            color='black')
-
-        stabil_plot.fig.canvas.mpl_connect(
-            'button_press_event', self.cursor.onmove)
-        stabil_plot.fig.canvas.mpl_connect(
-            'resize_event', self.cursor.fig_resized)
+        # self.cursor = DataCursor(
+        #     ax=stabil_plot.ax,
+        #     order_data=stabil_plot.stabil_calc.order_dummy,
+        #     f_data=stabil_plot.stabil_calc.masked_frequencies,
+        #     datalist=stabil_plot.stabil_calc.select_modes,
+        #     color='black', useblit=False)
+        #
+        #
+        # stabil_plot.fig.canvas.mpl_connect(
+        #     'button_press_event', self.cursor.onmove)
+        # stabil_plot.fig.canvas.mpl_connect(
+        #     'resize_event', self.cursor.fig_resized)
         # self.cursor.add_datapoints(self.stabil_calc.select_modes)
-        self.stabil_calc.select_callback = self.cursor.add_datapoint
+        # self.stabil_calc.select_callback = self.cursor.add_datapoint
 
+        self.cursor.add_callback('show_current_info', self.update_value_view)
+        # self.cursor.show_current_info.connect(
+        #     self.update_value_view)
+        #self.cursor.add_callback('mode_selected', self.mode_selector_add)
+        # self.cursor.mode_selected.connect(self.mode_selector_add)
+        #self.cursor.add_callback('mode_deselected', self.mode_selector_take)
+        #self.cursor.mode_deselected.connect(self.mode_selector_take)
     # @pyqtSlot(bool)
     def snap_frequency(self, b=True):
         if b:
@@ -1554,209 +1558,7 @@ class HistoPlot(QMainWindow):
         return True
 
 
-class DataCursor(Cursor, QObject):
-    # create and edit an instance of the matplotlib default Cursor widget
 
-    show_current_info = pyqtSignal(tuple)
-    mode_selected = pyqtSignal(tuple)
-    mode_deselected = pyqtSignal(tuple)
-
-    def __init__(
-            self,
-            ax,
-            order_data,
-            f_data,
-            mask=None,
-            useblit=True,
-            datalist=[],
-            **lineprops):
-
-        Cursor.__init__(self, ax, useblit=useblit, **lineprops)
-        QObject.__init__(self)
-        self.ax = ax
-
-        self.y = order_data
-        self.y.mask = np.ma.nomask
-
-        self.x = f_data
-        self.x.mask = np.ma.nomask
-
-        if mask is not None:
-            self.mask = mask
-        else:
-            self.mask = np.ma.nomask
-
-        self.name_mask = 'mask_stable'
-        self.i = None
-
-        # that list should eventually be replaced by a matplotlib.collections
-        # collection
-        self.scatter_objs = []
-
-        self.datalist = datalist
-        if datalist:
-            self.add_datapoints(datalist)
-
-        self.fig_resized()
-
-    def add_datapoint(self, datapoint):
-        datapoint = tuple(datapoint)
-        if datapoint not in self.datalist:
-            self.datalist.append(datapoint)
-        x, y = self.x[datapoint], self.y[datapoint]
-        # print(x,y)
-        self.scatter_objs.append(self.ax.scatter(
-            x, y, facecolors='none', edgecolors='red', s=200, visible=False))
-        self.mode_selected.emit(datapoint)
-
-    def add_datapoints(self, datalist):
-        # convenience function for add_datapoint
-        for datapoint in datalist:
-            self.add_datapoint(datapoint)
-
-    def remove_datapoint(self, datapoint):
-        datapoint = tuple(datapoint)
-        if datapoint in self.datalist:
-            ind = self.datalist.index(datapoint)
-            self.scatter_objs[ind].remove()
-            del self.scatter_objs[ind]
-            self.datalist.remove(datapoint)
-            self.mode_deselected.emit(datapoint)
-        else:
-            print(datapoint, 'not in self.datalist')
-
-    def remove_datapoints(self, datalist):
-        # convenience function for remove_datapoint
-        for datapoint in datalist:
-            self.remove_datapoint(datapoint)
-
-    def set_mask(self, mask, name):
-        self.mask = mask
-        self.fig_resized()
-        self.name_mask = name
-
-    def fig_resized(self, event=None):
-        #self.background = self.ax.figure.canvas.copy_from_bbox(self.ax.figure.bbox)
-
-        if event is not None:
-            self.width, self.height = event.width, event.height
-        else:
-            self.width, self.height = self.ax.get_figure(
-            ).canvas.get_width_height()
-
-        self.xpix, self.ypix = self.ax.transData.transform(
-            np.vstack([self.x.flatten(), self.y.flatten()]).T).T
-
-        self.xpix.shape = self.x.shape
-        self.xpix.mask = self.mask
-
-        self.ypix.shape = self.y.shape
-        self.ypix.mask = self.mask
-
-    def onmove(self, event):
-        if self.ignore(event):
-            return
-        '''
-        1. Override event.data to force it to snap-to nearest data item
-        2. On a mouse-click, select the data item and append it to a list of selected items
-        3. The second mouse-click on a previously selected item, removes it from the list
-        '''
-        if (self.xpix.mask).all():  # i.e. no stable poles
-            return
-
-        if event.name == "motion_notify_event":
-
-            # get cursor coordinates
-            xdata = event.xdata
-            ydata = event.ydata
-
-            if xdata is None or ydata is None:
-                return
-
-            xData_yData_pixels = self.ax.transData.transform(
-                np.vstack([xdata, ydata]).T)
-
-            xdata_pix, ydata_pix = xData_yData_pixels.T
-
-            self.fig_resized()
-
-            self.i = self.findIndexNearestXY(xdata_pix[0], ydata_pix[0])
-            xnew, ynew = self.x[self.i], self.y[self.i]
-
-            if xdata == xnew and ydata == ynew:
-                return
-
-            # set the cursor and draw
-            event.xdata = xnew
-            event.ydata = ynew
-
-            self.show_current_info.emit(self.i)
-
-        # select item by mouse-click only if the cursor is active and in the
-        # main plot
-        if event.name == "button_press_event" and event.inaxes == self.ax and self.i is not None:
-
-            if self.i not in self.datalist:
-                # self.linev.set_visible(False)
-                # self.lineh.set_visible(False)
-                #self.background = self.ax.figure.canvas.copy_from_bbox(self.ax.figure.bbox)
-                self.datalist.append(self.i)
-                # self.ax.hold(True) # overlay plots
-                # plot a circle where clicked
-                self.scatter_objs.append(self.ax.scatter(self.x[self.i], self.y[
-                                         self.i], facecolors='none', edgecolors='red', s=200, visible=False))
-                self.mode_selected.emit(self.i)
-                # self.ax.draw_artist(self.scatter_objs[-1])
-
-            else:
-                ind = self.datalist.index(self.i)
-                self.scatter_objs[ind].remove()
-                del self.scatter_objs[ind]
-                self.datalist.remove(self.i)
-                self.mode_deselected.emit(self.i)
-
-            # self.ax.figure.canvas.restore_region(self.background)
-            # self.ax.figure.canvas.blit(self.ax.figure.bbox)
-
-            self.i = None
-
-        Cursor.onmove(self, event)
-        #for scatter in self.scatter_objs: scatter.set_visible(False)
-
-    def _update(self):
-
-        if self.useblit:
-            if self.background is not None:
-                self.canvas.restore_region(self.background)
-            for scatter in self.scatter_objs:
-                scatter.set_visible(True)
-                self.ax.draw_artist(scatter)
-                scatter.set_visible(False)
-            self.ax.draw_artist(self.linev)
-            self.ax.draw_artist(self.lineh)
-            self.canvas.blit(self.ax.bbox)
-        else:
-
-            self.canvas.draw_idle()
-
-        return False
-
-    def findIndexNearestXY(self, x_point, y_point):
-        '''
-        Finds the nearest neighbour
-
-        .. TODO::
-            currently a very inefficient brute force implementation
-            should be replaced by e.g. a k-d-tree nearest neighbour search
-            `https://en.wikipedia.org/wiki/K-d_tree`
-
-        '''
-
-        distance = np.square(
-            self.ypix - y_point) + np.square(self.xpix - x_point)
-        index = np.argmin(distance)
-        index = np.unravel_index(index, distance.shape)
-        return index
 
 
 def nearly_equal(a, b, sig_fig=5):
@@ -1803,7 +1605,7 @@ def start_stabil_gui(
     # qInstallMessageHandler(handler) #suppress unimportant error msg
 
     stabil_gui = StabilGUI(stabil_plot, cmpl_plot, msh_plot)
-    stabil_gui.cursor.add_datapoints(select_modes)
+    # stabil_gui.cursor.add_datapoints(select_modes)
     loop = QEventLoop()
     stabil_gui.destroyed.connect(loop.quit)
     loop.exec_()

@@ -34,14 +34,15 @@ from random import shuffle
 
 import matplotlib
 # check if python is running in headless mode i.e. as a server script
-if 'DISPLAY' in os.environ:
-    matplotlib.use("Qt5Agg", force=True)
+# if 'DISPLAY' in os.environ:
+#     matplotlib.use("Qt5Agg", force=True)
 from matplotlib import rcParams
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.figure import Figure
 from matplotlib.text import TextPath, FontProperties
 from matplotlib.path import Path
 from matplotlib.markers import MarkerStyle
+from matplotlib.widgets import Cursor
 import matplotlib.cm
 import matplotlib.pyplot as plot
 
@@ -147,10 +148,32 @@ class StabilCalc(object):
         self.select_modes = []
         self.select_callback = None
         self.state = 0
+        
+        
+        self.order_range = (0, 1, self.modal_data.max_model_order)
+        self.d_range = (0, 100)    
+        self.stdf_max = 100    
+        self.stdd_max = 100    
+        self.mpc_min = 0    
+        self.mpd_max = 90    
+        self.mtn_min = 0    
+        self.df_max = 0.01    
+        self.dd_max = 0.05    
+        self.dmac_max = 0.02    
+        self.dev_min = 0.02    
+        self.dmtn_min = 0.02    
+        self.MC_min = 0
 
         # print(self.capabilities)
         # self.calculate_soft_critera_matrices()
-
+        
+        self.callbacks = {'add_mode':lambda *args,**kwargs: None,
+                  'remove_mode':lambda *args,**kwargs: None,}
+        
+    def add_callback(self, name, func):
+        assert name in ['add_mode', 'remove_mode']
+        self.callbacks[name] = func
+        
     def calculate_soft_critera_matrices(self):
         print('Checking stabilisation criteria...')
 
@@ -1004,7 +1027,25 @@ class StabilCalc(object):
         assert i[0] <= self.modal_data.max_model_order
         assert i[1] <= self.num_solutions
         return self.modal_data.mode_shapes[:, i[1], i[0]]
-
+    
+    def add_mode(self, mode_ind):
+        if mode_ind not in self.select_modes:
+            self.select_modes.append(mode_ind)
+        
+        self.callbacks['add_mode'](mode_ind)
+                
+        return self.select_modes.index(mode_ind)
+    
+    def remove_mode(self, mode_ind):
+        if mode_ind in self.select_modes:
+            list_ind = self.select_modes.index(mode_ind)
+            del self.select_modes[list_ind]
+            self.callbacks['remove_mode'](mode_ind)
+            return list_ind
+        else:
+            logger.warning(f'{datapoint} not in self.select_modes')
+            return None
+    
     def save_state(self, fname):
 
         print('Saving results to  {}...'.format(fname))
@@ -1906,7 +1947,7 @@ class StabilCluster(StabilCalc):
 
 class StabilPlot(object):
 
-    def __init__(self, stabil_calc):
+    def __init__(self, stabil_calc, fig=None):
         '''
         stab_* in %
         '''
@@ -1914,14 +1955,17 @@ class StabilPlot(object):
 
         assert isinstance(stabil_calc, StabilCalc)
         self.stabil_calc = stabil_calc
-
-        self.fig = Figure(facecolor='white', dpi=100, figsize=(16, 12))
-        self.fig.set_tight_layout(True)
+        if fig is None:
+            self.fig = Figure(facecolor='white')#, dpi=100, figsize=(16, 12))
+            self.fig.set_tight_layout(True)
+            canvas = FigureCanvasBase(self.fig)
+        else:
+            self.fig = fig
+            
         self.ax = self.fig.add_subplot(111)
 
 #         self.ax2 = self.ax.twinx()
 
-        canvas = FigureCanvasBase(self.fig)
 
         # if self.fig.canvas:
         if False:
@@ -2062,17 +2106,32 @@ class StabilPlot(object):
         self.sizes = {key: 30 for key in self.labels.keys()}
 
         self.prepare_diagram()
+        
+        
+        
+        # that list should eventually be replaced by a matplotlib.collections
+        # collection
+        self.scatter_objs = [None for _ in self.stabil_calc.select_modes]
+        
+        if stabil_calc.select_modes:
+            self.add_modes(self.stabil_calc.select_modes)
 
-#     def init_cursor(self):
-#         #print(self.stabil_calc.select_modes, type(self.stabil_calc.select_modes))
-#         self.cursor = DataCursor(ax=self.ax, order_data=self.stabil_calc.order_dummy,
-#                                  f_data=self.stabil_calc.masked_frequencies, datalist=self.stabil_calc.select_modes,
-#                                  color='black')
-#
-#         self.fig.canvas.mpl_connect('button_press_event', self.cursor.onmove)
-#         self.fig.canvas.mpl_connect('resize_event', self.cursor.fig_resized)
-#         # self.cursor.add_datapoints(self.stabil_calc.select_modes)
-#         self.stabil_calc.select_callback = self.cursor.add_datapoint
+    def init_cursor(self, visible=True):
+        
+        self.cursor = DataCursor(
+            ax=self.ax,
+            horizOn=visible, vertOn=visible,
+            order_data=self.stabil_calc.order_dummy,
+            f_data=self.stabil_calc.masked_frequencies,
+            datalist=self.stabil_calc.select_modes,
+            color='black', useblit=True)
+        
+        self.fig.canvas.mpl_connect(
+            'button_press_event', self.mode_selected)
+        self.fig.canvas.mpl_connect(
+            'resize_event', self.cursor.fig_resized)
+        
+        return self.cursor
 
     def prepare_diagram(self):
 
@@ -2525,7 +2584,8 @@ class StabilPlot(object):
             return
         plot_obj.set_visible(b)
         self.fig.canvas.draw_idle()
-
+           
+    
     def save_figure(self, fname=None):
 
         startpath = rcParams.get('savefig.directory', '')
@@ -2540,653 +2600,359 @@ class StabilPlot(object):
                 # save dir for next time
                 rcParams['savefig.directory'] = os.path.dirname(str(fname))
             try:
-                scatter_objs = []
-                ord_mask = self.stabil_calc.order_dummy.mask
-                self.stabil_calc.order_dummy.mask = np.ma.nomask
-                f_mask = self.stabil_calc.masked_frequencies.mask
-                self.stabil_calc.masked_frequencies.mask = np.ma.nomask
-
-                for mode in self.stabil_calc.select_modes:
-                    mode = tuple(mode)
-                    y, x = self.stabil_calc.order_dummy[
-                        mode], self.stabil_calc.masked_frequencies[mode]
-                    # print(x,y)
-                    scatter_objs.append(
-                        self.ax.scatter(
-                            x,
-                            y,
-                            facecolors='none',
-                            edgecolors='red',
-                            s=200,
-                            visible=True))
-
-                self.stabil_calc.order_dummy.mask = ord_mask
-                self.stabil_calc.masked_frequencies.mask = f_mask
-
-                text = self.ax.annotate(str(self.stabil_calc.start_time), xy=(
-                    0.85, 0.99), xycoords='figure fraction')
+                # scatter_objs = []
+                # ord_mask = self.stabil_calc.order_dummy.mask
+                # self.stabil_calc.order_dummy.mask = np.ma.nomask
+                # f_mask = self.stabil_calc.masked_frequencies.mask
+                # self.stabil_calc.masked_frequencies.mask = np.ma.nomask
+                #
+                # for mode in self.stabil_calc.select_modes:
+                #     mode = tuple(mode)
+                #     y, x = self.stabil_calc.order_dummy[
+                #         mode], self.stabil_calc.masked_frequencies[mode]
+                #     # print(x,y)
+                #     scatter_objs.append(
+                #         self.ax.scatter(
+                #             x,
+                #             y,
+                #             facecolors='none',
+                #             edgecolors='red',
+                #             s=200,
+                #             visible=True))
+                #
+                # self.stabil_calc.order_dummy.mask = ord_mask
+                # self.stabil_calc.masked_frequencies.mask = f_mask
+                #
+                # text = self.ax.annotate(str(self.stabil_calc.start_time), xy=(
+                #     0.85, 0.99), xycoords='figure fraction')
 
                 self.fig.canvas.print_figure(str(fname))
 
-                text.remove()
-
-                for scatter_obj in scatter_objs:
-                    scatter_obj.remove()
-                del scatter_objs
+                # text.remove()
+                #
+                # for scatter_obj in scatter_objs:
+                #     scatter_obj.remove()
+                # del scatter_objs
 
             except Exception as e:
                 import traceback
                 traceback.print_exc()
+    
+    def mode_selected(self, event):
+        '''
+        connect this function to the button press event of the canvas
+        
+        '''
 
+        if event.name == "button_press_event" and event.inaxes == self.ax:        
+            
+            # Check if in zooming or panning mode; credit: https://stackoverflow.com/questions/48446351/
+            zooming_panning = False
+            try: # Qt Backend
+                zooming_panning = ( self.fig.canvas.cursor().shape() != 0 ) # 0 is the arrow, which means we are not zooming or panning.
+            except: pass
+            try: # nbAgg Backend
+                zooming_panning = str(self.fig.canvas.toolbar.cursor) != 'Cursors.POINTER'
+            except: pass
+            if zooming_panning:
+                logger.debug('In zooming or panning mode')
+                return
+            
+            ind = self.cursor.i
+            if ind is None:
+                logger.warning('Empty mode index for the button_press_event. Ensure cursor is working.')
+                return
+            if ind not in self.stabil_calc.select_modes:
+                self.add_mode(ind)
+            else:
+                self.remove_mode(ind)
+        
 
-# class ComplexPlot(QMainWindow):
-#
-#     def __init__(self):
-#
-#         QMainWindow.__init__(self)
-#         self.setWindowTitle('Modeshapeplot in complex plane')
-#         self.setGeometry(300, 300, 1000, 600)
-#         main_frame = QWidget()
-#         vbox = QVBoxLayout()
-#
-#         self.fig = Figure(facecolor='white', dpi=100, figsize=(4,4))
-#         self.canvas = FigureCanvasQTAgg(self.fig)
-#         #self.canvas.setParent(main_frame)
-#
-#         vbox.addWidget(self.canvas,10,Qt.AlignCenter)
-#         main_frame.setLayout(vbox)
-#
-#         self.setCentralWidget(main_frame)
-#         #self.show()
-#
-#     def scatter_this(self, msh, mp=None):
-#
-#         self.ax.cla()
-#         self.ax.scatter(msh.real, msh.imag)
-#
-#         if mp is not None:
-#             while mp < 0:
-#                 mp += 180
-#             while mp > 360:
-#                 mp -= 360
-#             mp = mp * np.pi / 180
-#             xmin, xmax = -1, 1
-#             ymin, ymax = -1, 1
-#             if mp <= np.pi / 2:
-#                 x1 = max(xmin, ymin / np.tan(mp))
-#                 x2 = min(xmax, ymax / np.tan(mp))
-#                 y1 = max(ymin, xmin * np.tan(mp))
-#                 y2 = min(ymax, xmax * np.tan(mp))
-#             elif mp <= np.pi:
-#                 x1 = max(xmin, ymax / np.tan(mp))
-#                 x2 = min(xmax, ymin / np.tan(mp))
-#                 y2 = max(ymin, xmax * np.tan(mp))
-#                 y1 = min(ymax, xmin * np.tan(mp))
-#             elif mp <= 3 * np.pi / 2:
-#                 x1 = max(xmin, ymin / np.tan(mp))
-#                 x2 = min(xmax, ymax / np.tan(mp))
-#                 y1 = max(ymin, xmin * np.tan(mp))
-#                 y2 = min(ymax, xmax * np.tan(mp))
-#             else:
-#                 x1 = max(xmin, ymax / np.tan(mp))
-#                 x2 = min(xmax, ymin / np.tan(mp))
-#                 y2 = max(ymin, xmax * np.tan(mp))
-#                 y1 = min(ymax, xmin * np.tan(mp))
-#             self.ax.plot([x1, x2], [y1, y2])
-#         lim = max(max(abs(msh.real)) * 1.1, max(abs(msh.imag)) * 1.1)
-#         self.ax.set_xlim((-lim, lim))
-#         self.ax.set_ylim((-lim, lim))
-#         self.ax.spines['left'].set_position(('data', 0))
-#         self.ax.spines['bottom'].set_position(('data', 0))
-#         self.ax.spines['right'].set_position(('data', 0 - 1))
-#         self.ax.spines['top'].set_position(('data', 0 - 1))
-#
-#         # Hide the line (but not ticks) for "extra" spines
-#         for side in ['right', 'top']:
-#             self.ax.spines[side].set_color('none')
-#
-#         # On both the x and y axes...
-#         for axis, center in zip([self.ax.xaxis, self.ax.yaxis], [0, 0]):
-#             axis.set_minor_locator(ticker.NullLocator())
-#             axis.set_major_formatter(ticker.NullFormatter())
-#
-#         self.fig.canvas.draw_idle()
-#
-#     def plot_diagram(self):
-#
-#         self.fig.set_tight_layout(True)
-#         self.ax = self.fig.add_subplot(111)
-#         self.ax.autoscale_view(tight=True)
-#         # Set the axis's spines to be centered at the given point
-#         # (Setting all 4 spines so that the tick marks go in both directions)
-#         self.ax.spines['left'].set_position(('data', 0))
-#         self.ax.spines['bottom'].set_position(('data', 0))
-#         self.ax.spines['right'].set_position(('data', 0 - 1))
-#         self.ax.spines['top'].set_position(('data', 0 - 1))
-#
-#         self.ax.xaxis.set_label('Re')
-#         self.ax.yaxis.set_label('Im')
-#
-#         # Hide the line (but not ticks) for "extra" spines
-#         for side in ['right', 'top']:
-#             self.ax.spines[side].set_color('none')
-#
-#         # On both the x and y axes...
-#         for axis, center in zip([self.ax.xaxis, self.ax.yaxis], [0, 0]):
-#             axis.set_minor_locator(ticker.NullLocator())
-#             axis.set_major_formatter(ticker.NullFormatter())
-#         self.fig.canvas.draw_idle()
+    def add_mode(self, datapoint):
+        datapoint = tuple(datapoint)
+        list_ind = self.stabil_calc.add_mode(datapoint)
 
+        if len(self.scatter_objs)<= list_ind:
+            self.scatter_objs.append(None)
+        if self.scatter_objs[list_ind] is not None:
+            self.scatter_objs[list_ind].remove()
+        
+        x = self.stabil_calc.masked_frequencies[datapoint]
+        y = self.stabil_calc.order_dummy[datapoint]
+        
+        # x, y = self.x[datapoint], self.y[datapoint]
+        self.scatter_objs[list_ind] = self.ax.scatter(
+            x, y, facecolors='none', edgecolors='red', s=200, visible=True, zorder=3)
+        
+        # TODO:: improve Performance by blitting the scatter_objs
+        if False: 
+        #if self.useblit:
+            if self.background is not None:
+                self.fig.canvas.restore_region(self.background)
+            for scatter in self.scatter_objs:
+                scatter.set_visible(True)
+                self.ax.draw_artist(scatter)
+                scatter.set_visible(False)
+            self.ax.draw_artist(self.linev)
+            self.ax.draw_artist(self.lineh)
+            self.fig.canvas.blit(self.ax.bbox)
+        else:
+            # for scatter in self.scatter_objs:
+            #     scatter.set_visible(True)
+            self.fig.canvas.draw()
+        
+        
+    def add_modes(self, datalist):
+        # convenience function for add_datapoint
+        for datapoint in datalist:
+            self.add_mode(datapoint)
 
-# class ModeShapePlot(object):
-#
-#     def __init__(self, stabil_calc, modal_data, geometry_data, prep_data,**kwargs):
-#
-#         #print(kwargs)
-#         super().__init__()
-#
-#         self.mode_shape_plot = ModeShapePlot(
-#             stabil_calc=stabil_calc,
-#             modal_data=modal_data,
-#             geometry_data=geometry_data,
-#             prep_data=prep_data,
-#             amplitude=20,
-#             linewidth=0.5,
-#             #callback_fun=print_mode_info
-#             **kwargs)
-#         self.mode_shape_plot.show_axis = False
-#         # self.mode_shape_plot.draw_nodes()
-#         self.mode_shape_plot.draw_lines()
-#         # self.mode_shape_plot.draw_master_slaves()
-#         # self.mode_shape_plot.draw_chan_dofs()
-#
-#         self.fig = self.mode_shape_plot.fig
-#         self.fig.set_size_inches((2, 2))
-#         self.canvas = self.fig.canvas.switch_backends(FigureCanvasQTAgg)
-#         self.mode_shape_plot.canvas = self.canvas
-#         self.fig.get_axes()[0].mouse_init()
-#         #self.canvas = self.mode_shape_plot.canvas
-#
-#         for axis in [self.mode_shape_plot.subplot.xaxis, self.mode_shape_plot.subplot.yaxis, self.mode_shape_plot.subplot.zaxis]:
-#             axis.set_minor_locator(ticker.NullLocator())
-#             axis.set_major_formatter(ticker.NullFormatter())
-#         self.mode_shape_plot.animate()
-#
-#
-#
-#     def plot_this(self, index):
-#         #self.mode_shape_plot.stop_ani()
-#         self.mode_shape_plot.change_mode(mode_index=index)
-#         #self.mode_shape_plot.animate()
+    def remove_mode(self, datapoint):
+        datapoint = tuple(datapoint)
+        list_ind = self.stabil_calc.remove_mode(datapoint)
+        
+        if list_ind is not None:            
+            self.scatter_objs[list_ind].remove()
+            del self.scatter_objs[list_ind]
+            self.fig.canvas.draw()
+            
+    def remove_modes(self, datalist):
+        # convenience function for remove_datapoint
+        for datapoint in datalist:
+            self.remove_mode(datapoint)
 
+class DataCursor(Cursor):
+    # create and edit an instance of the matplotlib default Cursor widget
 
-# class MyMplCanvas(FigureCanvasQTAgg):
-#     """Ultimately, this is a QWidget (as well as a FigureCanvasAgg, etc.)."""
-#
-#     def __init__(self, parent=None, width=5, height=2.5, dpi=100):
-#         fig = Figure(figsize=(width, height), dpi=dpi)
-#         self.axes = fig.add_subplot(111)
-#         # We want the axes cleared every time plot() is called
-#         self.axes.hold(True)
-#
-#         self.compute_initial_figure()
-#
-#         #
-#         FigureCanvasQTAgg.__init__(self, fig)
-#         self.setParent(parent)
-#
-#         FigureCanvasQTAgg.setSizePolicy(self,
-#                                         QSizePolicy.Expanding,
-#                                         QSizePolicy.Expanding)
-#         FigureCanvasQTAgg.updateGeometry(self)
-#
-#     def compute_initial_figure(self):
-#         pass
+    #show_current_info = pyqtSignal(tuple)
+    #mode_selected = pyqtSignal(tuple)
+    #mode_deselected = pyqtSignal(tuple)
 
+    def __init__(
+            self,
+            ax,
+            order_data,
+            f_data,
+            mask=None,
+            useblit=True,
+            datalist=[],
+            **lineprops):
 
-# class HistoPlot(QMainWindow):
-#
-#     def __init__(self, all_data, stabil_data, title='', ranges=None, select_ranges=[None], select_callback=[None]):
-#         QMainWindow.__init__(self)
-#         self.setAttribute(Qt.WA_DeleteOnClose)
-#         self.setWindowTitle(title)
-#
-#         self.main_widget = QWidget(self)
-#
-#         l = QVBoxLayout(self.main_widget)
-#         sc = MyMplCanvas(self.main_widget, width=5, height=2.5, dpi=100)
-#         l.addWidget(sc)
-#         m = QHBoxLayout()
-#         m.addWidget(QLabel('min'))
-#
-#         if ranges is None:
-#             ranges = (all_data.min(), all_data.max())
-#
-#         step = (ranges[1] - ranges[0]) / 50
-#         self.lrange = DelayedDoubleSpinBox(decimals=8, singleStep=step)
-#         self.lrange.setValue(ranges[0])
-#         self.lrange.valueChangedDelayed.connect(self.update_range)
-#         m.addWidget(self.lrange)
-#
-#         m.addWidget(QLabel('max'))
-#         self.urange = DelayedDoubleSpinBox(decimals=8, singleStep=step)
-#         self.urange.setValue(ranges[1])
-#         self.urange.valueChangedDelayed.connect(self.update_range)
-#         m.addWidget(self.urange)
-#         l.addLayout(m)
-#
-#         self.axes = sc.axes
-#         self.main_widget.setFocus()
-#         self.setCentralWidget(self.main_widget)
-#         self.all_data = np.copy(all_data)
-#         self.stabil_data = np.copy(stabil_data)
-#
-#         self.all_patches = None
-#         self.stabil_patches = None
-#         self.ranges = None
-#         self.visible=True
-#         self.select_ranges = select_ranges
-#         self.select_callback = select_callback
-#         self.selector_lines = []
-#         #print('here in hist')
-#         self.update_range()
-#
-#     def update_range(self, *args):
-#         self.ranges = (self.lrange.value(), self.urange.value())
-#         # print(self.ranges)
-#         if self.ranges[0] >= self.ranges[1]:
-#             return
-#         if self.all_patches:
-#             for patch in self.all_patches:
-#                 patch.remove()
-#         n, self.bins, self.all_patches = self.axes.hist(
-#             self.all_data, bins=50, color='blue', range=self.ranges)
-#         self.axes.set_xlim(self.ranges)
-#         self.axes.set_ylim((0, max(n) * 1.1))
-#         self.axes.set_yticks([])
-#         if self.select_callback[0] is not None and (self.select_ranges[0] is not None or self.select_ranges[1] is not None) and not self.selector_lines:
-#             for val in self.select_ranges:
-#                 if val is None:
-#                     self.selector_lines.append(None)
-#                 else:
-#                     line = self.axes.axvline(val, picker=5, color='red')
-#                     # print(line)
-#                     self.selector_lines.append(line)
-#             self.axes.figure.canvas.mpl_connect(
-#                 'pick_event', self.on_pick_event)
-#             self.axes.figure.canvas.mpl_connect(
-#                 "button_release_event", self.on_release_event)
-#             self.axes.figure.canvas.mpl_connect(
-#                 "motion_notify_event", self.on_move_event)
-#             self.dragged = None
-#
-#         self.update_histo(self.stabil_data)
-#
-#     def update_histo(self, stabil_data, select_ranges=None):
-#         self.stabil_data = np.copy(stabil_data)
-#
-#         if self.stabil_patches:
-#             for patch in self.stabil_patches:
-#                 patch.remove()
-#
-#         _, _, self.stabil_patches = self.axes.hist(
-#             stabil_data, bins=self.bins, color='orange')
-#         if self.selector_lines and select_ranges is not None:
-#
-#             # self.axes.figure.canvas.mpl_disconnect(self.connect_cid)
-#             for val, line in zip(select_ranges, self.selector_lines):
-#                 if line is None:
-#                     continue
-#                 line.set_xdata(val)
-#         self.axes.figure.canvas.draw_idle()
-#
-#     def closeEvent(self, e):
-#         self.visible = False
-#         e.ignore()
-#         self.hide()
-#
-#     def on_pick_event(self, event):
-#
-#         self.dragged = event.artist
-#         self.pick_pos = (event.mouseevent.xdata, event.mouseevent.ydata)
-#
-#         return True
-#
-#     def on_release_event(self, event):
-#         " Update text position and redraw"
-#
-#         if self.dragged is not None:
-#             xdata = event.xdata
-#             if not xdata:
-#                 return False
-#             #old_pos = self.dragged.get_xdata()
-#             #new_pos = old_pos[0] + event.xdata - self.pick_pos[0]
-#             self.dragged.set_xdata(xdata)
-#             #print(self.dragged.get_xdata(), event.xdata)
-#             ind = self.selector_lines.index(self.dragged)
-#             self.select_callback[ind](xdata)
-#
-#             if len(self.selector_lines) == 1:
-#                 self.urange.setValue(xdata * 2)
-#                 self.urange.delayed_emit()
-#             elif len(self.selector_lines) == 2:
-#                 delta_x = (self.ranges[0 if ind == 1 else 1] - xdata) / 2
-#                 [self.lrange, self.urange][ind].setValue(xdata - delta_x)
-#                 [self.lrange, self.urange][ind].delayed_emit()
-#
-#             self.dragged = None
-#             self.axes.figure.canvas.draw_idle()
-#         return True
-#
-#     def on_move_event(self, event):
-#         " Update text position and redraw"
-#
-#         if self.dragged is not None:
-#             #old_pos = self.dragged.get_xdata()
-#             #new_pos = old_pos[0] + event.xdata - self.pick_pos[0]
-#             self.dragged.set_xdata(event.xdata)
-#             #print(self.dragged.get_xdata(), event.xdata)
-#             #self.dragged = None
-#             self.axes.figure.canvas.draw_idle()
-#         return True
+        Cursor.__init__(self, ax, useblit=useblit, **lineprops)
+        #QObject.__init__(self)
+        self.callbacks = {'show_current_info':lambda *args,**kwargs: None, 
+                          'mode_selected':lambda *args,**kwargs: None,
+                          'mode_deselected':lambda *args,**kwargs: None,}
+        self.ax = ax
 
+        self.y = order_data
+        self.y.mask = np.ma.nomask
 
-# class DataCursor(Cursor, QObject):
-#     # create and edit an instance of the matplotlib default Cursor widget
-#
-#     show_current_info = pyqtSignal(tuple)
-#     mode_selected = pyqtSignal(tuple)
-#     mode_deselected = pyqtSignal(tuple)
-#
-#     def __init__(self, ax, order_data, f_data, mask=None,  useblit=True, datalist=[], **lineprops):
-#
-#         Cursor.__init__(self, ax, useblit=useblit, **lineprops)
-#         QObject.__init__(self)
-#         self.ax = ax
-#
-#         self.y = order_data
-#         self.y.mask = np.ma.nomask
-#
-#         self.x = f_data
-#         self.x.mask = np.ma.nomask
-#
-#         if mask is not None:
-#             self.mask = mask
-#         else:
-#             self.mask = np.ma.nomask
-#
-#         self.name_mask = 'mask_stable'
-#         self.i = None
-#
-#         # that list should eventually be replaced by a matplotlib.collections
-#         # collection
-#         self.scatter_objs = []
-#
-#         self.datalist = datalist
-#         if datalist:
-#             self.add_datapoints(datalist)
-#
-#         self.fig_resized()
-#
-#     def add_datapoint(self, datapoint):
-#         datapoint = tuple(datapoint)
-#         if datapoint not in self.datalist:
-#             self.datalist.append(datapoint)
-#         x, y = self.x[datapoint], self.y[datapoint]
-#         #print(x,y)
-#         self.scatter_objs.append(self.ax.scatter(
-#             x, y, facecolors='none', edgecolors='red', s=200, visible=False))
-#         self.mode_selected.emit(datapoint)
-#
-#     def add_datapoints(self, datalist):
-#         # convenience function for add_datapoint
-#         for datapoint in datalist:
-#             self.add_datapoint(datapoint)
-#
-#     def remove_datapoint(self, datapoint):
-#         datapoint = tuple(datapoint)
-#         if datapoint in self.datalist:
-#             ind = self.datalist.index(datapoint)
-#             self.scatter_objs[ind].remove()
-#             del self.scatter_objs[ind]
-#             self.datalist.remove(datapoint)
-#             self.mode_deselected.emit(datapoint)
-#         else:
-#             print(datapoint, 'not in self.datalist')
-#
-#     def remove_datapoints(self, datalist):
-#         # convenience function for remove_datapoint
-#         for datapoint in datalist:
-#             self.remove_datapoint(datapoint)
-#
-#     def set_mask(self, mask, name):
-#         self.mask = mask
-#         self.fig_resized()
-#         self.name_mask = name
-#
-#     def fig_resized(self, event=None):
-#         #self.background = self.ax.figure.canvas.copy_from_bbox(self.ax.figure.bbox)
-#
-#         if event is not None:
-#             self.width, self.height = event.width, event.height
-#         else:
-#             self.width, self.height = self.ax.get_figure(
-#             ).canvas.get_width_height()
-#
-#         self.xpix, self.ypix = self.ax.transData.transform(
-#             np.vstack([self.x.flatten(), self.y.flatten()]).T).T
-#
-#         self.xpix.shape = self.x.shape
-#         self.xpix.mask = self.mask
-#
-#         self.ypix.shape = self.y.shape
-#         self.ypix.mask = self.mask
-#
-#     def onmove(self, event):
-#         if self.ignore(event):
-#             return
-#         '''
-#         1. Override event.data to force it to snap-to nearest data item
-#         2. On a mouse-click, select the data item and append it to a list of selected items
-#         3. The second mouse-click on a previously selected item, removes it from the list
-#         '''
-#         if (self.xpix.mask == True).all():  # i.e. no stable poles
-#             return
-#
-#         if event.name == "motion_notify_event":
-#
-#             # get cursor coordinates
-#             xdata = event.xdata
-#             ydata = event.ydata
-#
-#             if xdata is None or ydata is None:
-#                 return
-#
-#             xData_yData_pixels = self.ax.transData.transform(
-#                 np.vstack([xdata, ydata]).T)
-#
-#             xdata_pix, ydata_pix = xData_yData_pixels.T
-#
-#             self.fig_resized()
-#
-#             self.i = self.findIndexNearestXY(xdata_pix[0], ydata_pix[0])
-#             xnew, ynew = self.x[self.i], self.y[self.i]
-#
-#             if xdata == xnew and ydata == ynew:
-#                 return
-#
-#             # set the cursor and draw
-#             event.xdata = xnew
-#             event.ydata = ynew
-#
-#             self.show_current_info.emit(self.i)
-#
-#         # select item by mouse-click only if the cursor is active and in the
-#         # main plot
-#         if event.name == "button_press_event" and event.inaxes == self.ax and self.i is not None:
-#
-#             if not self.i in self.datalist:
-#                 # self.linev.set_visible(False)
-#                 # self.lineh.set_visible(False)
-#                 #self.background = self.ax.figure.canvas.copy_from_bbox(self.ax.figure.bbox)
-#                 self.datalist.append(self.i)
-#                 # self.ax.hold(True) # overlay plots
-#                 # plot a circle where clicked
-#                 self.scatter_objs.append(self.ax.scatter(self.x[self.i], self.y[
-#                                          self.i], facecolors='none', edgecolors='red', s=200, visible=False))
-#                 self.mode_selected.emit(self.i)
-#                 # self.ax.draw_artist(self.scatter_objs[-1])
-#
-#             else:
-#                 ind = self.datalist.index(self.i)
-#                 self.scatter_objs[ind].remove()
-#                 del self.scatter_objs[ind]
-#                 self.datalist.remove(self.i)
-#                 self.mode_deselected.emit(self.i)
-#
-#             # self.ax.figure.canvas.restore_region(self.background)
-#             # self.ax.figure.canvas.blit(self.ax.figure.bbox)
-#
-#             self.i = None
-#
-#         Cursor.onmove(self, event)
-#         #for scatter in self.scatter_objs: scatter.set_visible(False)
-#
-#     def _update(self):
-#
-#         if self.useblit:
-#             if self.background is not None:
-#                 self.canvas.restore_region(self.background)
-#             for scatter in self.scatter_objs:
-#                 scatter.set_visible(True)
-#                 self.ax.draw_artist(scatter)
-#                 scatter.set_visible(False)
-#             self.ax.draw_artist(self.linev)
-#             self.ax.draw_artist(self.lineh)
-#             self.canvas.blit(self.ax.bbox)
-#         else:
-#
-#             self.canvas.draw_idle()
-#
-#         return False
-#
-#     def findIndexNearestXY(self, x_point, y_point):
-#
-#         distance = np.square(
-#             self.ypix - y_point) + np.square(self.xpix - x_point)
-#         index = np.argmin(distance)
-#         index = np.unravel_index(index, distance.shape)
-#         return index
+        self.x = f_data
+        self.x.mask = np.ma.nomask
 
+        if mask is not None:
+            self.mask = mask
+        else:
+            self.mask = np.ma.nomask
 
+        self.name_mask = 'mask_stable'
+        self.i = None
+
+        # that list should eventually be replaced by a matplotlib.collections
+        # collection
+        # self.scatter_objs = []
+        #
+        # self.datalist = datalist
+        # if datalist:
+        #     self.add_datapoints(datalist)
+
+        self.fig_resized()
+        
+        
+    def add_callback(self, name, func):
+        assert name in ['show_current_info','mode_selected','mode_deselected']
+        self.callbacks[name] = func
+        
+    # def add_datapoint(self, datapoint):
+    #     datapoint = tuple(datapoint)
+    #     if datapoint not in self.datalist:
+    #         self.datalist.append(datapoint)
+    #     x, y = self.x[datapoint], self.y[datapoint]
+    #     # print(x,y)
+    #     self.scatter_objs.append(self.ax.scatter(
+    #         x, y, facecolors='none', edgecolors='red', s=200, visible=False))
+    #     self.callbacks['mode_selected'](datapoint)
+    #
+    # def add_datapoints(self, datalist):
+    #     # convenience function for add_datapoint
+    #     for datapoint in datalist:
+    #         self.add_datapoint(datapoint)
+    #
+    # def remove_datapoint(self, datapoint):
+    #     datapoint = tuple(datapoint)
+    #     if datapoint in self.datalist:
+    #         ind = self.datalist.index(datapoint)
+    #         self.scatter_objs[ind].remove()
+    #         del self.scatter_objs[ind]
+    #         self.datalist.remove(datapoint)
+    #         self.callbacks['mode_deselected'](datapoint)
+    #     else:
+    #         print(datapoint, 'not in self.datalist')
+    #
+    # def remove_datapoints(self, datalist):
+    #     # convenience function for remove_datapoint
+    #     for datapoint in datalist:
+    #         self.remove_datapoint(datapoint)
+
+    def set_mask(self, mask, name):
+        self.mask = mask
+        self.fig_resized()
+        self.name_mask = name
+
+    def fig_resized(self, event=None):
+        #self.background = self.ax.figure.canvas.copy_from_bbox(self.ax.figure.bbox)
+
+        if event is not None:
+            self.width, self.height = event.width, event.height
+        else:
+            self.width, self.height = self.ax.get_figure(
+            ).canvas.get_width_height()
+
+        self.xpix, self.ypix = self.ax.transData.transform(
+            np.vstack([self.x.flatten(), self.y.flatten()]).T).T
+
+        self.xpix.shape = self.x.shape
+        self.xpix.mask = self.mask
+
+        self.ypix.shape = self.y.shape
+        self.ypix.mask = self.mask
+
+    def onmove(self, event):
+        
+        if self.ignore(event):
+            return
+        '''
+        1. Override event.data to force it to snap-to nearest data item
+        2. On a mouse-click, select the data item and append it to a list of selected items
+        3. The second mouse-click on a previously selected item, removes it from the list
+        '''
+        if (self.xpix.mask).all():  # i.e. no stable poles
+            return
+
+        if event.name == "motion_notify_event":
+
+            # get cursor coordinates
+            xdata = event.xdata
+            ydata = event.ydata
+
+            if xdata is None or ydata is None:
+                return
+
+            xData_yData_pixels = self.ax.transData.transform(
+                np.vstack([xdata, ydata]).T)
+
+            xdata_pix, ydata_pix = xData_yData_pixels.T
+
+            self.fig_resized()
+
+            self.i = self.findIndexNearestXY(xdata_pix[0], ydata_pix[0])
+            xnew, ynew = self.x[self.i], self.y[self.i]
+
+            if xdata == xnew and ydata == ynew:
+                return
+
+            # set the cursor and draw
+            event.xdata = xnew
+            event.ydata = ynew
+
+            self.callbacks['show_current_info'](self.i)
+
+        # select item by mouse-click only if the cursor is active and in the
+        # main plot
+        # if event.name == "button_press_event" and event.inaxes == self.ax and self.i is not None:
+        #
+        #     '''
+        #     we have the index already from the last motion notify event
+        #     stabil_plot hold the scatter plot objects
+        #     stabil_calc holds the selected modes indices
+        #     both lists must be inline
+        #     cursor decides if a modes is selected/deselected?
+        #     '''
+        #
+        #
+        #     if self.i not in self.stabil_plot.stabil_calc.select_modes:
+        #         self.stabil_plot.add_mode(self.i)
+        #         # self.linev.set_visible(False)
+        #         # self.lineh.set_visible(False)
+        #         #self.background = self.ax.figure.canvas.copy_from_bbox(self.ax.figure.bbox)
+        #         #self.datalist.append(self.i)
+        #         # self.ax.hold(True) # overlay plots
+        #         # plot a circle where clicked
+        #         #self.scatter_objs.append(self.ax.scatter(self.x[self.i], self.y[
+        #         #                         self.i], facecolors='none', edgecolors='red', s=200, visible=False))
+        #         self.callbacks['mode_selected'](self.i)
+        #         # self.ax.draw_artist(self.scatter_objs[-1])
+        #
+        #     else:
+        #         self.stabil_plot.remove_mode(self.i)
+        #         # ind = self.datalist.index(self.i)
+        #         # self.scatter_objs[ind].remove()
+        #         # del self.scatter_objs[ind]
+        #         # self.datalist.remove(self.i)
+        #         self.callbacks['mode_deselected'](self.i)
+        #
+        #     # self.ax.figure.canvas.restore_region(self.background)
+        #     # self.ax.figure.canvas.blit(self.ax.figure.bbox)
+        #
+        #     self.i = None
+
+        Cursor.onmove(self, event)
+        #for scatter in self.scatter_objs: scatter.set_visible(False)
+
+    def _update(self):
+        
+        if self.useblit:
+            if self.background is not None:
+                self.canvas.restore_region(self.background)
+            # for scatter in self.scatter_objs:
+            #     scatter.set_visible(True)
+            #     self.ax.draw_artist(scatter)
+            #     scatter.set_visible(False)
+            self.ax.draw_artist(self.linev)
+            self.ax.draw_artist(self.lineh)
+            self.canvas.blit(self.ax.bbox)
+        else:
+            if self.horizOn or self.vertOn:
+                # for scatter in self.scatter_objs:
+                #     scatter.set_visible(True)
+                self.canvas.draw_idle()
+
+        return False
+
+    def findIndexNearestXY(self, x_point, y_point):
+        '''
+        Finds the nearest neighbour
+
+        .. TODO::
+            currently a very inefficient brute force implementation
+            should be replaced by e.g. a k-d-tree nearest neighbour search
+            `https://en.wikipedia.org/wiki/K-d_tree`
+
+        '''
+
+        distance = np.square(
+            self.ypix - y_point) + np.square(self.xpix - x_point)
+        index = np.argmin(distance)
+        index = np.unravel_index(index, distance.shape)
+        return index
+    
+    
 def nearly_equal(a, b, sig_fig=5):
     return (a == b or
             int(a * 10**sig_fig) == int(b * 10**sig_fig)
             )
 
-
-# def start_stabil_gui(stabil_plot, modal_data, geometry_data=None, prep_data=None, select_modes=[],**kwargs):
-#     #print(kwargs)
-#     def handler(msg_type, msg_string):
-#         pass
-#
-#     if not 'app' in globals().keys():
-#         global app
-#         app = QApplication(sys.argv)
-#     if not isinstance(app, QApplication):
-#         app = QApplication(sys.argv)
-#
-#     assert isinstance(stabil_plot, StabilPlot)
-#     cmpl_plot = ComplexPlot()
-#     if geometry_data is not None:# and prep_data is not None:
-#
-#         import PlotMSH
-# #         msh_plot = ModeShapePlot(
-# #             stabil_plot.stabil_calc, modal_data, geometry_data, prep_data,**kwargs)
-#         mode_shape_plot = PlotMSH.ModeShapePlot(stabil_calc=stabil_plot.stabil_calc,
-#                                                 modal_data=modal_data,
-#                                                 geometry_data=geometry_data,
-#                                                 prep_data=prep_data,
-#                                                 **kwargs)
-#
-#         msh_plot = PlotMSH.ModeShapeGUI(mode_shape_plot, reduced_gui=True)
-#         msh_plot.setGeometry(1000, 0, 800, 600)
-#         msh_plot.reset_view()
-#         msh_plot.hide()
-#
-#
-#     else:
-#         msh_plot = None
-#
-#
-#     # qInstallMessageHandler(handler) #suppress unimportant error msg
-#
-#     stabil_gui = StabilGUI(stabil_plot, cmpl_plot, msh_plot)
-#     stabil_plot.cursor.add_datapoints(select_modes)
-#     loop = QEventLoop()
-#     stabil_gui.destroyed.connect(loop.quit)
-#     loop.exec_()
-#     print('Exiting GUI')
-#     canvas = FigureCanvasBase(stabil_plot.fig)
-#     return
-
-
-# class FigureCanvasQTAgg_(FigureCanvasQTAgg):
-#
-#     def change_backend(self, figure):
-#         FigureCanvasQT.__init__(self, figure)
-#         self._drawRect = None
-#         self.blitbox = None
-#         self.setAttribute(Qt.WA_OpaquePaintEvent)
-#         if sys.platform.startswith('win'):
-#             self._priv_update = self.repaint
-#         else:
-#             self._priv_update = self.update
-
-
-# class DelayedDoubleSpinBox(QDoubleSpinBox):
-#     '''
-#     reimplementation of QDoubleSpinBox to delay the emit of the
-#     valueChanged signal by 1.5 seconds after the last change of the value
-#     this allows for a function to be directly connected to the signal
-#     without the need to check for further changes of the value
-#     else when the user clicks through the values it would emit a
-#     lot of signals and the connected funtion would run this many times
-#     note that you have to connect to valueChangedDelayed signal if
-#     you want to make use of this functionality
-#     valueChanged signal works as in QDoubleSpinBox
-#     '''
-#     # define custom signals
-#     valueChangedDelayed = pyqtSignal(float)
-#
-#     def __init__(self, *args, **kwargs):
-#         '''
-#         inherit from QDoubleSpinBox
-#         instantiate a timer and set its default timeout value (1500 ms)
-#         connect the valueChanged signal of QDoubleSpinBox to the
-#         start () slot of QTimer
-#         connect the timeout () signal of QTimer to delayed emit
-#         '''
-#         super(DelayedDoubleSpinBox, self).__init__(*args, **kwargs)
-#         self.timer = QTimer()
-#         self.timer.setInterval(1500)
-#         self.timer.timeout.connect(self.delayed_emit)
-#         self.valueChanged[float].connect(self.timer.start)
-#
-#     #@pyqtSlot()
-#     def delayed_emit(self):
-#         '''
-#         stop the timer and send the current value of the QDoubleSpinBox
-#         '''
-#         self.timer.stop()
-#         self.valueChangedDelayed.emit(self.value())
-#
-#     def set_timeout(self, timeout):
-#         '''
-#         set the timeout of the timer to a custom value
-#         '''
-#         assert isinstance(timeout, (int, float))
-#         self.timer.setInterval(timeout)
 
 
 if __name__ == '__main__':
