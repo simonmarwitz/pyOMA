@@ -134,6 +134,7 @@ class MergePoSER(object):
             while True:
                 row, col = np.unravel_index(
                     np.argmin(delta_matrix), delta_matrix.shape)
+                # TODO:: this code is useless: it always continues to the end and sets del_col to True
                 for col_ind in range(delta_matrix.shape[1]):
                     if col_ind == col:
                         continue
@@ -141,6 +142,7 @@ class MergePoSER(object):
                         del_col = False
                 else:
                     del_col = True
+                # TODO:: this code is useless: it always continues to the end and sets del_row to True
                 for row_ind in range(delta_matrix.shape[0]):
                     if row_ind == row:
                         continue
