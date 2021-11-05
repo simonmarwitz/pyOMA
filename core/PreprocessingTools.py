@@ -6,16 +6,14 @@ Modified and Extended by Simon Marwitz 2015
 
 .. TODO::
      * correct linear,.... offsets as well
-     * implement filter functions
      * implement loading of different filetypes ascii, lvm, ...
      * currently loading geometry, etc. files will overwrite existing assignments implement "load and append"
-     * implement fft, psd, covariance (auto,cross), coherence, frf (to be used with a preprocessor gui)
-     * implement integration
      * implement windowing functions
      * Proper documentation
      * add test to tests package
-     * Remove multiprocessing routines, since numpy as parallelized already
+     * Remove multiprocessing routines, since numpy is parallelized already
        and proper vectorization of the code is better than just using multiprocessing to speed up bad code
+     * FIX: Unify correlation function definitions welch/b-t some start at 0 some at 1 
     
 '''
 
@@ -1096,8 +1094,9 @@ class PreprocessData(object):
                     The channels to plot
             single_channels: bool
                     Whether to plot all channels into a single or multiple axes
-            timescale: str ['time', 'samples']
-                    Whether to display time or sample values on the horizontal axes
+            timescale: str ['time', 'samples', 'lags']
+                    Whether to display time, sample or lag values on the horizontal axes
+                    'lags' implies plotting (auto)-correlations instead of raw time histories  
             svd_spect: bool
                     Whether to plot an SVD spectrum or regular spectra
             axest: ndarray of size num_channels of matplotlib.axes.Axes objects
@@ -1109,14 +1108,23 @@ class PreprocessData(object):
             
         '''
         
+        f_max = kwargs.pop('f_max', False)
+        NFFT = kwargs.pop('NFFT', min(512, int(np.floor(0.5 * self.total_time_steps))))
+        window = kwargs.pop('window', 'hamming')
+        meth = kwargs.pop('method', "welch")
+        
         if timescale == 'samples':
             t = np.linspace(start=0,
                             stop=self.total_time_steps,
                             num=self.total_time_steps)
         elif timescale == 'time':
             t = np.linspace(start=0,
-                            stop=self.total_time_steps /self.sampling_rate,
+                            stop=self.total_time_steps / self.sampling_rate,
                             num=self.total_time_steps)
+        elif timescale == 'lags':
+            t = np.linspace(start=0,
+                            stop=NFFT / self.sampling_rate,
+                            num=NFFT)
         else:
             raise ValueError(f'Type of timescale={timescale} could not be understood.')
 
@@ -1204,17 +1212,24 @@ class PreprocessData(object):
                                  '(frequency domain) = {len(axesf} does not match the '
                                  'number of channels={num_channels}')
         
-        f_max = kwargs.pop('f_max', False)
-        NFFT = kwargs.pop('NFFT', min(512, int(np.floor(0.5*self.total_time_steps))))
-        window = kwargs.pop('window', 'hamm')
-        psd_mats, freqs = self.psd_welch(NFFT, False, window)
-        #psd_mats, freqs = self.psd_blackman_tukey(NFFT)
+        if meth=='welch':
+            corr_matrix = self.corr_welch(NFFT, False, window)
+            #psd_mats, freqs = self.psd_welch(NFFT, False, window)
+            psd_mats, freqs = self.psd_mats, self.freqs
+        elif meth=="b-t":
+            psd_mats, freqs = self.psd_blackman_tukey(NFFT,window)
+            corr_matrix = self.corr_matrix
         auto_psd = np.diagonal(psd_mats)
+        auto_corr = np.diagonal(corr_matrix)
         
         for axt, axf, channel in zip(axest, axesf, channels):
             alpha = kwargs.pop('alpha', .5)
-            axt.plot(t, self.measurement[:, channel], alpha=alpha,
-                     label=self.channel_headers[channel], **kwargs)
+            if timescale == 'lags':
+                axt.plot(t, auto_corr[:, channel], alpha=alpha,
+                         label=self.channel_headers[channel], **kwargs)
+            else:
+                axt.plot(t, self.measurement[:, channel], alpha=alpha,
+                         label=self.channel_headers[channel], **kwargs)
             axt.grid(True, axis='y', ls='dotted')
             
             if not svd_spect:
@@ -1309,20 +1324,11 @@ class PreprocessData(object):
         # input validation
         decimate_factor = abs(decimate_factor)
         order = abs(order)
-        ftype_list = ['butter', 'cheby1', 'cheby2', 'ellip', 'bessel']
-        if not (
-            (isinstance(
-                decimate_factor,
-                int) or isinstance(
-                decimate_factor,
-                int)) and isinstance(
-                order,
-                int) and (
-                    filter_type in ftype_list) and (
-                        decimate_factor > 1) and (
-                            order > 1)):
-            raise RuntimeError('Invalid arguments.')
-            return
+        
+        assert isinstance(decimate_factor, int)
+        assert decimate_factor > 1
+        assert isinstance(order, int)
+        assert order > 1
 
         RpRs = [None, None]
         if filter_type == 'cheby1' or filter_type == 'cheby2' or filter_type == 'ellip':
@@ -1336,18 +1342,15 @@ class PreprocessData(object):
             overwrite=False,
             order=order,
             ftype=filter_type,
-            RpRs=RpRs,
-            plot_filter=False)
+            RpRs=RpRs,)
 
         self.sampling_rate /= decimate_factor
-        meas_decimated = meas_filtered[slice(None, None, decimate_factor)]
-        
         
         N_dec = int(np.floor(self.total_time_steps / decimate_factor))
         # ceil would also work, but breaks indexing for aliasing noise estimation
         # with floor though, care must be taken to shorten the time domain signal to N_dec full blocks before slicing
         #decimate signal
-        meas_decimated = np.copy(meas_filtered[:, 0:N_dec * decimate_factor:decimate_factor])
+        meas_decimated = np.copy(meas_filtered[0:N_dec * decimate_factor:decimate_factor, :])
         # correct for power loss due to decimation
         # https://en.wikipedia.org/wiki/Downsampling_(signal_processing)#Anti-aliasing_filter
         meas_decimated *= decimate_factor
@@ -1365,7 +1368,7 @@ class PreprocessData(object):
         * compute cross-psd of all  channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
 
         '''
-
+        
         logger.info("Estimating Correlation Function and Power Spectral Density by Welch's method...")
 
         measurement = self.measurement
@@ -1376,7 +1379,7 @@ class PreprocessData(object):
         else:
             num_ref_channels = num_analised_channels
         
-        if 2*n_lines > self.total_time_steps:
+        if 2 * n_lines > self.total_time_steps:
             raise ValueError(f'Number of frequency lines {n_lines} must not be larger than half the number of timesteps {self.total_timesteps}')
         
         psd_mats_shape = (num_analised_channels, num_ref_channels, n_lines + 1)
@@ -1384,8 +1387,9 @@ class PreprocessData(object):
         #now = time.time()
         for channel_1 in range(num_analised_channels):
             for channel_2 in range(num_ref_channels):
-                _, Pxy_den = scipy.signal.csd(measurement[:, channel_1], measurement[:, channel_2], sampling_rate,
+                f, Pxy_den = scipy.signal.csd(measurement[:, channel_1], measurement[:, channel_2], sampling_rate,
                                               nperseg=2 * n_lines, window=window, scaling='spectrum', return_onesided=True)
+                print(2*n_lines,2*n_lines//2,(self.total_time_steps-n_lines)/(2*n_lines//2))
                 #print(2*n_lines, Pxy_den.shape, measurement.shape)
                 Pxy_den *= n_lines
                 psd_mats[channel_1, channel_2, :] = Pxy_den
@@ -1404,18 +1408,20 @@ class PreprocessData(object):
         self.freqs = freqs
         self.n_lines = n_lines
         
-        
         return psd_mats, freqs
 
-    def corr_welch(self, tau_max, window='hamming'):
+    def corr_welch(self, tau_max, refs_only=True, window='hamming'):
         '''
         * compute cross-correlations of all channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
         '''
-
-        psd_mats, freqs = self.psd_welch(n_lines=tau_max, window=window)
-
+        
+        psd_mats, freqs = self.psd_welch(n_lines=tau_max, refs_only=refs_only, window=window)
+        
         num_analised_channels = self.num_analised_channels
-        num_ref_channels = self.num_ref_channels
+        if refs_only:
+            num_ref_channels = self.num_ref_channels
+        else:
+            num_ref_channels = num_analised_channels
         corr_mats_shape = (num_analised_channels, num_ref_channels, tau_max)
 
         corr_matrix = np.zeros(corr_mats_shape)
@@ -1441,7 +1447,6 @@ class PreprocessData(object):
         * compute cross-psd of all  channels only with reference channels (i.e. replace 'numdof' with num_analised_channels or ref_channels, respectively)
         * compute only one-sided psd (i.e. length only tau_max - 1 or similar)
         * read about the window choices in the reference that is mentioned in the comment and try to implement other windows that ensure non-negative fourier transform
-
         '''
 
         logger.info("Estimating Correlation Function and Power Spectral Density by Blackman-Tukey's method...")
@@ -1450,7 +1455,7 @@ class PreprocessData(object):
         num_ref_channels = self.num_ref_channels
         ref_channels = self.ref_channels
         corr_matrix = self.compute_correlation_matrices(tau_max)
-
+        
         psd_mats_shape = (num_analised_channels, num_ref_channels, tau_max)
         psd_mats = np.zeros(psd_mats_shape, dtype=complex)
 
@@ -1537,7 +1542,7 @@ class PreprocessData(object):
                 #f, Pxy_den = scipy.signal.csd(signal[:,channel_1],signal[:,channel_2], self.sampling_rate, nperseg=n_lines*2, window='hamm', scaling='spectrum', return_onesided=False)
                 f, Pxy_den = scipy.signal.csd(signal[:, channel_1], signal[:, ref_channel], self.sampling_rate,
                                               nperseg=n_lines * 2, window='hamm', scaling='spectrum', return_onesided=True)
-
+                
                 if channel_1 == channel_2:
                     assert (Pxy_den.imag == 0).all()
 
@@ -1721,6 +1726,8 @@ class PreprocessData(object):
             if len(this_it) > 2:
                 print('.', end='', flush=True)
                 del this_it[2]
+            # standard unbiased estimator
+            # R_fg[tau] = 1/(N-tau) /sum_{l=tau+1}^N f[l]g[l+m]
             n_block, tau = this_it
 
             measurement = np.frombuffer(
