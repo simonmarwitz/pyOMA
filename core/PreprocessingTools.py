@@ -1309,20 +1309,11 @@ class PreprocessData(object):
         # input validation
         decimate_factor = abs(decimate_factor)
         order = abs(order)
-        ftype_list = ['butter', 'cheby1', 'cheby2', 'ellip', 'bessel']
-        if not (
-            (isinstance(
-                decimate_factor,
-                int) or isinstance(
-                decimate_factor,
-                int)) and isinstance(
-                order,
-                int) and (
-                    filter_type in ftype_list) and (
-                        decimate_factor > 1) and (
-                            order > 1)):
-            raise RuntimeError('Invalid arguments.')
-            return
+        
+        assert isinstance(decimate_factor, int)
+        assert decimate_factor > 1
+        assert isinstance(order, int)
+        assert order > 1
 
         RpRs = [None, None]
         if filter_type == 'cheby1' or filter_type == 'cheby2' or filter_type == 'ellip':
@@ -1336,18 +1327,15 @@ class PreprocessData(object):
             overwrite=False,
             order=order,
             ftype=filter_type,
-            RpRs=RpRs,
-            plot_filter=False)
+            RpRs=RpRs,)
 
         self.sampling_rate /= decimate_factor
-        meas_decimated = meas_filtered[slice(None, None, decimate_factor)]
-        
         
         N_dec = int(np.floor(self.total_time_steps / decimate_factor))
         # ceil would also work, but breaks indexing for aliasing noise estimation
         # with floor though, care must be taken to shorten the time domain signal to N_dec full blocks before slicing
         #decimate signal
-        meas_decimated = np.copy(meas_filtered[:, 0:N_dec * decimate_factor:decimate_factor])
+        meas_decimated = np.copy(meas_filtered[0:N_dec * decimate_factor:decimate_factor, :])
         # correct for power loss due to decimation
         # https://en.wikipedia.org/wiki/Downsampling_(signal_processing)#Anti-aliasing_filter
         meas_decimated *= decimate_factor
