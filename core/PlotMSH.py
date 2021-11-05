@@ -32,7 +32,7 @@ import matplotlib.colors
 import matplotlib.figure
 import matplotlib.backend_bases
 import matplotlib
-from PyQt5.QtCore import pyqtSignal
+#from PyQt5.QtCore import pyqtSignal
 import os
 import logging
 logging.basicConfig()
@@ -42,8 +42,8 @@ logger.setLevel(logging.INFO)
 
 # Matplotlib
 # check if python is running in headless mode i.e. as a server script
-if 'DISPLAY' in os.environ:
-    matplotlib.use("Qt5Agg", force=True)
+# if 'DISPLAY' in os.environ:
+#     matplotlib.use("Qt5Agg", force=True)
 
 # Numpy
 
@@ -87,10 +87,10 @@ class ModeShapePlot(object):
 
     '''
     # define this class's signals and the types of data they emit
-    grid_requested = pyqtSignal(str, bool)
-    beams_requested = pyqtSignal(str, bool)
-    slaves_requested = pyqtSignal(str, bool)
-    chan_dofs_requested = pyqtSignal(str, bool)
+    #grid_requested = pyqtSignal(str, bool)
+    #beams_requested = pyqtSignal(str, bool)
+    #slaves_requested = pyqtSignal(str, bool)
+    #chan_dofs_requested = pyqtSignal(str, bool)
 
     def __init__(self,
                  geometry_data,
