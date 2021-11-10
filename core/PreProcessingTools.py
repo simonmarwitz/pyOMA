@@ -1,8 +1,22 @@
 #
 # -*- coding: utf-8 -*-
 '''
-Based on previous works by Volkmar Zabel 2015
-Modified and Extended by Simon Marwitz 2015
+pyOMA - A toolbox for Operational Modal Analysis
+Copyright (C) 2015 - 2021  Simon Marwitz, Volkmar Zabel, Andrei Udrea et al.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 
 .. TODO::
      * correct linear,.... offsets as well
@@ -15,21 +29,6 @@ Modified and Extended by Simon Marwitz 2015
        and proper vectorization of the code is better than just using multiprocessing to speed up bad code
      * FIX: Unify correlation function definitions welch/b-t some start at 0 some at 1 
 
-Rework PreProcessData
-
-psd_welch
-corr_welch -> psd_welch
-psd_bt -> corr_bt
-corr_bt
-psd -> psd_welch, psd_bt
-svd_psd -> psd_welch, psd_bt
-plot_psd -> psd_welch, psd_bt
-plot_svd_psd -> svd_psd -> psd_welch, psd_bt
-plot_correlation -> corr_bt, corr_welch
-plot_time 
-
-plot_signals -> plot_psd|plot_svd_psd, plot_correlation|plot_time
-rename data to signals
 '''
 
 import numpy as np
