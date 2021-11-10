@@ -17,7 +17,7 @@ from collections import deque
 #import datetime
 #from copy import deepcopy
 
-from core.PreprocessingTools import PreprocessData
+from core.PreProcessingTools import PreProcessSignals
 from core.ModalBase import ModalBase
 #import pyximport
 # pyximport.install()
@@ -96,7 +96,7 @@ class SSIData(ModalBase):
     @classmethod
     def init_from_config(cls, conf_file, prep_data):
         assert os.path.exists(conf_file)
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
 
         with open(conf_file, 'r') as f:
 
@@ -485,7 +485,7 @@ class SSIData(ModalBase):
             if this_state:
                 print(state_string)
 
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
         start_time = in_dict['self.start_time'].item()
         assert setup_name == prep_data.setup_name
@@ -542,7 +542,7 @@ class SSIDataMC(ModalBase):
     @classmethod
     def init_from_config(cls, conf_file, prep_data):
         assert os.path.exists(conf_file)
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
 
         with open(conf_file, 'r') as f:
 
@@ -1108,7 +1108,7 @@ class SSIDataMC(ModalBase):
         else:
             return
 
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
         start_time = in_dict['self.start_time'].item()
         assert setup_name == prep_data.setup_name

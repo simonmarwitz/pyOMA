@@ -3,7 +3,7 @@ import numpy as np
 import scipy.linalg
 from collections import deque
 import os
-from core.PreprocessingTools import PreprocessData
+from core.PreProcessingTools import PreProcessSignals
 
 
 class ERA(object):
@@ -13,7 +13,7 @@ class ERA(object):
         channel definition: channels start at 0
         '''
         super().__init__()
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
         self.prep_data = prep_data
         self.setup_name = prep_data.setup_name
         self.start_time = prep_data.start_time
@@ -289,7 +289,7 @@ class ERA(object):
             if this_state:
                 print(state_string)
 
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
         start_time = in_dict['self.start_time'].item()
         assert setup_name == prep_data.setup_name
@@ -328,7 +328,7 @@ def main():
     os.chdir(
         '/ismhome/staff/womo1998/Projects/2018_eigensystem_realization_algorithm/code/')
     # Data Preprocessing Class
-    from core.PreprocessingTools import PreprocessData, GeometryProcessor
+    from core.PreProcessingTools import PreProcessSignals, GeometryProcessor
 
     # Modal Analysis PostProcessing Class e.g. Stabilization Diagram
     from core.StabilDiagram import StabilCalc, StabilPlot, StabilGUI, start_stabil_gui
@@ -383,7 +383,7 @@ def main():
     geometry_data.add_lines([(i, i + 1) for i in range(19)])
 
     # initialize the Preprocessor Class
-    prep_data = PreprocessData(measurement=measurement,
+    prep_data = PreProcessSignals(measurement=measurement,
                                sampling_rate=Fs, F=F)  # anil
 
     # add Channel-DOF assignments: [ (chan_num, node_name, az, elev,
@@ -434,7 +434,7 @@ def main():
 
 def main_oma_uq():
 
-    from PreprocessingTools import PreprocessData, GeometryProcessor
+    from PreProcessingTools import PreProcessSignals, GeometryProcessor
 
     # Modal Analysis PostProcessing Class e.g. Stabilization Diagram
     from StabilDiagram import StabilCalc, StabilPlot, StabilGUI, start_stabil_gui
@@ -449,7 +449,7 @@ def main_oma_uq():
         f'/dev/shm/womo1998/{jid}/grid.txt',
         f'/dev/shm/womo1998/{jid}/lines.txt')
 
-    prep_data = PreprocessData.load_state(
+    prep_data = PreProcessSignals.load_state(
         f'/dev/shm/womo1998/{jid}/prep_data.npz')
 
     arrs = np.load(f'/dev/shm/womo1998/{jid}/IRF_data.npz')

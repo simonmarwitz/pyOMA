@@ -794,7 +794,7 @@ class ModeShapeGUI(QMainWindow):
         if lowpass and highpass:
             assert lowpass > highpass
         #print(highpass, lowpass)
-        self.mode_shape_plot.prep_data.filter_data(lowpass, highpass)
+        self.mode_shape_plot.prep_data.filter_signals(lowpass, highpass)
 
     def set_ani_time(self, pos):
         # print(pos)

@@ -14,7 +14,22 @@ Modified and Extended by Simon Marwitz 2015
      * Remove multiprocessing routines, since numpy is parallelized already
        and proper vectorization of the code is better than just using multiprocessing to speed up bad code
      * FIX: Unify correlation function definitions welch/b-t some start at 0 some at 1 
-    
+
+Rework PreProcessData
+
+psd_welch
+corr_welch -> psd_welch
+psd_bt -> corr_bt
+corr_bt
+psd -> psd_welch, psd_bt
+svd_psd -> psd_welch, psd_bt
+plot_psd -> psd_welch, psd_bt
+plot_svd_psd -> svd_psd -> psd_welch, psd_bt
+plot_correlation -> corr_bt, corr_welch
+plot_time 
+
+plot_signals -> plot_psd|plot_svd_psd, plot_correlation|plot_time
+rename data to signals
 '''
 
 import numpy as np
@@ -345,9 +360,9 @@ class GeometryProcessor(object):
         pass
 
 
-class PreprocessData(object):
+class PreProcessSignals(object):
     '''
-    A simple Data PreProcessor
+    A simple pre-processor for signals
     * load ascii datafiles
     * specify sampling rate, reference channels and roving channels
     * specify geometry, channel-dof-assignments
@@ -355,8 +370,7 @@ class PreprocessData(object):
     * remove channels, cut time histories
     * remove (constant) offsets from time history data
     * decimate time histories
-    future:
-    * apply several filters
+    TODO :
     * calculate fft, psd, covariance, coherence, frf
     * integrate
     * apply windowing functions
@@ -535,13 +549,13 @@ class PreprocessData(object):
             if disp_channels:
                 disp_channels = [int(val) for val in disp_channels]
 
-        loaded_data = cls.load_measurement_file(meas_file, **kwargs)
+        loaded_signals = cls.load_measurement_file(meas_file, **kwargs)
 
-        if not isinstance(loaded_data, np.ndarray):
-            # print(loaded_data)
-            headers, units, start_time, sample_rate, measurement = loaded_data
+        if not isinstance(loaded_signals, np.ndarray):
+            # print(loaded_signals)
+            headers, units, start_time, sample_rate, measurement = loaded_signals
         else:
-            measurement = loaded_data
+            measurement = loaded_signals
             start_time = datetime.datetime.now()
             sample_rate = sampling_rate
             headers = ['Channel_{}'.format(i)
@@ -682,16 +696,16 @@ class PreprocessData(object):
             accel_channels = [i for i in range(num_channels)]
         #print(measurement.shape, ref_channels)
         # print(measurement)
-        prep_data = cls(measurement, sampling_rate, total_time_steps,
+        prep_signals = cls(measurement, sampling_rate, total_time_steps,
                         # num_channels,
                         ref_channels,  # roving_channels,
                         accel_channels, velo_channels, disp_channels,
                         channel_headers=headers, start_time=start_time,
                         setup_name=name, **kwargs)
         if chan_dofs:
-            prep_data.add_chan_dofs(chan_dofs)
+            prep_signals.add_chan_dofs(chan_dofs)
 
-        return prep_data
+        return prep_signals
 
     @staticmethod
     def load_chan_dofs(fname):
@@ -914,11 +928,38 @@ class PreprocessData(object):
         # preprocessor.add_geometry_data(in_dict['self.geometry_data'].item())
         return preprocessor
 
-    def filter_data(self, lowpass=None, highpass=None,
+    @property
+    def duration(self):
+        return self.total_time_steps / self.sampling_rate
+    
+    @property
+    def dt(self):
+        return 1 / self.sampling_rate
+    
+    @property
+    def signal_power(self):
+        ref_channels = self.ref_channels
+        all_channels = list(range(self.num_analised_channels))
+
+        measurement = self.measurement
+
+        refs = measurement[:, ref_channels]
+        current_signals = measurement[:, all_channels]
+
+        this_block = np.dot(current_signals.T, refs) / current_signals.shape[0]
+
+        return this_block
+    
+    @property
+    def signal_rms(self):
+        self.correct_offset()
+        return np.sqrt(np.mean(np.square(self.measurement), axis=0))
+    
+    def filter_signals(self, lowpass=None, highpass=None,
                     overwrite=True,
                     order=4, ftype='butter', RpRs=[3, 3],
                     plot_ax=None):
-        logger.info('Filtering data in the band: {} .. {} with a {} order {} filter.'.format(highpass, lowpass, order, ftype))
+        logger.info('Filtering signals in the band: {} .. {} with a {} order {} filter.'.format(highpass, lowpass, order, ftype))
 
         if (highpass is None) and (lowpass is None):
             raise ValueError('Neither a lowpass or a highpass corner frequency was provided.')
@@ -973,7 +1014,7 @@ class PreprocessData(object):
                 self.F_filt = scipy.signal.lfilter(fir_irf, [1.0], self.F, axis=0)
             
         if np.isnan(measurement_filt).any():
-            logger.warning('Your filtered data contains NaNs. Check your filter settings! Continuing...')
+            logger.warning('Your filtered signals contain NaNs. Check your filter settings! Continuing...')
 
         if plot_ax is not None:
             
@@ -1058,15 +1099,8 @@ class PreprocessData(object):
         
         return measurement_filt
     
-    @property
-    def duration(self):
-        return self.total_time_steps / self.sampling_rate
     
-    @property
-    def dt(self):
-        return 1 / self.sampling_rate
-    
-    def plot_data(self,
+    def plot_signals(self,
             channels=None,
             single_channels=False,
             timescale='time',
@@ -1269,12 +1303,11 @@ class PreprocessData(object):
 
     def correct_offset(self, x=None):
         '''
-        corrects a constant offset from measurement data
-        Eliminates displacement of the measurement data originated by initial tension
+        corrects a constant offset from measured signals
         by subtracting the average value of the x first measurements from every
         value
         '''
-        logger.info('Correcting offset of measurements.')
+        logger.info('Correcting offset of measured signals')
         # print(self.measurement.mean(axis=0))
         self.measurement -= self.measurement.mean(axis=0)
         # print(self.measurement.mean(axis=0))
@@ -1287,7 +1320,7 @@ class PreprocessData(object):
             else:
                 self.measurement[:, ii] = tmp - tmp.mean(0)
 
-    def precondition_data(self, method='iqr'):
+    def precondition_signals(self, method='iqr'):
 
         assert method in ['iqr', 'range']
 
@@ -1302,7 +1335,7 @@ class PreprocessData(object):
             self.measurement[:, i] /= factor
             self.channel_factors[i] = factor
 
-    def decimate_data(
+    def decimate_signals(
             self,
             decimate_factor,
             highpass=None,
@@ -1316,10 +1349,10 @@ class PreprocessData(object):
 
         if highpass:
             logger.info(
-                'Decimating data with factor {} and additional highpass filtering at {}!'.format(
+                'Decimating signals with factor {} and additional highpass filtering at {}!'.format(
                     decimate_factor, highpass))
         else:
-            logger.info('Decimating data with factor {}!'.format(decimate_factor))
+            logger.info('Decimating signals with factor {}!'.format(decimate_factor))
 
         # input validation
         decimate_factor = abs(decimate_factor)
@@ -1336,7 +1369,7 @@ class PreprocessData(object):
 
         nyq = self.sampling_rate / 2
 
-        meas_filtered = self.filter_data(
+        meas_filtered = self.filter_signals(
             lowpass=nyq * 0.8 / decimate_factor,
             highpass=highpass,
             overwrite=False,
@@ -1760,28 +1793,10 @@ class PreprocessData(object):
         # make the  memory arrays available to the child processes
         global measurement_memory
         measurement_memory = measurement_memory_
-
+        
         global corr_matrices_mem
         corr_matrices_mem = corr_matrices_mem_
 
-    def get_corr_0(self):
-
-        ref_channels = self.ref_channels
-        all_channels = list(range(self.num_analised_channels))
-
-        measurement = self.measurement
-
-        refs = measurement[:, ref_channels]
-
-        current_signals = measurement[:, all_channels]
-
-        this_block = np.dot(current_signals.T, refs) / current_signals.shape[0]
-
-        return this_block
-
-    def get_rms(self):
-        self.correct_offset()
-        return np.sqrt(np.mean(np.square(self.measurement), axis=0))
 
     def add_noise(self, amplitude=0, snr=0):
         logger.info(
@@ -1792,7 +1807,7 @@ class PreprocessData(object):
         assert amplitude != 0 or snr != 0
 
         if snr != 0 and amplitude == 0:
-            rms = self.get_rms()
+            rms = self.signal_rms()
             amplitude = rms * snr
         else:
             amplitude = [
@@ -1824,14 +1839,14 @@ class PreprocessData(object):
         #print(self.ft_freq.shape, self.sum_ft.shape)
         return self.ft_freq, self.sum_ft
 
-    def get_time_accel(self, channel):
-        time_vec = np.linspace(
-            0,
-            self.total_time_steps /
-            self.sampling_rate,
-            self.total_time_steps)
-        accel_vel = self.measurement[:, channel]
-        return time_vec, accel_vel
+    # def get_time_accel(self, channel):
+        # time_vec = np.linspace(
+            # 0,
+            # self.total_time_steps /
+            # self.sampling_rate,
+            # self.total_time_steps)
+        # accel_vel = self.measurement[:, channel]
+        # return time_vec, accel_vel
 
     def plot_svd_spectrum(self, NFFT=512, log_scale=False, ax=None):
 
@@ -1949,7 +1964,7 @@ class PreprocessData(object):
 def load_measurement_file(fname, **kwargs):
     '''
     assign this function to the class before instantiating the object
-    PreprocessData.load_measurement_file = load_measurement_file
+    PreProcessSignals.load_measurement_file = load_measurement_file
     '''
 
     # define a function to return the following variables
@@ -1977,9 +1992,9 @@ def main():
 #         app = QApplication(sys.argv)
 #
 #     # qInstallMessageHandler(handler) #suppress unimportant error msg
-#     prep_data = PreprocessData.load_state('/vegas/scratch/womo1998/towerdata/towerdata_results_var/Wind_kontinuierlich__9_2016-10-05_04-00-00_000000/prep_data.npz')
-#     #prep_data = None
-#     preprocess_gui = PreProcessGUI(prep_data)
+#     prep_signals = PreProcessSignals.load_state('/vegas/scratch/womo1998/towerdata/towerdata_results_var/Wind_kontinuierlich__9_2016-10-05_04-00-00_000000/prep_signals.npz')
+#     #prep_signals = None
+#     preprocess_gui = PreProcessGUI(prep_signals)
 #     loop = QEventLoop()
 #     preprocess_gui.destroyed.connect(loop.quit)
 #     loop.exec_()
@@ -1991,9 +2006,9 @@ def main():
 def example_filter():
     path = 'Messung_Test.asc'
     measurement = np.loadtxt(path)
-    prep_data = PreprocessData(measurement, sampling_rate=128)
+    prep_signals = PreProcessSignals(measurement, sampling_rate=128)
 
-    prep_data.filter_data(
+    prep_signals.filter_signals(
         order=4,
         ftype='cheby1',
         lowpass=20,
@@ -2008,29 +2023,29 @@ def example_filter():
 def example_decimate():
     path = 'Messung_Test.asc'
     measurement = np.loadtxt(path)
-    prep_data = PreprocessData(measurement, sampling_rate=128)
+    prep_signals = PreProcessSignals(measurement, sampling_rate=128)
 
     _, f_plot = plt.subplots(2)
     f_plot[0].set_title('Decimate data')
     f_plot[0].plot(np.linspace(
-        0, 1, len(prep_data.measurement[:, 1])), prep_data.measurement[:, 1])
-    print('Original sampling rate: ', prep_data.sampling_rate, 'Hz')
-    print('Original number of time steps: ', prep_data.total_time_steps)
+        0, 1, len(prep_signals.measurement[:, 1])), prep_signals.measurement[:, 1])
+    print('Original sampling rate: ', prep_signals.sampling_rate, 'Hz')
+    print('Original number of time steps: ', prep_signals.total_time_steps)
 
-    prep_data.decimate_data(5, order=8, filter_type='cheby1')
+    prep_signals.decimate_signals(5, order=8, filter_type='cheby1')
 
-    print(prep_data.measurement[:, 1])
+    print(prep_signals.measurement[:, 1])
     f_plot[1].plot(np.linspace(
-        0, 1, len(prep_data.measurement[:, 1])), prep_data.measurement[:, 1])
-    print('Decimated sampling rate: ', prep_data.sampling_rate, 'Hz')
-    print('Decimated number of time steps: ', prep_data.total_time_steps)
+        0, 1, len(prep_signals.measurement[:, 1])), prep_signals.measurement[:, 1])
+    print('Decimated sampling rate: ', prep_signals.sampling_rate, 'Hz')
+    print('Decimated number of time steps: ', prep_signals.total_time_steps)
     plt.show()
 
 
 def example_welch():
     path = 'Messung_Test.asc'
     measurement = np.loadtxt(path)
-    prep_data = PreprocessData(
+    prep_signals = PreProcessSignals(
         measurement,
         sampling_rate=128,
         ref_channels=[
@@ -2038,13 +2053,13 @@ def example_welch():
             1])
 
     startA = time.time()
-    corr_matrix, psd_mats = prep_data.welch(256)
+    corr_matrix, psd_mats = prep_signals.welch(256)
     print('Function A - Time elapsed: ', time.time() - startA)
 
     startB = time.time()
-    corr_matrix_new = prep_data.corr_welch(256)
+    corr_matrix_new = prep_signals.corr_welch(256)
     # were certainly generated during function call by corr_welch
-    psd_mats_new, freqs = prep_data.psd_mats, prep_data.freqs
+    psd_mats_new, freqs = prep_signals.psd_mats, prep_signals.freqs
     print('Function B - Time elapsed: ', time.time() - startB)
 
     chA = 7
@@ -2075,7 +2090,7 @@ def example_welch():
 def example_blackman_tukey():
     path = 'Messung_Test.asc'
     measurement = np.loadtxt(path)
-    prep_data = PreprocessData(
+    prep_signals = PreProcessSignals(
         measurement,
         sampling_rate=128,
         ref_channels=[
@@ -2083,9 +2098,9 @@ def example_blackman_tukey():
             1])
 
     startA = time.time()
-    psd_mats, freqs = prep_data.psd_blackman_tukey(
+    psd_mats, freqs = prep_signals.psd_blackman_tukey(
         tau_max=256, window='bartlett')
-    corr_matrix = prep_data.corr_matrix
+    corr_matrix = prep_signals.corr_matrix
     print('Time elapsed: ', time.time() - startA)
     # print(freqs)
     chA = 7
@@ -2103,24 +2118,24 @@ def example_blackman_tukey():
 def compare_PSD_Corr():
     path = 'Messung_Test.asc'
     measurement = np.loadtxt(path)
-    prep_data = PreprocessData(
+    prep_signals = PreProcessSignals(
         measurement,
         sampling_rate=128,
         ref_channels=[
             0,
             1])
 
-    prep_data.filter_data(lowpass=10, highpass=0.1, overwrite=True)
+    prep_signals.filter_signals(lowpass=10, highpass=0.1, overwrite=True)
 
     startA = time.time()
-    psd_mats_b, freqs_b = prep_data.psd_blackman_tukey(
+    psd_mats_b, freqs_b = prep_signals.psd_blackman_tukey(
         tau_max=2048, window='hamming')
-    corr_matrix_b = prep_data.corr_matrix
+    corr_matrix_b = prep_signals.corr_matrix
     print('Blackman-Tukey - Time elapsed: ', time.time() - startA)
 
     startB = time.time()
-    corr_matrix_w = prep_data.corr_welch(2048, window='hamming')
-    psd_mats_w, freqs_w = prep_data.psd_mats, prep_data.freqs
+    corr_matrix_w = prep_signals.corr_welch(2048, window='hamming')
+    psd_mats_w, freqs_w = prep_signals.psd_mats, prep_signals.freqs
     print('Welch - Time elapsed: ', time.time() - startB)
 
     chA = 7
@@ -2145,13 +2160,13 @@ if __name__ == '__main__':
 
     path = 'Messung_Test.asc'
     measurement = np.loadtxt(path)
-    prep_data = PreprocessData(
+    prep_signals = PreProcessSignals(
         measurement,
         sampling_rate=128,
         ref_channels=[
             0,
             1])
-    prep_data.plot_svd_spectrum(8192)
+    prep_signals.plot_svd_spectrum(8192)
     plt.show()
     # example_filter()
     # example_decimate()

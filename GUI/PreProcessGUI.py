@@ -4,10 +4,10 @@ import sys
 import numpy as np
 
 
-# imports GUI and PreprocessingTools
+# imports GUI and PreProcessingTools
 # sys.path.append(os.path.abspath("E:/OneDrive/BHU_NHRE/Python/2017_PreProcessGUI/modal_analysis/"))
 import filter_GUI as fGUI
-import PreprocessingTools as ppt
+import PreProcessingTools as ppt
 import modified_GUI as design
 
 
@@ -130,7 +130,7 @@ class PreProcessApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.FilterWindow.activateWindow()
 
         RpRsVal = [f_passRp, f_stopRp]
-        self.data.filter_data(
+        self.data.filter_signals(
             lowpass=f_lowfreq,
             highpass=f_highfreq,
             overwrite=True,
@@ -151,7 +151,7 @@ class PreProcessApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         measurement = np.loadtxt(filePath)
         self.sampling_rate, _ = QtWidgets.QInputDialog.getDouble(
             self, "Sampling Rate", "Value [Hz]:", 128, 0, 999999, 1)
-        self.data = ppt.PreprocessData(measurement, self.sampling_rate)
+        self.data = ppt.PreProcessSignals(measurement, self.sampling_rate)
 
         # insert values for time and frequency in plot parameters
         self.startTimeEdit.setText("0")

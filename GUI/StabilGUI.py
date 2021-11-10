@@ -6,7 +6,7 @@ Modified and Extended by Simon Marwitz 2015
 
 import logging
 import warnings
-from core.PreprocessingTools import PreprocessData
+from core.PreProcessingTools import PreProcessSignals
 from GUI.HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
 from GUI.PlotMSHGUI import ModeShapeGUI
 from core.StabilDiagram import StabilPlot, StabilCluster, DataCursor

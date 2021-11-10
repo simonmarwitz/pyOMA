@@ -16,7 +16,7 @@ Modified and Extended by Simon Marwitz 2015 ff.
 
 import logging
 import warnings
-from core.PreprocessingTools import PreprocessData
+from core.PreProcessingTools import PreProcessSignals
 from core.SSICovRef import PogerSSICovRef
 from core.ModalBase import ModalBase
 import numpy as np
@@ -76,7 +76,7 @@ class StabilCalc(object):
         self.start_time = modal_data.start_time
 
         if prep_data is not None:
-            assert isinstance(prep_data, PreprocessData)
+            assert isinstance(prep_data, PreProcessSignals)
         self.prep_data = prep_data
 
         has_mode_shapes = self.modal_data.__dict__.get(

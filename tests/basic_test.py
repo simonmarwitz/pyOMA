@@ -11,7 +11,7 @@ import os
 
 import numpy as np
 
-from core.PreprocessingTools import PreprocessData, GeometryProcessor
+from core.PreProcessingTools import PreProcessSignals, GeometryProcessor
 
 from core.ModalBase import ModalBase
 from core.PLSCF import PLSCF
@@ -41,16 +41,16 @@ def analysis_chain(tmpdir):
         nodes_file='../input_files/grid',
         lines_file='../input_files/lines',
         master_slaves_file='../input_files/master_slaves')
-    PreprocessData.load_measurement_file = lambda measurement: measurement
-    prep_data = PreprocessData.init_from_config(
+    PreProcessSignals.load_measurement_file = lambda measurement: measurement
+    prep_data = PreProcessSignals.init_from_config(
         conf_file='../input_files/meas_1/setup_info.txt',
         meas_file=measurement,
         chan_dofs_file='../input_files/meas_1/channel_dofs')
 
     # test all functions of PreProcessData
     prep_data.correct_offset()
-    prep_data.filter_data(lowpass=12)
-    prep_data.decimate_data(2)
+    prep_data.filter_signals(lowpass=12)
+    prep_data.decimate_signals(2)
     prep_data.psd_welch()
     prep_data.corr_welch(400)
     prep_data.psd_blackman_tukey()
@@ -102,7 +102,7 @@ def PlotMSHGUI_test():
 
 def multi_setup_analysis():
 
-    PreprocessData.load_measurement_file = np.load
+    PreProcessSignals.load_measurement_file = np.load
 
     working_dir = Path(sys.modules['tests'].__path__[0]) / 'files/'
 
@@ -132,7 +132,7 @@ def multi_setup_analysis():
             if not os.path.exists(result_folder / 'prep_data.npz') \
                     or not skip_existing:
 
-                prep_data = PreprocessData.init_from_config(
+                prep_data = PreProcessSignals.init_from_config(
                     conf_file=result_folder / 'setup_info.txt',
                     meas_file=result_folder / (meas_name + '.npy'),
                     chan_dofs_file=result_folder / "channel_dofs.txt",)
@@ -142,7 +142,7 @@ def multi_setup_analysis():
                 if save_results:
                     prep_data.save_state(result_folder / 'prep_data.npz')
             else:
-                prep_data = PreprocessData.load_state(
+                prep_data = PreProcessSignals.load_state(
                     result_folder / 'prep_data.npz')
 
             modal_data.add_setup(prep_data)
@@ -202,7 +202,7 @@ def single_setup_analysis(
     if not os.path.exists(
             result_folder /
             'prep_data.npz') or not skip_existing:
-        prep_data = PreprocessData.init_from_config(
+        prep_data = PreProcessSignals.init_from_config(
             conf_file=setup_info,
             meas_file=meas_file,
             chan_dofs_file=chan_dofs_file)
@@ -210,7 +210,7 @@ def single_setup_analysis(
         if save_results:
             prep_data.save_state(result_folder / 'prep_data.npz')
     else:
-        prep_data = PreprocessData.load_state(result_folder / 'prep_data.npz')
+        prep_data = PreProcessSignals.load_state(result_folder / 'prep_data.npz')
 
     if not os.path.exists(
             result_folder /
@@ -244,7 +244,7 @@ def merge_poser_test(skip_existing = False,
                      save_results = False,
                      interactive = True):
 
-    PreprocessData.load_measurement_file = np.load
+    PreProcessSignals.load_measurement_file = np.load
 
     working_dir = Path(sys.modules['tests'].__path__[0]) / 'files/'
 
@@ -289,6 +289,6 @@ def merge_poser_test(skip_existing = False,
 if __name__ == '__main__':
     # analysis_chain(tmpdir='/dev/shm/womo1998/')
     #PlotMSHGUI_test()
-    merge_poser_test(True,False,True)
+    merge_poser_test(False,False,True)
     
     # multi_setup_analysis()

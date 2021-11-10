@@ -22,7 +22,7 @@ from core.PostProcessingTools import MergePoSER
 from core.VarSSIRef import VarSSIRef
 from core.SSICovRef import PogerSSICovRef
 from core.ModalBase import ModalBase
-from core.PreprocessingTools import PreprocessData, GeometryProcessor
+from core.PreProcessingTools import PreProcessSignals, GeometryProcessor
 from core.StabilDiagram import StabilCalc
 from core.Helpers import calc_xyz, nearly_equal
 import itertools
@@ -143,7 +143,7 @@ class ModeShapePlot(object):
 
         Parameters
         ----------
-            geometry_data : PreprocessingTools.GeometryProcessor
+            geometry_data : PreProcessingTools.GeometryProcessor
                     Object containing all the necessary geometry information.
 
             stabil_calc : StabilDiagram.StabilCalc, optional
@@ -155,7 +155,7 @@ class ModeShapePlot(object):
                     containing the estimated modal parameters at multiple
                     model orders.
 
-            prep_data : PreprocessingTools.PreprocessData, optional
+            prep_data : PreProcessingTools.PreProcessSignals, optional
                     Object containing the measurement data and information
                     about it.
 
@@ -222,7 +222,7 @@ class ModeShapePlot(object):
 
         #prep_data = prep_data
         if prep_data is not None:
-            assert isinstance(prep_data, PreprocessData)
+            assert isinstance(prep_data, PreProcessSignals)
         self.prep_data = prep_data
 
         if merged_data is not None:
@@ -1326,7 +1326,7 @@ class ModeShapePlot(object):
     # @pyqtSlot()
     def draw_nodes(self):
         ''''
-        Draws nodes from the node list of PreprocessingTools.GeometryData
+        Draws nodes from the node list of PreProcessingTools.GeometryData
         The currently stored displacement values are used for moving the
         nodes.
         '''
@@ -1377,7 +1377,7 @@ class ModeShapePlot(object):
 
     def draw_lines(self):
         '''
-        Draws all line from the line list of PreprocessingTools.GeometryProcessor
+        Draws all line from the line list of PreProcessingTools.GeometryProcessor
         The currently stored displacement values are used for moving the
         nodes.
         '''
@@ -1523,7 +1523,7 @@ class ModeShapePlot(object):
     def draw_chan_dofs(self):
         '''
         Draw arrows and numbers for all channel-DOF assignments stored
-        in the channel - DOF assignment table of PreprocessingTools.GeometrProcessor
+        in the channel - DOF assignment table of PreProcessingTools.GeometrProcessor
         '''
         for i, chan_dof in enumerate(self.chan_dofs):
 

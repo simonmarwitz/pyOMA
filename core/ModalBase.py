@@ -5,7 +5,7 @@ should be inherited.
 @author: womo1998
 '''
 
-from core.PreprocessingTools import PreprocessData
+from core.PreProcessingTools import PreProcessSignals
 import numpy as np
 from collections import deque
 import os
@@ -23,7 +23,7 @@ class ModalBase(object):
     def __init__(self, prep_data=None):
         super().__init__()
         if prep_data is not None:
-            assert isinstance(prep_data, PreprocessData)
+            assert isinstance(prep_data, PreProcessSignals)
             self.setup_name = prep_data.setup_name
             self.start_time = prep_data.start_time
         else:
@@ -111,7 +111,7 @@ class ModalBase(object):
         '''
 
         assert os.path.exists(conf_file)
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
 
         with open(conf_file, 'r') as _:
             # read configuration parameters line by line
@@ -174,7 +174,7 @@ class ModalBase(object):
         print('Now loading previous results from  {}'.format(fname))
 
         assert os.path.exists(fname)
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
         in_dict = np.load(fname, allow_pickle=True)
 
         if 'self.state' in in_dict:

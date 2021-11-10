@@ -54,7 +54,7 @@ The toolbox consists of four packages :
 
     pyOMA
     ├── core
-    │   ├── PreprocessingTools.py
+    │   ├── PreProcessingTools.py
     │   ├── ModalBase.py
     │   ├── PLSCF.py
     │   ├── PRCE.py

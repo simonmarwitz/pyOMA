@@ -7,7 +7,7 @@ Multi-Setup Merging PoSER
 
 for each setup provide:
 
-prep_data -> PreprocessData: chan_dofs, ref_channels, roving_channels
+prep_data -> PreProcessSignals: chan_dofs, ref_channels, roving_channels
 modal_data -> modal_frequencies, modal_damping, mode_shapes
 stabil_data -> select_modes
 
@@ -33,7 +33,7 @@ poser multi-setup (merged_data)
 
 import numpy as np
 import datetime
-from core.PreprocessingTools import PreprocessData
+from core.PreProcessingTools import PreProcessSignals
 from core.ModalBase import ModalBase
 from core.StabilDiagram import StabilCalc
 import os
@@ -75,7 +75,7 @@ class MergePoSER(object):
         if override_ref_channels:
             raise RuntimeWarning('This function is not implemented yet!')
 
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
         assert isinstance(modal_data, ModalBase)
         assert isinstance(stabil_data, StabilCalc)
 
@@ -538,7 +538,7 @@ class MergePoSER(object):
 
 
 def main():
-    from core.PreprocessingTools import PreprocessData, GeometryProcessor
+    from core.PreProcessingTools import PreProcessSignals, GeometryProcessor
     from core.SSICovRef import BRSSICovRef
     from core.StabilDiagram import StabilCalc
     from core.PlotMSH import ModeShapePlot
@@ -556,7 +556,7 @@ def main():
     for setup in setups:
         result_folder = working_dir + setup
 
-        prep_data = PreprocessData.load_state(result_folder + 'prep_data.npz')
+        prep_data = PreProcessSignals.load_state(result_folder + 'prep_data.npz')
         modal_data = BRSSICovRef.load_state(
             result_folder + 'modal_data.npz', prep_data)
         stabil_data = StabilCalc.load_state(

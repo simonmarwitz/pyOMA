@@ -15,7 +15,7 @@ from collections import deque
 #import datetime
 #from copy import deepcopy
 
-from core.PreprocessingTools import PreprocessData
+from core.PreProcessingTools import PreProcessSignals
 from core.ModalBase import ModalBase
 #from StabilDiagram import main_stabil, StabilPlot, nearly_equal
 
@@ -48,7 +48,7 @@ class PRCE(ModalBase):
     @classmethod
     def init_from_config(cls, mod_ID_file, prep_data):
         assert os.path.exists(mod_ID_file)
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
 
         #print('mod_ID_file: ', mod_ID_file)
 
@@ -418,7 +418,7 @@ class PRCE(ModalBase):
             if this_state:
                 print(state_string)
 
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
         #prep_data = in_dict['self.prep_data'].item()
         prce_object = cls(prep_data)

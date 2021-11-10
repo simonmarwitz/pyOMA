@@ -11,7 +11,7 @@ import copy
 import numpy as np
 import scipy.linalg
 
-from core.PreprocessingTools import PreprocessData
+from core.PreProcessingTools import PreProcessSignals
 from core.ModalBase import ModalBase
 
 import matplotlib.pyplot as plt
@@ -492,7 +492,7 @@ class BRSSICovRef(ModalBase):
 
         I = np.identity(order)
 
-        Lambda_0 = self.prep_data.get_corr_0()
+        Lambda_0 = self.prep_data.signal_power()
 
         for n in range(tau_max):
 
@@ -563,7 +563,7 @@ class BRSSICovRef(ModalBase):
             if this_state:
                 print(state_string)
 
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
         assert setup_name == prep_data.setup_name
         start_time = prep_data.start_time
@@ -707,7 +707,7 @@ class PogerSSICovRef(ModalBase):
         todo:
         check that ref_channels are equal in each setup (by number and by DOF)
         '''
-        assert isinstance(prep_data, PreprocessData)
+        assert isinstance(prep_data, PreProcessSignals)
 
         # assure chan_dofs were assigned
         assert prep_data.chan_dofs
@@ -1499,7 +1499,7 @@ class PogerSSICovRef(ModalBase):
             if this_state:
                 print(state_string)
 
-        #assert isinstance(prep_data, PreprocessData)
+        #assert isinstance(prep_data, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
 
         ssi_object = cls()

@@ -8,4 +8,4 @@ Signal processing
    :toctree: core
    :template: custom-module-template.rst
    
-   PreprocessingTools
+   PreProcessingTools
