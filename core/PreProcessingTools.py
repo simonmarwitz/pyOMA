@@ -2288,7 +2288,7 @@ class PreProcessSignals(object):
         
         # precompute relevant spectral matrices
         n_lines = kwargs.pop('n_lines', None)
-        method = kwargs.pop('method', None)
+        method = kwargs.pop('method', self._last_meth)
         self.psd(n_lines, method, refs_only=refs_only, **kwargs.copy())
         if timescale == 'lags':
             self.correlation(self.n_lags, method, refs_only=refs_only, **kwargs.copy())
@@ -2352,6 +2352,11 @@ class PreProcessSignals(object):
         t = self.t
         if scale == 'samples':
             t *= self.sampling_rate
+            xlabel = '$n$ [-]'
+            ylabel = '$y[n]$ [...]'
+        else:
+            xlabel = '$t$ [s]'
+            ylabel = '$y(t)$ [...]'
         
         channel_numbers, _ = self._channel_numbers(channels)
 
@@ -2361,13 +2366,13 @@ class PreProcessSignals(object):
         for channel in channel_numbers:
             channel_name = self.channel_headers[channel]
             
-            ax.plot(t, signals[:, channel], label=f'y_{{{channel_name}}}', **kwargs)
+            ax.plot(t, signals[:, channel], label=f'$y_\mathrm{{{channel_name}}}$', **kwargs)
             
         ax.set_xlim((0, self.duration))
         if ax.is_last_row():
-            ax.set_xlabel('$t$ [s]')
+            ax.set_xlabel(xlabel)
         if ax.is_first_col():
-            ax.set_ylabel('$y(t)$ [...]')
+            ax.set_ylabel(ylabel)
         
         return ax
     
@@ -2414,6 +2419,7 @@ class PreProcessSignals(object):
         '''
         
         method = kwargs.pop('method', self._last_meth)
+        assert method is not None
         # inspect, which reference channels are needed; ref_numbers is a list-of-lists
         channel_numbers, ref_numbers = self._channel_numbers(channels, refs)
         all_ref_numbers = set(sum(ref_numbers, []))
@@ -2439,6 +2445,11 @@ class PreProcessSignals(object):
         lags = self.lags
         if scale == 'samples':
             lags *= self.sampling_rate
+            xlabel = '$m$ [-]'
+            ylabel = '$\hat{R}_{i,j}[m]$ [...]'
+        else:
+            xlabel = '$\\tau$ [s]'
+            ylabel = '$\hat{R}_{i,j}(\\tau)$ [...]'
         
         if ax is None:
             ax = plt.subplot(111)
@@ -2458,14 +2469,18 @@ class PreProcessSignals(object):
                     norm_fact = self.n_lines
                 elif method == 'blackman-tukey':
                     norm_fact = self.total_time_steps
-                    
-                ref_name = self.channel_headers[ref_number]
                 
-                ax.plot(lags, corr * norm_fact, label=f'R_{{{ref_name}{channel_name}}}', **plot_kwarg_dict)
+                if ref_number == channel_number:
+                    label = f'$\hat{{R}}_\mathrm{{{channel_name}}}$'
+                else:
+                    ref_name = self.channel_headers[ref_number]
+                    label = f'$\hat{{R}}_\mathrm{{{ref_name},{channel_name}}}$'
+                
+                ax.plot(lags, corr * norm_fact, label=label, **plot_kwarg_dict)
                 
         ax.set_xlim((0, lags.max()))
-        ax.set_xlabel('$\tau$ [s]')
-        ax.set_ylabel('$R_{i,j}(\tau) [...]')
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
         
         return ax
 
@@ -2567,10 +2582,17 @@ class PreProcessSignals(object):
                     psd = np.sqrt(np.abs(psd))
                 elif scale == 'phase':
                     psd = np.angle(psd) / np.pi * 180
-                ax.plot(freqs, psd, label=f'S_{{{ref_name}{channel_name}}}', **plot_kwarg_dict)
+                
+                if ref_number == channel_number:
+                    label = f'$\hat{{S}}_\mathrm{{{channel_name}}}$'
+                else:
+                    ref_name = self.channel_headers[ref_number]
+                    label = f'$\hat{{S}}_\mathrm{{{ref_name},{channel_name}}}$'
+                    
+                ax.plot(freqs, psd, label=label, **plot_kwarg_dict)
         
         ax.set_xlim((0, freqs.max()))
-        ax.set_xlabel('f [Hz]')
+        ax.set_xlabel('$f$ [Hz]')
         if scale == 'svd':
             ax.set_ylabel('Singular Value Magnitude [dB]')
         elif scale == 'db':
