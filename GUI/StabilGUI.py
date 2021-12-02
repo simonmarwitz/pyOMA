@@ -1147,8 +1147,8 @@ class StabilGUI(QMainWindow):
         if self.stabil_calc.capabilities['data']:
             psd_check = QCheckBox('Show PSD')
             psd_check.setChecked(show_psd)
-            self.stabil_plot.plot_fft(show_psd)
-            psd_check.stateChanged.connect(self.stabil_plot.plot_fft)
+            self.stabil_plot.plot_sv_psd(show_psd)
+            psd_check.stateChanged.connect(self.stabil_plot.plot_sv_psd)
             layout.addWidget(psd_check, i, 1, 1, 2)
             i += 1
 

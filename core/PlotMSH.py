@@ -172,7 +172,7 @@ class ModeShapePlot(object):
                     model orders.
 
             prep_data : PreProcessingTools.PreProcessSignals, optional
-                    Object containing the measurement data and information
+                    Object containing the signals data and information
                     about it.
 
             merged_data : PostProcessingTools.MergePoSER, SSICovRef.PogerSSICovRef, optional
@@ -2087,11 +2087,11 @@ class ModeShapePlot(object):
                 if node not in self.geometry_data.nodes.keys():
                     continue
                 x, y, z = self.calc_xyz(az * np.pi / 180, elev * np.pi / 180)
-                disp_nodes[node][0] += self.prep_data.measurement_filt[num,
+                disp_nodes[node][0] += self.prep_data.signals_filtered[num,
                                                                        chan_] * x * self.amplitude
-                disp_nodes[node][1] += self.prep_data.measurement_filt[num,
+                disp_nodes[node][1] += self.prep_data.signals_filtered[num,
                                                                        chan_] * y * self.amplitude
-                disp_nodes[node][2] += self.prep_data.measurement_filt[num,
+                disp_nodes[node][2] += self.prep_data.signals_filtered[num,
                                                                        chan_] * z * self.amplitude
 
             # print(num)
@@ -2159,7 +2159,7 @@ class ModeShapePlot(object):
             fig=self.fig,
             func=update_lines,
             frames=range(
-                self.prep_data.measurement_filt.shape[0]),
+                self.prep_data.signals_filtered.shape[0]),
             init_func=init_lines,
             interval=1 /
             self.prep_data.sampling_rate,

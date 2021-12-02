@@ -2003,7 +2003,7 @@ class StabilPlot(object):
 
         fp = FontProperties(family='monospace', weight=0, size='large')
 
-        self.psd_plot = None
+        self.psd_plot = []
 
         self.stable_plot = {
             'plot_pre': None,
@@ -2366,11 +2366,11 @@ class StabilPlot(object):
 
         self.fig.canvas.draw_idle()
 
-    def plot_fft(self, b, NFFT=2048):
+    def plot_sv_psd(self, b, NFFT=2048):
         '''
         Todo: - add GUI for choosing PSD parameters
         '''
-        if self.psd_plot is not None:
+        if self.psd_plot:
             for line in self.psd_plot:
                 line._visible = b
             self.fig.canvas.draw_idle()
@@ -2380,33 +2380,18 @@ class StabilPlot(object):
             raise RuntimeError('Measurement Data was not provided!')
         if not b:
             return
-        ft_freq, sum_ft = self.stabil_calc.prep_data.get_fft(
-            svd=True, NFFT=NFFT)
+        
+        sv_psd = self.stabil_calc.prep_data.sv_psd()
+        freq_psd = self.stabil_calc.prep_data.freqs
 
-        #print('ft_freq = ', ft_freq)
-        #print('sum_ft = ', sum_ft)
-        # print('self.stabil_calc.modal_data.max_model_order = ',
-        #      self.stabil_calc.modal_data.max_model_order)
-
-        sum_ft = sum_ft - np.min(sum_ft)
-        sum_ft = sum_ft / (np.max(sum_ft)) * 0.5 * \
+        sv_psd -= np.min(sv_psd)
+        sv_psd /= (np.max(sv_psd)) * 0.5 * \
             self.stabil_calc.modal_data.max_model_order
-        for channel in range(sum_ft.shape[0]):
-            #             self.psd_plot = self.ax2.semilogy(
-            # ft_freq, sum_ft[channel,:], color='grey', linestyle='solid',
-            # visible=b)
-            self.psd_plot = self.ax.plot(ft_freq,
-                                         sum_ft[channel,
-                                                :],
-                                         color='grey',
-                                         linestyle='solid',
-                                         visible=b,
-                                         zorder=-1)
-#         ymin,ymax= self.ax2.get_ylim()
-#         ymin = np.percentile(sum_ft[-1,:],5)
-#         ymax = (ymax-ymin)*2+ymin
-#         self.ax2.set_ylim((ymin,ymax))
-#         self.ax2.set_yticks([],[])
+        for channel in range(sv_psd.shape[0]):
+            self.psd_plot.append(self.ax.plot(10 * np.log10(freq_psd),
+                                     sv_psd[channel, :], color='grey',
+                                     linestyle='solid', visible=b,
+                                     zorder=-1))
         self.fig.canvas.draw_idle()
 
     def update_xlim(self, xlim):

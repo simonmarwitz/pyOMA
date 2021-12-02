@@ -110,7 +110,7 @@ class PLSCF(ModalBase):
             i for i in range(
                 self.prep_data.num_analised_channels) if i not in ref_channels]
 
-        measurement = self.prep_data.measurement
+        measurement = self.prep_data.signals
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels = self.prep_data.num_ref_channels
 
@@ -300,7 +300,7 @@ class PLSCF(ModalBase):
 
         #ref_channels = sorted(self.prep_data.ref_channels)
         #roving_channels = self.prep_data.roving_channels
-        #measurement = self.prep_data.measurement
+        #signals = self.prep_data.signals
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels = self.prep_data.num_ref_channels
         selected_omega_vector = self.selected_omega_vector

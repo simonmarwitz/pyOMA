@@ -150,7 +150,7 @@ class SSIData(ModalBase):
         total_time_steps = self.prep_data.total_time_steps
         ref_channels = sorted(self.prep_data.ref_channels)
         #roving_channels = self.prep_data.roving_channels
-        measurement = self.prep_data.measurement
+        measurement = self.prep_data.signals
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels = self.prep_data.num_ref_channels
 
@@ -596,7 +596,7 @@ class SSIDataMC(ModalBase):
 
         self.num_block_rows = num_block_rows
 
-        measurement = self.prep_data.measurement
+        measurement = self.prep_data.signals
         total_time_steps = self.prep_data.total_time_steps
 
         ref_channels = sorted(self.prep_data.ref_channels)
@@ -956,14 +956,14 @@ class SSIDataMC(ModalBase):
             C_0 = C.dot(eigvec_r)
             K_0 = np.linalg.inv(eigvec_r).dot(K)
 
-            j = self.prep_data.measurement.shape[0]
+            j = self.prep_data.signals.shape[0]
             # j=12000
             states = np.zeros((order, j), dtype=np.complex64)
 
             AKC = (A_0 - K_0.dot(C_0))
             AKC = np.array(AKC, dtype=np.complex64)
 
-            K_0m = K_0.dot(self.prep_data.measurement[:j, :].T)
+            K_0m = K_0.dot(self.prep_data.signals[:j, :].T)
             K_0m = np.array(K_0m, dtype=np.complex64)
 
             #print(states.shape,AKC.shape, A_0.shape, C_0.shape)
@@ -971,7 +971,7 @@ class SSIDataMC(ModalBase):
             for k in range(j - 1):
                 states[:, k + 1] = K_0m[:, k] + np.dot(AKC, states[:, k])
 
-            Y = self.prep_data.measurement[:j, :].T
+            Y = self.prep_data.signals[:j, :].T
             norm = 1 / np.einsum('ji,ji->j', Y, Y)
 
             meas_synth_single = []
@@ -1009,7 +1009,7 @@ class SSIDataMC(ModalBase):
 #                     ax.set_xticklabels([])
 #                     ax.set_yticklabels([])
 #                 plot.figure()
-#                 plot.plot(self.prep_data.measurement[500:1000,0])
+#                 plot.plot(self.prep_data.signals[500:1000,0])
 #                 ax=plot.gca()
 #                 ax.set_xlim((0,500))
 #                 ax.set_ylim((-0.0015,0.0015))
@@ -1037,18 +1037,18 @@ class SSIDataMC(ModalBase):
                     ax2.plot(ft_freq, np.abs(ft))
                     meas_synth_all += meas_synth
 
-                axes[-1, 0].plot(self.prep_data.measurement[0:j, 0], alpha=.5)
+                axes[-1, 0].plot(self.prep_data.signals[0:j, 0], alpha=.5)
                 axes[-1, 0].plot(meas_synth_all[0, :j])
                 axes[-1, 0].plot(meas_synth_all[0, :j] -
-                                 self.prep_data.measurement[:j, 0], alpha=.25)
+                                 self.prep_data.signals[:j, 0], alpha=.25)
                 axes[-1, 0].set_xlim(0, j)
                 #ft_freq = np.fft.rfftfreq(j/4, d = (1/self.prep_data.sampling_rate))
 
                 ft_meas = np.fft.rfft(
-                    self.prep_data.measurement[0:j4, 0] * np.hanning(j4))
+                    self.prep_data.signals[0:j4, 0] * np.hanning(j4))
                 for i in range(1, 4):
                     ft_meas += np.fft.rfft(
-                        self.prep_data.measurement[i * j4:(i + 1) * j4, 0] * np.hanning(j4))
+                        self.prep_data.signals[i * j4:(i + 1) * j4, 0] * np.hanning(j4))
                 ft_meas /= 4
                 axes[-1, 1].plot(ft_freq, np.abs(ft_meas), alpha=.5)
 

@@ -100,9 +100,13 @@ class BRSSICovRef(ModalBase):
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels = self.prep_data.num_ref_channels
 
-        tau_max = num_block_rows + 1 + num_block_columns - 1
-        if self.prep_data.tau_max < tau_max:
-            self.prep_data.compute_correlation_matrices(tau_max)
+        n_lags = num_block_rows + 1 + num_block_columns - 1
+        
+        if self.prep_data.n_lags is None:
+            self.prep_data.correlation(n_lags, 'blackman-tukey')
+            
+        if self.prep_data.n_lags < n_lags:
+            self.prep_data.correlation(n_lags, 'blackman-tukey')
 
         corr_matrix = self.prep_data.corr_matrix
 
@@ -273,7 +277,7 @@ class BRSSICovRef(ModalBase):
         accel_channels = self.prep_data.accel_channels
         velo_channels = self.prep_data.velo_channels
         sampling_rate = self.prep_data.sampling_rate
-        tau_max = self.prep_data.tau_max
+        n_lags = self.prep_data.n_lags
 
         U = self.U[:, :order]
         V_T = self.V_T[:order, :]
@@ -286,15 +290,15 @@ class BRSSICovRef(ModalBase):
 
         #print('Computing modal parameters...')
 
-        corr_mats_shape = (num_analised_channels, num_ref_channels, tau_max)
+        corr_mats_shape = (num_analised_channels, num_ref_channels, n_lags)
         corr_matrix_synth = np.zeros(corr_mats_shape, dtype=np.float64)
         '''
         #From Brincker with participation factor for all channels:
 
-        M = np.zeros((num_modes, tau_max*num_analised_channels), dtype=complex)
-        H = np.zeros((num_analised_channels, num_ref_channels*tau_max))
+        M = np.zeros((num_modes, n_lags*num_analised_channels), dtype=complex)
+        H = np.zeros((num_analised_channels, num_ref_channels*n_lags))
 
-        for tau in range(tau_max):
+        for tau in range(n_lags):
             M[:,tau*num_analised_channels:(tau+1)*num_analised_channels]=(mu_n**tau).dot(A.T)
             H[:,tau*num_ref_channels:(tau+1)*num_ref_channels]=corr_matrix[:,:,tau]
 
@@ -404,11 +408,11 @@ class BRSSICovRef(ModalBase):
                     ip += 1
 
             if corr_synth:
-                ft_freq = np.fft.rfftfreq(tau_max, d=(
+                ft_freq = np.fft.rfftfreq(n_lags, d=(
                     1 / self.prep_data.sampling_rate))
 
                 this_corr_synth = np.zeros(corr_mats_shape, dtype=np.float64)
-                for tau in range(1, tau_max + 1):
+                for tau in range(1, n_lags + 1):
 
                     #this_corr_synth[:,:,tau-1] = this_Phi.dot(this_Lambda**tau).dot(this_G_m).real
                     this_corr_synth[:, :, tau -
@@ -434,7 +438,7 @@ class BRSSICovRef(ModalBase):
                                 axes[ip, 0].plot(
                                     this_corr_synth[channel, ref_channel, :])
                                 ft_synth = np.fft.rfft(
-                                    this_corr_synth[channel, ref_channel, :] * np.hanning(tau_max))
+                                    this_corr_synth[channel, ref_channel, :] * np.hanning(n_lags))
                                 axes[ip, 1].plot(ft_freq, np.abs(ft_synth))
 
                 corr_matrix_synth += this_corr_synth
@@ -446,7 +450,7 @@ class BRSSICovRef(ModalBase):
                         corr_matrix_data[channel, ref_channel, :], alpha=.5)
 
                     ft_meas = np.fft.rfft(
-                        corr_matrix_data[channel, ref_channel, :] * np.hanning(tau_max))
+                        corr_matrix_data[channel, ref_channel, :] * np.hanning(n_lags))
                     axes[0, 1].plot(ft_freq, np.abs(ft_meas), alpha=.5)
 
         if corr_synth:
@@ -495,7 +499,7 @@ class BRSSICovRef(ModalBase):
         '''
 
         f_max = self.prep_data.sampling_rate / 2
-        tau_max = self.prep_data.tau_max
+        n_lags = self.prep_data.n_lags
         delta_t = 1 / self.prep_data.sampling_rate
 
         num_analised_channels = self.prep_data.num_analised_channels
@@ -503,14 +507,14 @@ class BRSSICovRef(ModalBase):
         order = A.shape[0]
         assert order == A.shape[1]
 
-        psd_mats_shape = (num_analised_channels, num_ref_channels, tau_max)
+        psd_mats_shape = (num_analised_channels, num_ref_channels, n_lags)
         psd_matrix = np.zeros(psd_mats_shape, dtype=np.float64)
 
         I = np.identity(order)
 
         Lambda_0 = self.prep_data.signal_power()
 
-        for n in range(tau_max):
+        for n in range(n_lags):
 
             z = np.exp(0 + 1j * n * delta_t)
             psd_matrix[:, :, n] = C.dot(np.linalg.solve(
@@ -633,7 +637,7 @@ class PogerSSICovRef(ModalBase):
     * Create configuration files and channel-dof-assignments for each setup
     * Pre-process each setup using PreProcessData
     * Pre-compute correlations functions using PreProcessData.compute_correlation_functions
-    (note: tau_max >= num_block_columns + num_block_rows >= 2 * num_block_columns + 1)
+    (note: n_lags >= num_block_columns + num_block_rows >= 2 * num_block_columns + 1)
     * add the PreProcessData objects of each setup using add_setup
     * call pair_channels(), build_merged_subspace_matrix(),
     compute_state_matrices(), compute_modal_params()
@@ -689,7 +693,7 @@ class PogerSSICovRef(ModalBase):
         self.setups = []
         self.sampling_rate = None
         self.num_ref_channels = None
-        self.tau_max = None
+        self.n_lags = None
 
         # pair_channels
         self.ssi_ref_channels = None
@@ -743,10 +747,10 @@ class PogerSSICovRef(ModalBase):
         else:
             self.num_ref_channels = prep_data.num_ref_channels
 
-        if self.tau_max is not None:
-            self.tau_max = min(self.tau_max, prep_data.tau_max)
+        if self.n_lags is not None:
+            self.n_lags = min(self.n_lags, prep_data.n_lags)
         else:
-            self.tau_max = prep_data.tau_max
+            self.n_lags = prep_data.n_lags
 
         self.setup_name += prep_data.setup_name + '_'
         # self.start_times.append(prep_data.start_time)
@@ -1059,15 +1063,15 @@ class PogerSSICovRef(ModalBase):
             num_block_rows = num_block_columns  # -10
         assert isinstance(num_block_rows, int)
 
-        if not num_block_columns + num_block_columns + 1 <= self.tau_max:
+        if not num_block_columns + num_block_columns + 1 <= self.n_lags:
             raise RuntimeError(
                 'Correlation functions were pre-computed '
                 'up to {} time lags, which is sufficient for assembling '
                 'a Hankel-Matrix with up to {} x {} blocks. You requested '
                 '{} x {} blocks'.format(
-                    self.tau_max,
-                    self.tau_max // 2 + 1,
-                    self.tau_max // 2,
+                    self.n_lags,
+                    self.n_lags // 2 + 1,
+                    self.n_lags // 2,
                     num_block_rows + 1,
                     num_block_columns))
 
@@ -1085,7 +1089,7 @@ class PogerSSICovRef(ModalBase):
 
         num_analised_channels = self.num_analised_channels
         num_ref_channels = len(ssi_ref_channels[0])
-        tau_max = self.tau_max
+        n_lags = self.n_lags
 
         subspace_matrix = np.zeros(
             ((num_block_rows + 1) * num_analised_channels,
@@ -1110,7 +1114,7 @@ class PogerSSICovRef(ModalBase):
                 # of current setup
 
                 this_corr_matrix = this_corr_matrix.reshape(
-                    (this_analised_channels, num_ref_channels * tau_max), order='F')
+                    (this_analised_channels, num_ref_channels * n_lags), order='F')
                 this_block_column = this_corr_matrix[:, block_row * num_ref_channels:(
                     num_block_columns + block_row) * num_ref_channels]
 
@@ -1466,7 +1470,7 @@ class PogerSSICovRef(ModalBase):
             out_dict['self.setups'] = self.setups
             out_dict['self.sampling_rate'] = self.sampling_rate
             out_dict['self.num_ref_channels'] = self.num_ref_channels
-            out_dict['self.tau_max'] = self.tau_max
+            out_dict['self.n_lags'] = self.n_lags
         if self.state[1]:  # pair_channels
             out_dict['self.ssi_ref_channels'] = self.ssi_ref_channels
             out_dict['self.rescale_ref_channels'] = self.rescale_ref_channels
@@ -1528,7 +1532,7 @@ class PogerSSICovRef(ModalBase):
             ssi_object.sampling_rate = in_dict['self.sampling_rate'].item()
             ssi_object.num_ref_channels = in_dict['self.num_ref_channels'].item(
             )
-            ssi_object.tau_max = in_dict['self.tau_max'].item()
+            ssi_object.n_lags = in_dict['self.n_lags'].item()
         if state[1]:  # pair_channels
             ssi_object.ssi_ref_channels = [
                 list(l) for l in in_dict['self.ssi_ref_channels']]

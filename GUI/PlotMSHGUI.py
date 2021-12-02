@@ -345,7 +345,7 @@ class ModeShapeGUI(QMainWindow):
 
             self.ani_position_slider = QSlider(Qt.Horizontal)
             self.ani_position_slider.setRange(
-                0, mode_shape_plot.prep_data.measurement.shape[0])
+                0, mode_shape_plot.prep_data.signals.shape[0])
             self.ani_position_slider.valueChanged.connect(self.set_ani_time)
             self.ani_position_data = QLineEdit()
 
@@ -814,7 +814,7 @@ class ModeShapeGUI(QMainWindow):
 
     def set_ani_time(self, pos):
         # print(pos)
-        tot_len = self.mode_shape_plot.prep_data.measurement.shape[0]
+        tot_len = self.mode_shape_plot.prep_data.signals.shape[0]
         #pos = int(pos*tot_len)
         self.mode_shape_plot.line_ani.frame_seq = iter(range(pos, tot_len))
 

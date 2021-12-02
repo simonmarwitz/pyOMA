@@ -55,8 +55,8 @@ def analysis_chain(tmpdir):
     prep_data.corr_welch(400)
     prep_data.psd_blackman_tukey()
     prep_data.welch(400)
-    prep_data.get_s_vals_psd()
-    prep_data.compute_correlation_matrices(tau_max=400)
+    prep_data.sv_psd()
+    prep_data.compute_correlation_matrices(n_lags=400)
     prep_data.get_fft(svd=True)
 
     # for each OMA method
@@ -117,7 +117,7 @@ def multi_setup_analysis():
     save_results = True
     interactive = True
 
-    tau_max = 400
+    n_lags = 400
 
     result_folder_merged = working_dir / 'merged_poger/'
 
@@ -137,7 +137,7 @@ def multi_setup_analysis():
                     meas_file=result_folder / (meas_name + '.npy'),
                     chan_dofs_file=result_folder / "channel_dofs.txt",)
                 prep_data.compute_correlation_matrices(
-                    tau_max, num_blocks=False)
+                    n_lags, num_blocks=False)
 
                 if save_results:
                     prep_data.save_state(result_folder / 'prep_data.npz')
