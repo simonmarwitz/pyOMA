@@ -29,8 +29,9 @@ from core.PreProcessingTools import PreProcessSignals
 from core.ModalBase import ModalBase
 
 '''
-..todo::
+..TODO ::
      * define unit tests to check functionality after changes
+     * use covariance estimation from preprocess signals
      * optimize multi order qr-based estimation routine
      * iterate over conjugate indices instead of removing them --> SSI_Data MC
      * add mode-shape integration with variances
@@ -220,7 +221,7 @@ class VarSSIRef(ModalBase):
         total_time_steps = self.prep_data.total_time_steps
         ref_channels = sorted(self.prep_data.ref_channels)
         #roving_channels = self.prep_data.roving_channels
-        measurement = self.prep_data.measurement
+        measurement = self.prep_data.signals
         num_analised_channels = self.prep_data.num_analised_channels
         num_ref_channels = self.prep_data.num_ref_channels
 
@@ -230,17 +231,17 @@ class VarSSIRef(ModalBase):
 
         if subspace_method == 'covariance':
             block_length = int(np.floor(total_time_steps / num_blocks))
-            tau_max = num_block_columns + num_block_rows
-            if block_length <= tau_max:
+            n_lags = num_block_columns + num_block_rows
+            if block_length <= n_lags:
                 raise RuntimeError(
                     'Block length (={}) must be greater or equal to max time lag (={})'.format(
-                        block_length, tau_max))
-            #extract_length = block_length - tau_max
+                        block_length, n_lags))
+            #extract_length = block_length - n_lags
 
             corr_matrices_mem = []
 
             corr_mats_shape = (
-                tau_max * num_analised_channels,
+                n_lags * num_analised_channels,
                 num_ref_channels)
             for n_block in range(num_blocks):
                 # shared memory, can be used by multiple processes
@@ -250,7 +251,7 @@ class VarSSIRef(ModalBase):
                         (np.product(corr_mats_shape))))
                 corr_matrices_mem.append(corr_memory)
 
-            # measurement*=float(np.sqrt(block_length))
+            # signals*=float(np.sqrt(block_length))
             measurement_shape = measurement.shape
             measurement_memory = mp.Array(
                 c.c_double, measurement.reshape(
@@ -258,7 +259,7 @@ class VarSSIRef(ModalBase):
 
             # each process should have at least 10 blocks to compute, to reduce
             # overhead associated with spawning new processes
-            n_proc = min(int(tau_max * num_blocks / 10), os.cpu_count())
+            n_proc = min(int(n_lags * num_blocks / 10), os.cpu_count())
             pool = mp.Pool(
                 processes=n_proc,
                 initializer=self.init_child_process,
@@ -267,13 +268,13 @@ class VarSSIRef(ModalBase):
                     corr_matrices_mem))  # @UndefinedVariable
 
             iterators = []
-            it_len = int(np.ceil(tau_max * num_blocks / n_proc))
-            printsteps = np.linspace(0, tau_max * num_blocks, 100, dtype=int)
+            it_len = int(np.ceil(n_lags * num_blocks / n_proc))
+            printsteps = np.linspace(0, n_lags * num_blocks, 100, dtype=int)
 
             curr_it = []
             i = 0
             for n_block in range(num_blocks):
-                for tau in range(1, tau_max + 1):
+                for tau in range(1, n_lags + 1):
                     i += 1
                     if i in printsteps:
                         curr_it.append([n_block, tau, True])
@@ -290,7 +291,7 @@ class VarSSIRef(ModalBase):
                     self.compute_covariance,
                     args=(
                         curr_it,
-                        tau_max,
+                        n_lags,
                         block_length,
                         ref_channels,
                         all_channels,
@@ -405,7 +406,7 @@ class VarSSIRef(ModalBase):
     #
     #         for n_block in range(num_blocks):
     #             # Extract reference time series
-    #             this_measurement = measurement[n_block*extract_length:(n_block+1)*extract_length,:]
+    #             this_measurement = signals[n_block*extract_length:(n_block+1)*extract_length,:]
     #             N = extract_length - p - q - 1
     #
     #             all_channels = ref_channels + roving_channels
@@ -562,7 +563,7 @@ class VarSSIRef(ModalBase):
     def compute_covariance(
             self,
             curr_it,
-            tau_max,
+            n_lags,
             block_length,
             ref_channels,
             all_channels,
