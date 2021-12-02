@@ -1238,6 +1238,7 @@ class PreProcessSignals(object):
     def correct_offset(self):
         '''
         corrects a constant offset from measured signals
+        
         ..TODO::
             * remove linear, ... ofsets as well
         '''
@@ -1530,13 +1531,13 @@ class PreProcessSignals(object):
             refs_only: bool, optional
                 Compute cross-PDSs only with reference channels
             
-         Other Parameters
+        Other Parameters
         ----------------
-        **kwargs :
-            Additional kwargs are passed to scipy.signals.csd
+            kwargs :
+                Additional kwargs are passed to scipy.signals.csd
 
         Returns
-        ----------
+        -------
             psd_matrix: np.ndarray
                 Array of shape (num_channels, num_ref_channels, n_lines // 2 + 1)
                 containing the power density values of the respective
@@ -1659,8 +1660,9 @@ class PreProcessSignals(object):
         multiplied by n_lines to get the signals cross-power.
         
         Note that:
-            n_lags = n_lines // 2 + 1
-            n_lines = (n_lags - 1) * 2
+            n_lags \= n_lines // 2 + 1
+        
+            n_lines \= (n_lags - 1) * 2
 
         Parameters
         ----------
@@ -1672,18 +1674,18 @@ class PreProcessSignals(object):
             
         Other Parameters
         ----------------
-            **kwargs :
+            kwargs :
                 Additional kwargs are passed to self.psd_welch and further
 
         Returns
-        ----------
+        -------
             corr_matrix: np.ndarray
                 Array of shape (num_channels, num_ref_channels, n_lags)
                 containing the correlation values of the respective
                 channels and lags
         
-        See also:
-        ---------
+        See also
+        --------
             psd_welch:
                 PSD estimation algorithm used by this method.
                 
@@ -1759,7 +1761,11 @@ class PreProcessSignals(object):
         '''
         Estimate the (cross- and auto-) correlation functions (C/ACF),
         by direct computation of the standard un-biased estimator:
-        :math: \hat{R}_{fg}[m] = \frac{1}{N - m}\sum_{n=0}^{N - m - 1} f[n] g[n + m]
+        
+        .. math::
+        
+           \\hat{R}_{fg}[m] = \\frac{1}{N - m}\\sum_{n=0}^{N - m - 1} f[n] g[n + m]
+        
         Computes correlation functions of all channels with selected reference
         channels up to, but excluding, a time lag of n_lags. Normalization
         is done according to the unbiased estimator, i.e. 0-lag correlation
@@ -1773,10 +1779,10 @@ class PreProcessSignals(object):
         short block lengths, due to a larger number of time steps being
         discarded.
         
-        
         Note that:
-            n_lags = n_lines // 2 + 1
-            n_lines = (n_lags - 1) * 2
+            n_lags \= n_lines // 2 + 1
+        
+            n_lines \= (n_lags - 1) * 2
 
         Parameters
         ----------
@@ -1791,18 +1797,18 @@ class PreProcessSignals(object):
             
         Other Parameters
         ----------------
-            **kwargs :
+            kwargs :
                 Additional kwargs are currently not used
-
+        
         Returns
-        ----------
+        -------
             corr_matrix: np.ndarray
                 Array of shape (num_channels, num_ref_channels, n_lags)
                 containing the correlation values of the respective
                 channels and lags
         
-        See also:
-        ---------
+        See also
+        --------
             corr_welch:
                 Correlation function estimation by Welch's method, possibly
                 faster, but distorted for short segments and biased through
@@ -1913,13 +1919,13 @@ class PreProcessSignals(object):
                 Name of the temporal window to be applied to the correlation
                 sequence after conversion to a lag window by "self-convolution"
             
-         Other Parameters
+        Other Parameters
         ----------------
-        **kwargs :
-            Additional kwargs are passed to self.corr_blackman_tukey
+            kwargs :
+                Additional kwargs are passed to self.corr_blackman_tukey
 
         Returns
-        ----------
+        -------
             psd_matrix: np.ndarray
                 Array of shape (num_channels, num_ref_channels, n_lines // 2 + 1)
                 containing the power density values of the respective
@@ -2037,20 +2043,21 @@ class PreProcessSignals(object):
             n_lags: integer, optional
                 Number of lags (positive). Note: this includes the
                 0-lag, therefore excludes the n_lags-lag.
-            method:
+            method: str, optional
                 The method to use for spectral estimation
-                
+        
+        Other Parameters
+        -----------------
+            kwargs:
+                Additional parameters are passed to the spectral estimation method
+        
         Returns
-        ----------
+        -------
             corr_matrix: np.ndarray
                 Array of shape (num_channels, num_ref_channels, n_lags)
                 containing the correlation values of the respective
                 channels and lags
         
-         Other Parameters
-        ----------------
-            **kwargs:
-                Additional parameters are passed to the spectral estimation method
         '''
         logger.debug(f'Arguments correlation: n_lags={n_lags}, method={method}, {kwargs}')
         
@@ -2086,17 +2093,18 @@ class PreProcessSignals(object):
             method:
                 The method to use for spectral estimation
 
+        Other Parameters
+        ----------------
+            **kwargs:
+                Additional parameters are passed to the spectral estimation method
+                
         Returns
-        ----------
+        -------
             psd_matrix: np.ndarray
                 Array of shape (num_channels, num_ref_channels, n_lines // 2 + 1)
                 containing the power density values of the respective
                 channels and frequencies
         
-         Other Parameters
-        ----------------
-            **kwargs:
-                Additional parameters are passed to the spectral estimation method
         '''
         
         logger.debug(f'Arguments psd: n_lines={n_lines}, method={method}, {kwargs}')
@@ -2131,9 +2139,9 @@ class PreProcessSignals(object):
             n_lines: integer, optional
                 Number of frequency lines (positive + negative)
         
-         Other Parameters
+        Other Parameters
         ----------------
-            **kwargs:
+            kwargs:
                 Additional parameters are passed to the spectral estimation method
         '''
         
@@ -2163,10 +2171,8 @@ class PreProcessSignals(object):
         Plot time domain and/or frequency domain signals in various configurations:
          1. time history and spectrum of a single channel in two axes -> set channels = [channel] goto 2
          2. time history of multiple channels (all channels or specified)
-            if axes arguments are not None,
-                must be (tuples, lists, ndarrays) of size = (num_channels,) regardless of the actual figure layout
-            else
-                generate axes for each channel and arrange them in lists
+            * if axes arguments are not None:must be (tuples, lists, ndarrays) of size = (num_channels,) regardless of the actual figure layout
+            * else: generate axes for each channel and arrange them in lists
              
             a. time domain overlay in a single axes -> single axes is repeated in the axes list
                 i. spectrum overlay in a single axes -> single axes is repeated in the axes list
@@ -2191,11 +2197,11 @@ class PreProcessSignals(object):
             axesf: ndarray of size num_channels of matplotlib.axes.Axes objects
                 User provided axes objects, into which to plot spectra
         
-         Other Parameters
+        Other Parameters
         ----------------
             plot_kwarg_dict:
                 A dictionary to pass arguments to matplotlib.plot
-            **kwargs:
+            kwargs:
                 Additional kwargs are passed to the spectral estimation method
         '''
         refs = kwargs.pop('refs', None)
@@ -2328,17 +2334,17 @@ class PreProcessSignals(object):
             scale: str, ['lags','samples']
                 Whether to display time or sample values on the horizontal axis
         
-         Other Parameters
+        Other Parameters
         ----------------
-            **kwargs :
+            kwargs :
                 Additional kwargs are passed to the spectral matplotlib.plot
         Returns
-        ----------
+        -------
             ax: matplotlib.axes.Axes, optional
                 Matplotlib Axes object containing the graphs
                 
         .. TODO::
-         * correct labeling of channels and axis (using accel_, velo_, and disp_channels)
+             * correct labeling of channels and axis (using accel\_, velo\_, and disp\_channels)
         '''
             
         signals = self.signals
@@ -2387,7 +2393,7 @@ class PreProcessSignals(object):
             refs: 'auto', list-of-indices, optional
                 Reference channels to consider for cross-correlations
             
-         Other Parameters
+        Other Parameters
         ----------------
             method:
                 The method to use for spectral estimation
@@ -2398,34 +2404,13 @@ class PreProcessSignals(object):
                 method or contain figure/axes formatting options
 
         Returns
-        ----------
+        -------
             ax: matplotlib.axes.Axes, optional
                 Matplotlib Axes object containing the graphs
                 
         .. TODO::
-         * correct labeling of channels and axis (using accel_, velo_, and disp_channels)
+            * correct labeling of channels and axis (using accel\_, velo\_, and disp\_channels)
          
-        Which cases to consider:
-        plot a single sequence into a single axes (used in plot_signals)
-            channels =  str, int or single-item-list, refs='auto'
-            ->  channel_numbers=channels,
-                all_ref_numbers=channels,
-                refs_only=True or False,
-                ref_channels=all_channels or ref_channels
-        plot all available auto- and cross-correlations into a single axes
-            channels = None, refs=None
-            ->  channel_numbers=all_channels,
-                all_ref_numbers = ref_channels
-                refs_only=True or refs_only
-                ref_channels = all_channels or ref_channels
-        plot auto-/cross-correlations of selected channels, ref_channels
-            channels = list, refs=list, 'auto'
-            ->  channel_numbers=channels,
-                all_ref_numbers=list
-                refs_only=True or False
-                ref_channels = all_channels or ref_channels
-        in either case, ref_numbers refer to the index of the reference channels in the data
-        the index in the correlation matrix depends on its shape
         '''
         
         method = kwargs.pop('method', self._last_meth)
@@ -2503,7 +2488,7 @@ class PreProcessSignals(object):
             refs: 'auto', list-of-indices, optional
                 Reference channels to consider for cross-correlations
         
-         Other Parameters
+        Other Parameters
         ----------------
             method:
                 The method to use for spectral estimation
@@ -2513,14 +2498,14 @@ class PreProcessSignals(object):
                 Additional kwargs are passed to the spectral estimation method
 
         Returns
-        ----------
+        -------
             ax: matplotlib.axes.Axes, optional
                 Matplotlib Axes object containing the graphs
                 
         .. TODO::
-         * correct labeling of channels and axis (using accel_, velo_, and disp_channels)
-         * do we need a svd in non-db scale?
-         * do we need sample scaling on the abscissa
+            * correct labeling of channels and axis (using accel\_, velo\_, and disp\_channels)
+            * do we need a svd in non-db scale?
+            * do we need sample scaling on the abscissa
         '''
         
         assert scale in ['db', 'power', 'rms', 'svd', 'phase']
