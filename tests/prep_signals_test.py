@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from core.PreProcessingTools import PreProcessSignals
 from tests.system_ambient_ifrf import frequency_response, ambient_ifrf, ambient_spectral
 logger = logging.getLogger('core.PreProcessingTools')
-logger.setLevel(level=logging.INFO)
+logger.setLevel(level=logging.DEBUG)
 
 
 def verify_functionality():
@@ -272,5 +272,5 @@ def validate_spectral():
 
 
 if __name__ == '__main__':
-    # verify_functionality()
-    validate_spectral()
+    verify_functionality()
+    # validate_spectral()

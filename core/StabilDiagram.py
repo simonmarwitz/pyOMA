@@ -2366,7 +2366,7 @@ class StabilPlot(object):
 
         self.fig.canvas.draw_idle()
 
-    def plot_sv_psd(self, b, NFFT=2048):
+    def plot_sv_psd(self, b, NFFT=None):
         '''
         Todo: - add GUI for choosing PSD parameters
         '''
@@ -2381,7 +2381,7 @@ class StabilPlot(object):
         if not b:
             return
         
-        sv_psd = self.stabil_calc.prep_data.sv_psd()
+        sv_psd = self.stabil_calc.prep_data.sv_psd(NFFT)
         freq_psd = self.stabil_calc.prep_data.freqs
 
         sv_psd -= np.min(sv_psd)

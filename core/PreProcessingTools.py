@@ -1416,13 +1416,8 @@ class PreProcessSignals(object):
         
         return signals_filtered
     
-    def decimate_signals(
-            self,
-            decimate_factor,
-            nyq_rat=2.5,
-            highpass=None,
-            order=None,
-            filter_type='cheby1'):
+    def decimate_signals(self, decimate_factor, nyq_rat=2.5,
+                         highpass=None, order=None, filter_type='cheby1'):
         '''
         decimates signals data
         filter type and order are choosable (order 8 and type cheby1 are standard for scipy signal.decimate function)
@@ -1430,11 +1425,12 @@ class PreProcessSignals(object):
         '''
 
         if highpass:
-            logger.info(
-                'Decimating signals with factor {} and additional highpass filtering at {}!'.format(
-                    decimate_factor, highpass))
+            logger.info(f'Decimating signals by factor {decimate_factor}'
+                        f' and additional highpass filtering at {highpass}'
+                        f' to a sampling rate of {self.sampling_rate/decimate_factor} Hz')
         else:
-            logger.info('Decimating signals with factor {}!'.format(decimate_factor))
+            logger.info(f'Decimating signals by factor {decimate_factor}'
+                        f' to a sampling rate of {self.sampling_rate/decimate_factor} Hz')
 
         # input validation
         decimate_factor = abs(decimate_factor)
@@ -1563,8 +1559,6 @@ class PreProcessSignals(object):
             
             logger.debug("Using previously computed Power Spectral Density (Welch)...")
             return self.psd_matrix_wl
-            
-        logger.info("Estimating Power Spectral Density by Welch's method...")
         
         logger.debug(f'Arguments psd_welch: n_lines={n_lines}, n_segments={n_segments}, refs_only={refs_only}, window={window}, {kwargs}')
         
@@ -1603,6 +1597,10 @@ class PreProcessSignals(object):
                             n_lines // 2 + 1)
 
         psd_matrix = np.empty(psd_matrix_shape, dtype=complex)
+        
+        logger.info(f"Estimating PSD by Welch's method with {n_lines}"
+                    f' frequency lines, {n_segments} non-overlapping'
+                    f' segments and a {window} window...')
         
         pbar = simplePbar(num_analised_channels * num_ref_channels)
         for channel_1 in range(num_analised_channels):
@@ -2081,7 +2079,7 @@ class PreProcessSignals(object):
         else:
             raise ValueError(f'Unknown method {method}')
         
-    def psd(self, n_lines=None, method='welch', **kwargs):
+    def psd(self, n_lines=None, method=None, **kwargs):
         '''
         A convenience method for obtaining the PSD by the default or any
         specified estimation method.
