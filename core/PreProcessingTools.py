@@ -1526,6 +1526,8 @@ class PreProcessSignals(object):
                 if given, n_lines is overridden
             refs_only: bool, optional
                 Compute cross-PDSs only with reference channels
+            window: str or tuple or array_like, optional
+                Desired window to use. See scipy.signal.get_window() for more information
             
         Other Parameters
         ----------------
@@ -1602,6 +1604,8 @@ class PreProcessSignals(object):
                     f' frequency lines, {n_segments} non-overlapping'
                     f' segments and a {window} window...')
         
+        win = scipy.signal.get_window(window, n_lines // 2, fftbins=True)
+        
         pbar = simplePbar(num_analised_channels * num_ref_channels)
         for channel_1 in range(num_analised_channels):
             for channel_2, ref_channel in enumerate(ref_channels):
@@ -1612,7 +1616,7 @@ class PreProcessSignals(object):
                 _, Pxy_den = scipy.signal.csd(signals[:, channel_1],
                                               signals[:, ref_channel],
                                               fs,
-                                              window=window,
+                                              window=win,
                                               nperseg=n_lines // 2,
                                               nfft=n_lines,
                                               noverlap=0,
@@ -1913,9 +1917,10 @@ class PreProcessSignals(object):
                 Number of frequency lines (positive + negative)
             refs_only: bool, optional
                 Compute cross-PDSs only with reference channels
-            window: str,
-                Name of the temporal window to be applied to the correlation
+            window: str or tuple or array_like, optional
+                Desired temporal window to be applied to the correlation
                 sequence after conversion to a lag window by "self-convolution"
+                See scipy.signal.get_window() for more information
             
         Other Parameters
         ----------------
@@ -1970,7 +1975,8 @@ class PreProcessSignals(object):
         psd_matrix = np.empty(psd_matrix_shape, dtype=complex)
 
         # create a symmetrical window, i.e. lacking the last 0 (for an even number of lines)
-        win = getattr(np, window)(n_lines // 2 + 1)[:n_lines // 2]
+        # win = getattr(np, window)(n_lines // 2 + 1)[:n_lines // 2]
+        win = scipy.signal.get_window(window, n_lines // 2, fftbins=True)
         # Zero-Pad both sides (= zero pad once and circular convolution)
         # to allow the window to "slide along" the correct number of lags in np.convolve = 3 * n_lines//2 - 1
         # here first (!) zero pad is n_lines//2-1 because it is convolve

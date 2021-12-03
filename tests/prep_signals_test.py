@@ -272,5 +272,6 @@ def validate_spectral():
 
 
 if __name__ == '__main__':
-    verify_functionality()
-    # validate_spectral()
+    # verify_functionality()
+    validate_spectral()
+    
