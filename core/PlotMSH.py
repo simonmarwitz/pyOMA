@@ -51,9 +51,8 @@ import matplotlib
 #from PyQt5.QtCore import pyqtSignal
 import os
 import logging
-logging.basicConfig()
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(level=logging.INFO)
 
 
 # Matplotlib

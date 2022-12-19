@@ -31,7 +31,9 @@ from core.PreProcessingTools import PreProcessSignals
 from core.ModalBase import ModalBase
 
 import matplotlib.pyplot as plt
-
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 class BRSSICovRef(ModalBase):
 

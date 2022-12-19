@@ -30,7 +30,6 @@ Modified and Extended by Simon Marwitz 2015 ff.
 
 '''
 
-import logging
 import warnings
 from core.PreProcessingTools import PreProcessSignals
 from core.SSICovRef import PogerSSICovRef
@@ -73,7 +72,9 @@ plot.ioff()
 NoneType = type(None)
 
 
-logger = logging.getLogger('')
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 
 class StabilCalc(object):

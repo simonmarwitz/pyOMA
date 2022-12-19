@@ -25,7 +25,9 @@ from core.PreProcessingTools import PreProcessSignals
 import numpy as np
 from collections import deque
 import os
-
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 class ModalBase(object):
     '''

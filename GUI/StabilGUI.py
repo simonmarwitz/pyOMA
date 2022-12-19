@@ -3,8 +3,9 @@
 Based on previous works by Andrei Udrea 2014 and Volkmar Zabel 2015
 Modified and Extended by Simon Marwitz 2015
 '''
-
 import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 import warnings
 from core.PreProcessingTools import PreProcessSignals
 from GUI.HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
@@ -50,7 +51,6 @@ NoneType = type(None)
 sys.excepthook = my_excepthook
 
 
-logger = logging.getLogger('')
 
 
 def resizeEvent_(self, event):

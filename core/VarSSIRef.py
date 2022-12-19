@@ -38,7 +38,9 @@ from core.ModalBase import ModalBase
      * use monte-carlo sampling in the last step of variance propagation (see: `https://doi.org/10.1007/978-3-7091-0399-9_3`_)
 
 '''
-
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 def vectorize(matrix):
     '''
@@ -210,8 +212,7 @@ class VarSSIRef(ModalBase):
         assert isinstance(num_block_rows, int)
         assert subspace_method in ['covariance', 'projection']
 
-        print(
-            'Building subspace matrices with {}-based method...'.format(subspace_method))
+        logger.info('Building subspace matrices with {}-based method...'.format(subspace_method))
 
         self.num_block_columns = num_block_columns
         self.num_block_rows = num_block_rows
@@ -628,7 +629,7 @@ class VarSSIRef(ModalBase):
         subspace_matrix = self.subspace_matrix
         num_channels = self.prep_data.num_analised_channels
         num_block_rows = self.num_block_rows  # p
-        print('Computing state matrices with {}-based method...'.format(lsq_method))
+        logger.info('Computing state matrices with {}-based method...'.format(lsq_method))
 
         #[U,S,V_T] = np.linalg.svd(subspace_matrix,1)
         [U, S, V_T] = scipy.linalg.svd(subspace_matrix, 1)
@@ -688,7 +689,7 @@ class VarSSIRef(ModalBase):
 
         assert variance_algo in ['fast', 'slow']
 
-        print('Preparing sensitivities for use with {} (co)variance algorithm...'.format(
+        logger.info('Preparing sensitivities for use with {} (co)variance algorithm...'.format(
             variance_algo))
 
         num_channels = self.prep_data.num_analised_channels  # r
@@ -1163,7 +1164,7 @@ class VarSSIRef(ModalBase):
 
         assert self.state[1]
 
-        print(
+        logger.info(
             'Computing modal parameters with {} (co)variance computation...'.format(
                 self.variance_algo))
 
@@ -1963,11 +1964,11 @@ class VarSSIRef(ModalBase):
 
         np.savez_compressed(fname, **out_dict)
 
-        print('Data saved to {}'.format(fname))
+        logger.info('Modal results saved to {}'.format(fname))
 
     @classmethod
     def load_state(cls, fname, prep_data):
-        print('Now loading previous results from  {}'.format(fname))
+        logger.info('Loading results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
 
@@ -2006,7 +2007,7 @@ class VarSSIRef(ModalBase):
             ssi_object.subspace_matrix = in_dict['self.subspace_matrix']
             ssi_object.subspace_matrices = in_dict['self.subspace_matrices']
 
-            print('Subspace Matrices Built: {}, {} block_rows'.format(
+            logger.debug('Subspace Matrices Built: {}, {} block_rows'.format(
                 ssi_object.subspace_method, ssi_object.num_block_rows))
         if state[1]:  # state models
 
@@ -2049,7 +2050,7 @@ class VarSSIRef(ModalBase):
             if ssi_object.variance_algo == 'fast':
                 ssi_object.Q4 = in_dict['self.Q4']
 
-            print('State Matrices and Sensitivities Computed: {} up to order {}'.format(
+            logger.debug('State Matrices and Sensitivities Computed: {} up to order {}'.format(
                 ssi_object.lsq_method, ssi_object.max_model_order))
         if state[2]:  # modal params
             ssi_object.eigenvalues = in_dict['self.eigenvalues']
@@ -2060,7 +2061,7 @@ class VarSSIRef(ModalBase):
             ssi_object.std_damping = in_dict['self.std_damping']
             ssi_object.std_mode_shapes = in_dict['self.std_mode_shapes']
 
-            print('Modal Parameters Computed')
+            logger.debug('Modal Parameters Computed')
         return ssi_object
 
 #     @staticmethod

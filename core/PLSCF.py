@@ -32,8 +32,8 @@ import numpy as np
 import os
 import scipy.signal
 import logging
-
-logger = logging.getLogger('')
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 from core.PreProcessingTools import PreProcessSignals
 from core.ModalBase import ModalBase
