@@ -59,38 +59,38 @@ def nearly_equal(a, b, sig_fig=5):
             )
 
 
-old_resize_event = deepcopy(FigureCanvasQTAgg.resizeEvent)
+# old_resize_event = deepcopy(FigureCanvasQTAgg.resizeEvent)
 
 
-def resizeEvent_(self, event):
-    '''
-    Monkeypatch the resizeEvent to allow for all 3D objects to extend
-    over the whole figure space.
-    
-    By default all 3D objects are clipped along the bounding box, which 
-    for a 3D axes is a square rectangle.
-    
-    Another 2D axes, whose bounding box by default extends over the
-    whole figure, must be added at the same position, but below the 
-    3D axes for this hack to work.
-    '''
-    figure = self.figure
-    
-    ax3d, ax2d = None, None
-    for ax in figure.axes:
-        if isinstance(ax, mpl_toolkits.mplot3d.axes3d.Axes3D):
-            ax3d = ax
-        else:
-            ax2d = ax
-    if ax3d is None and ax3d is None:
-        print('Could not find a 2D Axes for setting the clip path',
-              'in the list of axes:', figure.axes)
-        
-    artists = ax3d.lines
-    for artist in artists:
-        artist.set_clip_path(ax2d.patch)
-        
-    old_resize_event(self, event)
+# def resizeEvent_(self, event):
+#     '''
+#     Monkeypatch the resizeEvent to allow for all 3D objects to extend
+#     over the whole figure space.
+#
+#     By default all 3D objects are clipped along the bounding box, which 
+#     for a 3D axes is a square rectangle.
+#
+#     Another 2D axes, whose bounding box by default extends over the
+#     whole figure, must be added at the same position, but below the 
+#     3D axes for this hack to work.
+#     '''
+#     figure = self.figure
+#
+#     ax3d, ax2d = None, None
+#     for ax in figure.axes:
+#         if isinstance(ax, mpl_toolkits.mplot3d.axes3d.Axes3D):
+#             ax3d = ax
+#         else:
+#             ax2d = ax
+#     if ax3d is None and ax3d is None:
+#         print('Could not find a 2D Axes for setting the clip path',
+#               'in the list of axes:', figure.axes)
+#
+#     artists = ax3d.lines
+#     for artist in artists:
+#         artist.set_clip_path(ax2d.patch)
+#
+#     old_resize_event(self, event)
 
 
 class ModeShapeGUI(QMainWindow):
@@ -117,41 +117,42 @@ class ModeShapeGUI(QMainWindow):
         self.create_main_frame(mode_shape_plot, reduced_gui)
         #self.setGeometry(300, 300, 1000, 600)
         self.reset_view()
+        # self.resizeEvent(None)
         self.show()
         
-    def resizeEvent(self, event):
-        '''
-        resizeEvent to allow for all 3D objects to extend
-        over the whole figure space.
+    # def resizeEvent(self, event):
+    #     '''
+    #     resizeEvent to allow for all 3D objects to extend
+    #     over the whole figure space.
+    #
+    #     By default all 3D objects are clipped along the bounding box, which 
+    #     for a 3D axes is a square rectangle.
+    #
+    #     Another 2D axes, whose bounding box by default extends over the
+    #     whole figure, must be added at the same position, but below the 
+    #     3D axes for this hack to work.
+    #     '''
+    #     if event is not None:
+    #         super().resizeEvent(event)
+    #
+    #     return
+    #     # figure = self.canvas.figure
+    #
+    #     # ax3d, ax2d = None, None
+    #     # for ax in figure.axes:
+    #     #     if isinstance(ax, mpl_toolkits.mplot3d.axes3d.Axes3D):
+    #     #         ax3d = ax
+    #     #     else:
+    #     #         ax2d = ax
+    #     # if ax3d is None and ax2d is None:
+    #     #     print('Could not find a 2D Axes for setting the clip path',
+    #     #           'in the list of axes:', figure.axes)
+    #
+    #     artists = self.mode_shape_plot.subplot._children
+    #     for artist in artists:
+    #         artist.set_clip_on(False)
         
-        By default all 3D objects are clipped along the bounding box, which 
-        for a 3D axes is a square rectangle.
-        
-        Another 2D axes, whose bounding box by default extends over the
-        whole figure, must be added at the same position, but below the 
-        3D axes for this hack to work.
-        '''
-        super().resizeEvent(event)
-        
-        figure = self.canvas.figure
-        
-        ax3d, ax2d = None, None
-        for ax in figure.axes:
-            if isinstance(ax, mpl_toolkits.mplot3d.axes3d.Axes3D):
-                ax3d = ax
-            else:
-                ax2d = ax
-        if ax3d is None and ax3d is None:
-            print('Could not find a 2D Axes for setting the clip path',
-                  'in the list of axes:', figure.axes)
-            
-        artists = ax3d.lines
-        for artist in artists:
-            artist.set_clip_path(ax2d.patch)
-        
-        
-        
-        #old_resize_event(self, event)
+    #old_resize_event(self, event)
     def create_main_frame(self, mode_shape_plot, reduced_gui=False):
         '''
         set up all the widgets and other elements to draw the GUI
@@ -160,10 +161,9 @@ class ModeShapeGUI(QMainWindow):
              * create a resize event, that resizes the figure to the
                current window space, instead of setting it to very
                large from the beginning
-        
         '''
         main_frame = QWidget()
-
+        
         # Create the mpl Figure and FigCanvas objects.
         fig = mode_shape_plot.fig
         
@@ -376,10 +376,24 @@ class ModeShapeGUI(QMainWindow):
             button.setText(view)
             button.released.connect(self.change_viewport)
             hbox.addWidget(button)
+            
+        self.val_widgets = {}
+        
+        az = self.mode_shape_plot.subplot.azim
+        elev = self.mode_shape_plot.subplot.elev
+        roll = self.mode_shape_plot.subplot.roll
+        for angle, value in zip(['elev', 'az', 'roll'],[elev, az, roll]):
+            hbox.addWidget(QLabel(angle))
+            val_edit = QLineEdit()
+            val_edit.setText(f'{value:2.0f}')
+            hbox.addWidget(val_edit)
+            val_edit.editingFinished.connect(self.change_viewport)
+            self.val_widgets[angle] = val_edit
+            
         hbox.addStretch()
         controls_layout.addLayout(hbox, 0, 4, 1, 4)
 
-        self.val_widgets = {}
+        
         lims = self.mode_shape_plot.subplot.get_w_lims()
         for row, dir in enumerate(['X', 'Y', 'Z']):
             label = QLabel(dir + ' Limits:')
@@ -583,58 +597,111 @@ class ModeShapeGUI(QMainWindow):
         shift the view along specified axis by +-20 % (hardcoded)
         works in combination with the appropriate buttons as senders
         or by passing one of  ['+X', '-X', '+Y', '-Y', '+Z', '-Z']
+        
+        determine the sender and direction:
+            if shift: change respective direction values
+            if -/+Value: change respective direction value
+            if zoom: change all direction values
+        make sure aspect won't get lost
+        update w_lims
+        
         '''
+        
         minx, maxx, miny, maxy, minz, maxz = self.mode_shape_plot.subplot.get_w_lims()
+        w_lims = [[minx, maxx], [miny, maxy], [minz, maxz]]
         dx, dy, dz = (maxx - minx), (maxy - miny), (maxz - minz)
-        hrange = max(dy, dy, dz)
-        print(hrange)
+        hrange = max(dx, dy, dz)
+        
+        val_widgets = [self.val_widgets[dir] for dir in ['X','Y','Z']]
         sender = self.sender()
-        for dir, widgets in self.val_widgets.items():
-            for i, widget in enumerate(widgets):
+        for min_max, widgets in zip(w_lims, val_widgets):            
+            
+            if sender == widgets[0]:
+                min_max[0] -= hrange * 1 / 3
+                min_max[1] -= hrange * 1 / 3
+                break
+            elif sender == widgets[3]:
+                min_max[0] += hrange * 1 / 3
+                min_max[1] += hrange * 1 / 3
+                break
+            for i, widget in enumerate(widgets[1:3]):
                 if sender == widget:
+                    min_max[i] = float(sender.text())
+                    hrange = min_max[1] - min_max[0]
                     break
             else:
                 continue
-            val1, val0 = float(widgets[2].text()), float(widgets[1].text())
-            #rang = val1 - val0
-            if i == 0: # arrow/shift button
-                val0 -= hrange * 1 / 3
-                val1 -= hrange * 1 / 3
-            if i == 1: # '-VALUE' field
-                val0 = val0
-                val1 = val0 + hrange
-            if i == 2: # '+VALUE' field
-                val0 = val1 - hrange
-                val1 = val1
-            elif i == 3: # arrow/shift button
-                val0 += hrange * 1 / 5
-                val1 += hrange * 1 / 5
-            widgets[2].setText(f'{val1:.3f}')
-            widgets[1].setText(f'{val0:.3f}')
-            if 'X' in dir:
-                self.mode_shape_plot.subplot.set_xlim3d((val0, val1))
-            elif 'Y' in dir:
-                self.mode_shape_plot.subplot.set_ylim3d((val0, val1))
-            elif 'Z' in dir:
-                self.mode_shape_plot.subplot.set_zlim3d((val0, val1))
             break
+            # val1, val0 = float(widgets[2].text()), float(widgets[1].text())
         else:  # zoom buttons
-            if sender.text() == '+':
-                delta = hrange * 1 / 5
-            elif sender.text() == '-':
-                delta = -hrange * 1 / 3
-            for dir, widgets in self.val_widgets.items():
-                val1, val0 = float(widgets[2].text()), float(widgets[1].text())
-                val1 -= delta
-                val0 += delta
-                widgets[2].setText(f'{val1:.3f}')
-                widgets[1].setText(f'{val0:.3f}')
-                if 'X' in dir:
-                    self.mode_shape_plot.subplot.set_xlim3d((val0, val1))
-                elif 'Y' in dir:
-                    self.mode_shape_plot.subplot.set_ylim3d((val0, val1))
-                elif 'Z' in dir:
-                    self.mode_shape_plot.subplot.set_zlim3d((val0, val1))
+            dir_ = sender.text()
+            if dir_ == '+':
+                hrange /= 1.2
+            elif dir_ == '-':
+                hrange *= 1.2
+                
+        [[minx, maxx], [miny, maxy], [minz, maxz]] = w_lims
+        xrang = maxx - minx
+        xmed = maxx - xrang / 2
+        yrang = maxy - miny
+        ymed = maxy - yrang / 2
+        zrang = maxz - minz
+        zmed = maxz - zrang / 2
+        
+        
+        minx, maxx = xmed - hrange/2, xmed + hrange/2
+        miny, maxy = ymed - hrange/2, ymed + hrange/2
+        minz, maxz = zmed - hrange/2, zmed + hrange/2
+        
+        self.mode_shape_plot.subplot.set_xlim3d((minx, maxx))
+        self.mode_shape_plot.subplot.set_ylim3d((miny, maxy))
+        self.mode_shape_plot.subplot.set_zlim3d((minz, maxz))
+        
+        for min_max, widgets in zip([(minx, maxx), (miny, maxy), (minz, maxz)], val_widgets):
+            for val, widget in zip(min_max, widgets[1:3]):
+                widget.setText(f'{val:.3f}')
+            
+            # #rang = val1 - val0
+            # if i == 0: # arrow/shift button
+            #     val0 -= hrange * 1 / 3
+            #     val1 -= hrange * 1 / 3
+            # if i == 1: # '-VALUE' field
+            #     val0 = val0
+            #     # val1 = val0 + hrange
+            #     if 'X' in dir_: val1 = maxx
+            #     if 'Y' in dir_: val1 = maxy
+            #     if 'Z' in dir_: val1 = maxz 
+            # if i == 2: # '+VALUE' field
+            #     # val0 = val1 - hrange
+            #     if 'X' in dir_: val0 = minx
+            #     if 'Y' in dir_: val0 = miny
+            #     if 'Z' in dir_: val0 = minz 
+            #     val1 = val1
+            # elif i == 3: # arrow/shift button
+            #     val0 += hrange * 1 / 5
+            #     val1 += hrange * 1 / 5
+            # widgets[2].setText(f'{val1:.3f}')
+            # widgets[1].setText(f'{val0:.3f}')
+            # if 'X' in dir_:
+            #     self.mode_shape_plot.subplot.set_xlim3d((val0, val1))
+            # elif 'Y' in dir_:
+            #     self.mode_shape_plot.subplot.set_ylim3d((val0, val1))
+            # elif 'Z' in dir_:
+            #     self.mode_shape_plot.subplot.set_zlim3d((val0, val1))
+            # break
+        
+            # for dir_, widgets in self.val_widgets.items():
+            #     val1, val0 = float(widgets[2].text()), float(widgets[1].text())
+            #     val1 -= delta
+            #     val0 += delta
+            #     widgets[2].setText(f'{val1:.3f}')
+            #     widgets[1].setText(f'{val0:.3f}')
+            #     if 'X' in dir_:
+            #         self.mode_shape_plot.subplot.set_xlim3d((val0, val1))
+            #     elif 'Y' in dir_:
+            #         self.mode_shape_plot.subplot.set_ylim3d((val0, val1))
+            #     elif 'Z' in dir_:
+            #         self.mode_shape_plot.subplot.set_zlim3d((val0, val1))
         self.mode_shape_plot.canvas.draw_idle()
 
     def update_lims(self, event):
@@ -658,6 +725,11 @@ class ModeShapeGUI(QMainWindow):
         '''
         if viewport is None:
             viewport = self.sender().text()
+        if self.sender() in self.val_widgets.values():
+            az = float(self.val_widgets['az'].text())
+            elev = float(self.val_widgets['elev'].text())
+            roll = float(self.val_widgets['roll'].text())
+            viewport = (elev, az, roll)
 
         self.mode_shape_plot.change_viewport(viewport)
 
@@ -852,7 +924,7 @@ class ModeShapeGUI(QMainWindow):
 
     def closeEvent(self, *args, **kwargs):
         self.mode_shape_plot.stop_ani()
-        FigureCanvasQTAgg.resizeEvent = old_resize_event
+        # FigureCanvasQTAgg.resizeEvent = old_resize_event
         self.deleteLater()
         return QMainWindow.closeEvent(self, *args, **kwargs)
 
@@ -870,6 +942,7 @@ def start_msh_gui(mode_shape_plot):
         app = QApplication(sys.argv)
 
     form = ModeShapeGUI(mode_shape_plot)
+    
 
     loop = QEventLoop()
     form.destroyed.connect(loop.quit)

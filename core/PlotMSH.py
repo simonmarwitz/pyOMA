@@ -405,15 +405,21 @@ class ModeShapePlot(object):
         # Add another subplot below of the 3D subplot, to be able to set
         # the clip path on all lines, etc. to a patch, that extends over
         # the whole figure -> PlotMSHGUI.resizeEvent_
-        ax2d = self.fig.add_subplot(111, fc='#ffffff00')
-        ax2d.patch.set_edgecolor('#ffffff00')
+        # ax2d = self.fig.add_subplot(111, fc='#ffffff00')
+        # ax2d.patch.set_edgecolor('#ffffff00')
         
         # the 3D axes must be added manually, becaus add_subplot would
         # remove the other axes at the same position
-        self.subplot = mpl_toolkits.mplot3d.axes3d.Axes3D(fig,(0,0,1,1), anchor='C', fc='#ffffff00')
-        self.subplot.patch.set_edgecolor('#ffffff00')
+        # self.subplot = mpl_toolkits.mplot3d.axes3d.Axes3D(fig,(0,0,1,1), anchor='C', fc='#ffffaabb')
+        self.subplot = fig.subplots(subplot_kw=dict(projection='3d', anchor='C', fc='#ffffff00', box_aspect=(1,1,1)))
+        # self.fig.add_axes(self.subplot)
+        # self.subplot.patch.set_edgecolor('#ffffff00')
         #mpl_toolkits.mplot3d.axes3d.Axes3D.draw = draw_axes
-        self.subplot.set_box_aspect((1,1,1))
+        # self.subplot.set_box_aspect((1,1,1))
+        self.subplot.set_aspect('equal', 'datalim')
+        # nasty hack to disable clipping
+        self.subplot.patch = fig.patch
+        fig.subplots_adjust(0,0,1,1,0,0)
         
         
         self.subplot.grid(False)
@@ -455,10 +461,26 @@ class ModeShapePlot(object):
             ymax = max(node[1], ymax)
             zmin = min(node[2], zmin)
             zmax = max(node[2], zmax)
+        
+        xrang = xmax - xmin
+        xmed = xmax - xrang / 2
+        yrang = ymax - ymin
+        ymed = ymax - yrang / 2
+        zrang = zmax - zmin
+        zmed = zmax - zrang / 2
+        
+        rang = max(xrang, yrang, zrang)
+        
+        xmin, xmax = xmed - rang/2, xmed + rang/2
+        ymin, ymax = ymed - rang/2, ymed + rang/2
+        zmin, zmax = zmed - rang/2, zmed + rang/2
+        # if xmin!=xmax:
         self.subplot.set_xlim3d(xmin, xmax)
+        # if ymin!=ymax:
         self.subplot.set_ylim3d(ymin, ymax)
+        # if zmin!=zmax:
         self.subplot.set_zlim3d(zmin, zmax)
-
+        # print(xmin, xmax, ymin, ymax, zmin, zmax)
         self.draw_nodes()
         self.draw_lines()
         self.draw_chan_dofs()
@@ -481,7 +503,7 @@ class ModeShapePlot(object):
              viewport: {'X', 'Y', 'Z', 'ISO'\\, optional
                  The viewport to set.
         '''
-
+        roll= None
         if viewport == 'X':
             azim, elev = 0, 0
             #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = orthogonal_proj
@@ -498,12 +520,14 @@ class ModeShapePlot(object):
             azim, elev = -60, 30
             #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = persp_transformation
             self.subplot.set_proj_type('persp')
+        elif isinstance(viewport, (list, tuple)):
+            elev, azim, roll = viewport
         else:
             logger.warning(f'viewport not recognized: {viewport}')
             azim, elev = -60, 30
             #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = persp_transformation
             self.subplot.set_proj_type('persp')
-        self.subplot.view_init(elev, azim)
+        self.subplot.view_init(elev, azim, roll)
         self.canvas.draw()
 
         if self.animated or self.data_animated:
@@ -697,7 +721,10 @@ class ModeShapePlot(object):
             marker=self.nodemarker,
             s=self.nodesize,
             visible=self.show_nodes)
+        
+        
         text = self.subplot.text(x, y, z, i, visible=self.show_nodes)
+        
 
         if self.patches_objects.get(i) is not None:
             if isinstance(self.patches_objects[i], (tuple, list)):
@@ -747,6 +774,7 @@ class ModeShapePlot(object):
             linestyle=beamstyle,
             visible=self.show_lines,
             linewidth=self.linewidth)[0]
+        
 
         while len(self.lines_objects) < i + 1:
             self.lines_objects.append(None)
@@ -789,6 +817,7 @@ class ModeShapePlot(object):
             linestyle=beamstyle,
             linewidth=self.linewidth,
             visible=self.show_lines)[0]
+        
 
         while len(self.nd_lines_objects) < i + 1:
             self.nd_lines_objects.append(None)
@@ -827,6 +856,7 @@ class ModeShapePlot(object):
             linestyle=beamstyle,
             linewidth=self.linewidth,
             visible=self.show_nd_lines)[0]
+        
 
         if self.cn_lines_objects.get(i, None) is not None:
             try:
@@ -924,6 +954,7 @@ class ModeShapePlot(object):
                                  mutation_scale=5, lw=1, arrowstyle="-|>",
                                  color=color, visible=self.show_master_slaves)
         arrow_m = self.subplot.add_artist(arrow_m)
+        
 
         x_s, y_s, z_s = self.geometry_data.nodes[i_sl]
         ((x_s, x_sl), (y_s, y_sl), (z_s, z_sl)) = offset_arrows(
@@ -935,6 +966,7 @@ class ModeShapePlot(object):
                                   color=color, visible=self.show_master_slaves)
 
         arrow_sl = self.subplot.add_artist(arrow_sl)
+        
 
         while len(self.arrows_objects) < i + 1:
             self.arrows_objects.append(None)
@@ -983,6 +1015,7 @@ class ModeShapePlot(object):
         arrow = self.subplot.add_artist(arrow)
         
         arrow.add_label(chan_name, visible=self.show_chan_dofs)
+        arrow.set_clip_path(None)
         
         while len(self.channels_objects) < i + 1:
             self.channels_objects.append(None)
@@ -1268,15 +1301,13 @@ class ModeShapePlot(object):
                     del self.axis_obj[axis]
                 except ValueError:
                     continue
-
-        self.scale
-
         
         axis = self.subplot.add_artist(
             LabeledArrow3D(0, 0, 0, self.scale, 0, 0,
                            mutation_scale=20, lw=1, arrowstyle="-|>",
                            color="r", visible=self.show_axis))
         axis.add_label('X', color='r', visible=self.show_axis)
+        
 #         text = self.subplot.text(
 #             self.scale * 1.1,
 #             0,
@@ -1292,6 +1323,7 @@ class ModeShapePlot(object):
                            mutation_scale=20, lw=1, arrowstyle="-|>", 
                            color="g", visible=self.show_axis))
         axis.add_label('Y', color='g', visible=self.show_axis)
+        
 #         text = self.subplot.text(
 #             0,
 #             self.scale * 1.1,
@@ -1307,6 +1339,7 @@ class ModeShapePlot(object):
                            mutation_scale=20, lw=1, arrowstyle="-|>", 
                            color="b", visible=self.show_axis))
         axis.add_label('Z', color='b', visible=self.show_axis)
+        
 #         text = self.subplot.text(
 #             0,
 #             0,
@@ -1316,7 +1349,7 @@ class ModeShapePlot(object):
 #             color='b',
 #             visible=self.show_axis)
         self.axis_obj['Z'] = axis
-
+        
         self.canvas.draw_idle()
 
     def refresh_axis(self, visible=None):
@@ -1798,6 +1831,7 @@ class ModeShapePlot(object):
             self.stop_ani()
             self.animate()
         self.set_equal_aspect()
+        
         self.canvas.draw()
         
     def set_equal_aspect(self):
@@ -1874,19 +1908,37 @@ class ModeShapePlot(object):
             minx, maxx, miny, maxy, minz, maxz = self.subplot.get_w_lims()
 
             self.subplot.cla()
+            self.subplot.set_aspect('equal', 'datalim')
+            self.subplot.patch = self.fig.patch
             self.subplot.grid(False)
             self.subplot.set_axis_off()
-            self.canvas.draw()
             # return self.lines_objects
             self.draw_lines()
             self.draw_axis()
-            for line in self.lines_objects:
+            for i,line in enumerate(self.lines_objects):
                 line.set_visible(False)
+                # line.set_clip_path(self.fig.patch)
+                if isinstance(self.beamcolor, (list, tuple, np.ndarray)):
+                    beamcolor = self.beamcolor[i]
+                else:
+                    beamcolor = self.beamcolor
+                if isinstance(self.beamstyle, (list, tuple, np.ndarray)):
+                    beamstyle = self.beamstyle[i]
+                else:
+                    beamstyle = self.beamstyle
+                line.set_color(beamcolor)
+                line.set_linestyle(beamstyle)
+                
             for line in self.nd_lines_objects:
                 line.set_visible(False)
+                # line.set_clip_path(self.fig.patch)
+                
             for line in self.cn_lines_objects.values():
                 line.set_visible(False)
+                # line.set_clip_path(self.fig.patch)
+                
 
+            self.canvas.draw()
             self.subplot.set_xlim3d(minx, maxx)
             self.subplot.set_ylim3d(miny, maxy)
             self.subplot.set_zlim3d(minz, maxz)
@@ -1919,7 +1971,7 @@ class ModeShapePlot(object):
 #                     color=list(matplotlib.cm.hsv(np.linspace(0, 1, 7)))[ind]
 #                     plot.plot(x,y, label=['108','126','145','160','188','TMD'][ind], color=color)
 
-            if self.draw_trace:
+            if self.show_nd_lines:
                 if self.trace_objects:
                     for i in range(len(self.trace_objects) - 1, -1, -1):
                         try:
@@ -1952,10 +2004,14 @@ class ModeShapePlot(object):
                             zs=self.geometry_data.nodes[node][2] + self.disp_nodes[node][2] *
                             np.cos(np.arange(0, 2 * np.pi, np.pi / 180) + self.phi_nodes[node][2]),
                             color=next(clist), linewidth=self.linewidth, linestyle=(0, (1, 1))))
+                    # for artist in self.trace_objects[-1]:
+                    #     artist.set_clip_on(False)
 
+            # self.subplot.patch = self.fig.patch
             return self.lines_objects + \
                 self.nd_lines_objects + \
-                list(self.cn_lines_objects.values())
+                list(self.cn_lines_objects.values()) + \
+                list(self.axis_obj.values())
             # return self.lines_objects#, self.nd_lines_objects
 
         def update_lines(num):
@@ -1981,31 +2037,33 @@ class ModeShapePlot(object):
                 # NOTE: there is no .set_data() for 3 dim data...
                 line.set_visible(self.show_lines)
                 line.set_data_3d([x, y, z])
-                if isinstance(self.beamcolor, (list, tuple, np.ndarray)):
-                    beamcolor = self.beamcolor[i]
-                else:
-                    beamcolor = self.beamcolor
-                if isinstance(self.beamstyle, (list, tuple, np.ndarray)):
-                    beamstyle = self.beamstyle[i]
-                else:
-                    beamstyle = self.beamstyle
-                line.set_color(beamcolor)
-                line.set_linestyle(beamstyle)
+            rets = [self.lines_objects]
                 #line.set_3d_properties(z)
-
-            for line in self.nd_lines_objects:
-                line.set_visible(self.show_nd_lines)
-
-            for axis in self.axis_obj.values():
-                axis.set_visible(self.show_axis)
+            if self.nd_lines_objects[0].get_visible()!=self.show_nd_lines:
+                for line in self.nd_lines_objects:
+                    line.set_visible(self.show_nd_lines)
+                
+                rets.append(self.nd_lines_objects)
+                
+                for trace_objects in self.trace_objects:
+                    for artist in trace_objects:
+                        artist.set_visible(self.show_nd_lines)
+                    rets.append(trace_objects)
+                
+            if self.axis_obj['X'].get_visible()!=self.show_axis:
+                for axis in self.axis_obj.values():
+                    axis.set_visible(self.show_axis)
+                
+                rets.append(self.axis_obj.values())
+                
 
             if self.save_ani:
                 self.fig.savefig(
                     self.cwd + '/{}/ani_{}.pdf'.format(self.select_modes.index(self.mode_index), num))
                 logger.debug('{}/{}/ani_{}.pdf'.format(self.cwd, self.select_modes.index(self.mode_index), num))
-            return self.lines_objects + \
-                self.nd_lines_objects + \
-                list(self.cn_lines_objects.values())
+            return [num for sublist in rets for num in sublist] #self.lines_objects #+ \
+                # self.nd_lines_objects + \
+                # list(self.cn_lines_objects.values())
 
         # self.cla()
         #self.patches_objects = {}
@@ -2037,8 +2095,8 @@ class ModeShapePlot(object):
             init_func=init_lines,
             interval=50,
             save_count=50,
-            blit=True)
-
+            blit=False)
+        
         self.canvas.draw()
 
     # @pyqtSlot()
@@ -2247,13 +2305,21 @@ class LabeledArrow3D(matplotlib.patches.FancyArrowPatch):
         xs3d = [x, x + lx * dx]
         ys3d = [y, y + ly * dy]
         zs3d = [z, z + lz * dz]
-        if self.text:
-            self.text._position3d = np.array((x + lx * dx, y + ly * dy, z + lz * dz))
         xs, ys, zs = mpl_toolkits.mplot3d.axes3d.proj3d.proj_transform(
-            xs3d, ys3d, zs3d, renderer.M)
+            xs3d, ys3d, zs3d, self.axes.M)
+        if self.text:
+            self.text.set_position_3d((xs3d[1], ys3d[1], zs3d[1]))
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
         super().draw(renderer)
+        
+    def do_3d_projection(self, renderer=None):
+        x1, y1, z1, dx, dy, dz = self._verts3d
+        x2, y2, z2 = (x1 + dx, y1 + dy, z1 + dz)
 
+        xs, ys, zs = mpl_toolkits.mplot3d.axes3d.proj3d.proj_transform((x1, x2), (y1, y2), (z1, z2), self.axes.M)
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
+
+        return np.min(zs) 
 
 if __name__ == "__main__":
     pass

@@ -136,8 +136,7 @@ def multi_setup_analysis():
                     conf_file=result_folder / 'setup_info.txt',
                     meas_file=result_folder / (meas_name + '.npy'),
                     chan_dofs_file=result_folder / "channel_dofs.txt",)
-                prep_data.compute_correlation_matrices(
-                    n_lags, num_blocks=False)
+                prep_data.corr_blackman_tukey(n_lags)
 
                 if save_results:
                     prep_data.save_state(result_folder / 'prep_data.npz')
@@ -288,7 +287,7 @@ def merge_poser_test(skip_existing = False,
 
 if __name__ == '__main__':
     # analysis_chain(tmpdir='/dev/shm/womo1998/')
-    #PlotMSHGUI_test()
-    merge_poser_test(False,False,True)
+    PlotMSHGUI_test()
+    # merge_poser_test(False,False,True)
     
     # multi_setup_analysis()
