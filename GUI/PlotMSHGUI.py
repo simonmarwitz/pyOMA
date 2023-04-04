@@ -599,13 +599,6 @@ class ModeShapeGUI(QMainWindow):
         works in combination with the appropriate buttons as senders
         or by passing one of  ['+X', '-X', '+Y', '-Y', '+Z', '-Z']
         
-        determine the sender and direction:
-            if shift: change respective direction values
-            if -/+Value: change respective direction value
-            if zoom: change all direction values
-        make sure aspect won't get lost
-        update w_lims
-        
         '''
         
         minx, maxx, miny, maxy, minz, maxz = self.mode_shape_plot.subplot.get_w_lims()
