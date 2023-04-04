@@ -37,7 +37,9 @@ from core.PreProcessingTools import PreProcessSignals
 from core.ModalBase import ModalBase
 #import pyximport
 # pyximport.install()
-
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 #import cython_code.cython_helpers
 

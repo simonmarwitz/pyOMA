@@ -22,6 +22,9 @@ from collections import deque
 import os
 from core.PreProcessingTools import PreProcessSignals
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 class ERA(object):
 

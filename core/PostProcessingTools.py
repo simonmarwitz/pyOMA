@@ -54,6 +54,9 @@ from core.ModalBase import ModalBase
 from core.StabilDiagram import StabilCalc
 import os
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 class MergePoSER(object):
     '''

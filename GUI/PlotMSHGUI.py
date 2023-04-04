@@ -42,7 +42,8 @@ from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\
 import sys
 import os
 import logging
-logger = logging.getLogger('')
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 # GUI
 

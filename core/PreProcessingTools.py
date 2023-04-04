@@ -40,7 +40,6 @@ import matplotlib.pyplot as plt
 from core.Helpers import nearly_equal, simplePbar
 
 import logging
-#logging.basicConfig(stream=sys.stdout)  # done at module level
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
@@ -772,6 +771,7 @@ class PreProcessSignals(object):
     def save_state(self, fname):
 
         #print('fname = ', fname)
+        logger.info('Saving results to  {}'.format(fname))
 
         dirname, _ = os.path.split(fname)
         if not os.path.isdir(dirname):
