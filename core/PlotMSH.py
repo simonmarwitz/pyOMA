@@ -126,6 +126,7 @@ class ModeShapePlot(object):
                  linewidth=1,
                  callback_fun=None,
                  fig=None,
+                 save_ani_path = None,
                  ):
         '''
         Initializes the class object and automatically checks, which of
@@ -375,7 +376,7 @@ class ModeShapePlot(object):
         self.animated = False
         self.data_animated = False
         # self.draw_trace = True
-        self.save_ani = False
+        self.save_ani_path = save_ani_path
 
         # plot objects
         self.patches_objects = {}
@@ -601,9 +602,8 @@ class ModeShapePlot(object):
             MPD = None
         self.mode_index = mode_index
 
-        if self.save_ani:
-            cwd = os.getcwd()
-            cwd += '/{}/'.format(self.select_modes.index(self.mode_index))
+        if self.save_ani_path:
+            cwd = self.save_ani_path + '/{}/'.format(self.select_modes.index(self.mode_index))
             if not os.path.exists(cwd):
                 os.makedirs(cwd)
 
@@ -1435,6 +1435,22 @@ class ModeShapePlot(object):
             self.add_nd_line(line, i)
             self.refresh_lines()
             self.refresh_nd_lines()
+        
+        self.lines_objects[-1].remove()
+        del self.lines_objects[-1]
+        
+        # node = line[0]
+        # self.lines_objects.append(
+        #     self.subplot.plot(
+        #     [self.geometry_data.nodes[node][0]
+        #      + self.disp_nodes[node][0]],
+        #     [self.geometry_data.nodes[node][1]
+        #      + self.disp_nodes[node][1]],
+        #     [self.geometry_data.nodes[node][2]
+        #      + self.disp_nodes[node][2] ],
+        #     color=self.beamcolor,
+        #     marker='o', markersize=6,
+        #     visible=self.show_lines,)[0])
 
         for i in self.geometry_data.nodes.keys():
             self.add_cn_line(i)
@@ -1905,21 +1921,21 @@ class ModeShapePlot(object):
         Create necessary objects to animate the currently displayed
         deformed structure.
 
-        If self.save_ani is True, the animation will be saved to a folder
-        which is currently hardcoded here. The **numbering** of the **files**
+        If self.save_ani_path is given, the animation will be saved to that 
+        folder. The **numbering** of the **files**
         follows the order in which the modes were selected in the
         stabilization diagram.
 
         '''
 
-        self.save_ani = False
-
-        if self.save_ani:
-            self.cwd = '/vegas/users/staff/womo1998/Projects/2019_Schwabach/tex/figures/ani_high/'  # os.getcwd()
-            # for i in range(len(self.select_modes)):
-            #    os.makedirs(os.path.join(self.cwd,str(i)), exist_ok=True)
-
-        # self.draw_trace = True
+        # self.save_ani_path = False
+        #
+        # if self.save_ani_path:
+        #     self.cwd = '/vegas/users/staff/womo1998/Projects/2019_Schwabach/tex/figures/ani_high/'  # os.getcwd()
+        #     # for i in range(len(self.select_modes)):
+        #     #    os.makedirs(os.path.join(self.cwd,str(i)), exist_ok=True)
+        #
+        # # self.draw_trace = True
 
         def init_lines():
             '''
@@ -2079,11 +2095,11 @@ class ModeShapePlot(object):
                 rets.append(self.axis_obj.values())
                 
 
-            if self.save_ani:
+            if self.save_ani_path and num<=25:
                 self.fig.savefig(
-                    self.cwd + '/{}/ani_{}.pdf'.format(self.select_modes.index(self.mode_index), num))
-                logger.debug('{}/{}/ani_{}.pdf'.format(self.cwd, self.select_modes.index(self.mode_index), num))
-                if i>25: self.stop_ani()
+                    self.save_ani_path + '/{}/ani_{}.pdf'.format(self.select_modes.index(self.mode_index), num))
+                logger.debug('{}/{}/ani_{}.pdf'.format(self.save_ani_path, self.select_modes.index(self.mode_index), num))
+                # if i>25: self.stop_ani()
                 
             return [num for sublist in rets for num in sublist] #self.lines_objects #+ \
                 # self.nd_lines_objects + \
