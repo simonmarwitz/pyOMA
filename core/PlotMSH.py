@@ -368,12 +368,13 @@ class ModeShapePlot(object):
         self.show_nodes = True
         self.show_lines = True
         self.show_nd_lines = True
+        self.show_cn_lines = True
         self.show_master_slaves = True
         self.show_chan_dofs = True
         self.show_axis = True
         self.animated = False
         self.data_animated = False
-        self.draw_trace = True
+        # self.draw_trace = True
         self.save_ani = False
 
         # plot objects
@@ -854,7 +855,7 @@ class ModeShapePlot(object):
             color=beamcolor,
             linestyle=beamstyle,
             linewidth=self.linewidth,
-            visible=self.show_nd_lines)[0]
+            visible=self.show_cn_lines)[0]
         
 
         if self.cn_lines_objects.get(i, None) is not None:
@@ -1483,7 +1484,7 @@ class ModeShapePlot(object):
                  * np.cos(self.seq_num / 25 * 2 * np.pi + phi_node[1])]
             z = [node[2], node[2] + disp_node[2]
                  * np.cos(self.seq_num / 25 * 2 * np.pi + phi_node[2])]
-            line.set_visible(self.show_nd_lines)
+            line.set_visible(self.show_cn_lines)
             line.set_data_3d([x, y, z])
             #line.set_3d_properties(z)
 
@@ -1517,6 +1518,25 @@ class ModeShapePlot(object):
             line.set_data_3d([x, y, z])
             #line.set_3d_properties(z)
 
+        self.canvas.draw_idle()
+        
+    
+    def refresh_cn_lines(self, visible=None):
+        '''
+        Refresh the non-displaced lines and make them visible/invisible, e.g.
+        after programmatically changing visibility flags.
+
+        Parameters
+        ----------
+            visible: bool, ooptional
+                Visibility flag for the non-displaced lines
+
+        '''
+
+        if visible is not None:
+            visible = bool(visible)
+            self.show_cn_lines = visible
+
         for key, node in self.geometry_data.nodes.items():
             disp_node = self.disp_nodes.get(key, [0, 0, 0])
             phi_node = self.phi_nodes.get(key, [0, 0, 0])
@@ -1528,7 +1548,7 @@ class ModeShapePlot(object):
                      * np.cos(self.seq_num / 25 * 2 * np.pi + phi_node[1])]
                 z = [node[2], node[2] + disp_node[2]
                      * np.cos(self.seq_num / 25 * 2 * np.pi + phi_node[2])]
-                line.set_visible(self.show_nd_lines)
+                line.set_visible(self.show_cn_lines)
                 line.set_data_3d([x, y, z])
                 #line.set_3d_properties(z)
 
@@ -1861,11 +1881,12 @@ class ModeShapePlot(object):
                 for i in range(len(self.trace_objects) - 1, -1, -1):
                     try:
                         self.trace_objects[i].remove()
-                    except BaseException:
+                    except BaseException as e:
+                        print(e)
                         pass
 
                     del self.trace_objects[i]
-            self.draw_trace = False
+            # self.draw_trace = False
             self.animated = False
             self.data_animated = False
             for c in self.connect_handles:
@@ -1898,7 +1919,7 @@ class ModeShapePlot(object):
             # for i in range(len(self.select_modes)):
             #    os.makedirs(os.path.join(self.cwd,str(i)), exist_ok=True)
 
-        self.draw_trace = True
+        # self.draw_trace = True
 
         def init_lines():
             '''
@@ -1970,7 +1991,7 @@ class ModeShapePlot(object):
 #                     color=list(matplotlib.cm.hsv(np.linspace(0, 1, 7)))[ind]
 #                     plot.plot(x,y, label=['108','126','145','160','188','TMD'][ind], color=color)
 
-            if self.show_nd_lines:
+            if self.show_cn_lines:
                 if self.trace_objects:
                     for i in range(len(self.trace_objects) - 1, -1, -1):
                         try:
@@ -2002,13 +2023,14 @@ class ModeShapePlot(object):
                             np.cos(np.arange(0, 2 * np.pi, np.pi / 180) + self.phi_nodes[node][1]),
                             zs=self.geometry_data.nodes[node][2] + self.disp_nodes[node][2] *
                             np.cos(np.arange(0, 2 * np.pi, np.pi / 180) + self.phi_nodes[node][2]),
-                            color=next(clist), linewidth=self.linewidth, linestyle=(0, (1, 1))))
+                            color=next(clist), linewidth=self.linewidth, linestyle=(0, (1, 1)))[0])
                     # for artist in self.trace_objects[-1]:
                     #     artist.set_clip_on(False)
 
             # self.subplot.patch = self.fig.patch
             return self.lines_objects + \
                 self.nd_lines_objects + \
+                self.trace_objects + \
                 list(self.cn_lines_objects.values()) + \
                 list(self.axis_obj.values())
             # return self.lines_objects#, self.nd_lines_objects
@@ -2043,11 +2065,12 @@ class ModeShapePlot(object):
                     line.set_visible(self.show_nd_lines)
                 
                 rets.append(self.nd_lines_objects)
-                
-                for trace_objects in self.trace_objects:
-                    for artist in trace_objects:
-                        artist.set_visible(self.show_nd_lines)
-                    rets.append(trace_objects)
+            
+            for trace_objects in self.trace_objects:
+                trace_objects = [trace_objects] #hack to circumvent many code changes
+                for artist in trace_objects:
+                    artist.set_visible(self.show_cn_lines)
+                rets.append(trace_objects)
                 
             if self.axis_obj['X'].get_visible()!=self.show_axis:
                 for axis in self.axis_obj.values():
@@ -2060,6 +2083,8 @@ class ModeShapePlot(object):
                 self.fig.savefig(
                     self.cwd + '/{}/ani_{}.pdf'.format(self.select_modes.index(self.mode_index), num))
                 logger.debug('{}/{}/ani_{}.pdf'.format(self.cwd, self.select_modes.index(self.mode_index), num))
+                if i>25: self.stop_ani()
+                
             return [num for sublist in rets for num in sublist] #self.lines_objects #+ \
                 # self.nd_lines_objects + \
                 # list(self.cn_lines_objects.values())
@@ -2178,7 +2203,7 @@ class ModeShapePlot(object):
                 line = self.cn_lines_objects.get(key, None)
                 if line is not None:
                     line.set_data_3d([x, y, z])
-                    line.set_visible(self.show_nd_lines)
+                    line.set_visible(self.show_cn_lines)
                     #line.set_3d_properties(z)
 
             return self.lines_objects + \

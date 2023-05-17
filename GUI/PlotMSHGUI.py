@@ -212,8 +212,14 @@ class ModeShapeGUI(QMainWindow):
         conn_lines_checkbox = QCheckBox('Show Connecting Lines')
         conn_lines_checkbox.setTristate(False)
         conn_lines_checkbox.setCheckState(
-            Qt.Checked if mode_shape_plot.show_nd_lines else Qt.Unchecked)
+            Qt.Checked if mode_shape_plot.show_cn_lines else Qt.Unchecked)
         conn_lines_checkbox.stateChanged[int].connect(
+            mode_shape_plot.refresh_cn_lines)
+        nd_lines_checkbox = QCheckBox('Show Non-displaced Lines')
+        nd_lines_checkbox.setTristate(False)
+        nd_lines_checkbox.setCheckState(
+            Qt.Checked if mode_shape_plot.show_nd_lines else Qt.Unchecked)
+        nd_lines_checkbox.stateChanged[int].connect(
             mode_shape_plot.refresh_nd_lines)
 
         ms_checkbox = QCheckBox('Show Master-Slaves Assignm.')
@@ -241,6 +247,7 @@ class ModeShapeGUI(QMainWindow):
         view_layout.addWidget(ms_checkbox)
         view_layout.addWidget(chandof_checkbox)
         view_layout.addWidget(conn_lines_checkbox)
+        view_layout.addWidget(nd_lines_checkbox)
 
         # controls for changing the axis' limits and viewport i.e. zoom and
         # shift
