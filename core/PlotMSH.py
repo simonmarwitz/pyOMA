@@ -159,7 +159,7 @@ class ModeShapePlot(object):
 
         Parameters
         ----------
-            geometry_data : PreProcessingTools.GeometryProcessor
+            geometry_data : PreProcessingTools.GeometryProcessor, required
                     Object containing all the necessary geometry information.
 
             stabil_calc : StabilDiagram.StabilCalc, optional
@@ -224,29 +224,66 @@ class ModeShapePlot(object):
                     A matplotlib figure created externally to draw
                     the mode shapes, if an external GUI is used.
         '''
+        assert isinstance(geometry_data, GeometryProcessor)
+        self.geometry_data = geometry_data
+        
         if stabil_calc is not None:
             assert isinstance(stabil_calc, StabilCalc)
         self.stabil_calc = stabil_calc
 
-        #modal_data = modal_data
         if modal_data is not None:
             assert isinstance(modal_data, ModalBase)
         self.modal_data = modal_data
 
-        assert isinstance(geometry_data, GeometryProcessor)
-        self.geometry_data = geometry_data
-
-        #prep_data = prep_data
         if prep_data is not None:
             assert isinstance(prep_data, PreProcessSignals)
         self.prep_data = prep_data
 
         if merged_data is not None:
             assert isinstance(merged_data, MergePoSER)
-
         self.merged_data = merged_data
-
+        
+        '''
+        identify which merging routine has been used
+        ensure all required objects were provided
+        warn if unneeded objects were provided
+        extract needed parameters
+        '''
+        
         if merged_data is not None:
+            merging = 'PoSER'
+            req_obj = {}
+            nreq_obj = {'modal_data':modal_data,
+                        'prep_data':prep_data,
+                        'stabil_calc':stabil_calc}
+        elif isinstance(modal_data, PogerSSICovRef):
+            merging = 'PoGER'
+            req_obj = {'modal_data':modal_data,
+                       'stabil_calc':stabil_calc}
+            nreq_obj = {'prep_data':prep_data,
+                        'merged_data':merged_data}
+        elif modal_data is not None:
+            merging = 'single' # also when used from within stabil_diagram
+            req_obj = {'modal_data':modal_data,
+                       'prep_data':prep_data,
+                       'stabil_calc':stabil_calc}
+            nreq_obj = {'merged_data':merged_data}
+        else: # modal_data is None and merged_data is None
+            # time-history visualization, testing
+            merging = None
+            req_obj = {}
+            nreq_obj = {'prep_data':prep_data,
+                        'stabil_calc':stabil_calc,
+                        }
+        
+        for name, obj in req_obj.items():
+            if obj is None:
+                raise TypeError(f'Identified merging routine: {merging} requires argument {name}, which has not been provided.')
+        for name, obj in nreq_obj.items():
+            if obj is not None:
+                logger.info(f'Identified merging routine: {merging} will not use argument {name}.')
+        
+        if merging == 'PoSER':
             self.chan_dofs = merged_data.merged_chan_dofs
             self.num_channels = merged_data.merged_num_channels
 
@@ -262,7 +299,8 @@ class ModeShapePlot(object):
 
             self.setup_name = merged_data.setup_name
             self.start_time = merged_data.start_time
-        elif isinstance(modal_data, PogerSSICovRef):
+            
+        elif merging == 'PoGER':
             self.chan_dofs = modal_data.merged_chan_dofs
             self.num_channels = modal_data.merged_num_channels
 
@@ -274,43 +312,33 @@ class ModeShapePlot(object):
 
             self.setup_name = modal_data.setup_name
             self.start_time = modal_data.start_time
-
-        elif prep_data is not None:
+            
+        elif merging == 'single':
             self.chan_dofs = prep_data.chan_dofs
             self.num_channels = prep_data.num_analised_channels
 
-            if modal_data is not None:
+            self.modal_frequencies = modal_data.modal_frequencies
+            self.modal_damping = modal_data.modal_damping
+            self.mode_shapes = modal_data.mode_shapes
 
-                self.modal_frequencies = modal_data.modal_frequencies
-                self.modal_damping = modal_data.modal_damping
-                self.mode_shapes = modal_data.mode_shapes
-
-                if isinstance(modal_data, VarSSIRef):
-                    self.std_frequencies = modal_data.std_frequencies
-                    self.std_damping = modal_data.std_damping
-                else:
-                    self.std_frequencies = None
-                    self.std_damping = None
+            if isinstance(modal_data, VarSSIRef):
+                self.std_frequencies = modal_data.std_frequencies
+                self.std_damping = modal_data.std_damping
             else:
-                self.modal_frequencies = np.array([[]])
-                self.modal_damping = np.array([[]])
-                self.mode_shapes = np.array([[[]]])
                 self.std_frequencies = None
                 self.std_damping = None
-
-            if stabil_calc is not None:
-                self.select_modes = stabil_calc.select_modes
-
-                self.setup_name = modal_data.setup_name
-                self.start_time = modal_data.start_time
-            else:
-                self.select_modes = []
-                self.setup_name = ''
-                self.start_time = None
+            self.select_modes = stabil_calc.select_modes
+            self.setup_name = modal_data.setup_name
+            self.start_time = modal_data.start_time
 
         else:
-            self.chan_dofs = []
-            self.num_channels = 0
+            if prep_data is not None:
+                self.chan_dofs = prep_data.chan_dofs
+                self.num_channels = prep_data.num_analised_channels
+            else:
+                self.chan_dofs = []
+                self.num_channels = 0
+                
             self.modal_frequencies = np.array([[]])
             self.modal_damping = np.array([[]])
             self.mode_shapes = np.array([[[]]])

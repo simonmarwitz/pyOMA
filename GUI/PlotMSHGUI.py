@@ -290,7 +290,7 @@ class ModeShapeGUI(QMainWindow):
             f in enumerate(
                 self.mode_shape_plot.get_frequencies())]
         # print(frequencies)
-        if frequencies:
+        if frequencies and not reduced_gui:
             self.mode_combo.addItems(frequencies)
             self.mode_combo.currentIndexChanged[str].connect(self.change_mode)
         else:
@@ -443,7 +443,7 @@ class ModeShapeGUI(QMainWindow):
         reset_button.released.connect(self.reset_view)
 
         controls_layout.addWidget(reset_button, row + 2, 3 + 2)
-
+        
         sep = QFrame()
         sep.setFrameShape(QFrame.VLine)
 
@@ -462,7 +462,7 @@ class ModeShapeGUI(QMainWindow):
         # lay_2.setVerticalSpacing(0)
 
         controls_layout.addWidget(sep, 0, 7, 5, 1)
-
+        
         lay_1.addWidget(QLabel('Mode'), 0, 0)
         lay_1.addWidget(self.mode_combo, 0, 1)
 
