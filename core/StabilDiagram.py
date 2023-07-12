@@ -626,56 +626,69 @@ class StabilCalc(object):
             MC_str = ''
 
         for col in range(len(select_modes)):
-            freq_str += '{:3.3f} \t\t'.format(selected_freq[col])
-            damp_str += '{:3.3f} \t\t'.format(selected_damp[col])
-            ord_str += '{:3d} \t\t'.format(selected_order[col])
+            freq_str += '{:<3.3f}\t\t'.format(selected_freq[col])
+            damp_str += '{:<3.3f}\t\t'.format(selected_damp[col])
+            ord_str += '{:<6d}\t\t'.format(selected_order[col])
 
             if self.capabilities['msh']:
-                mpc_str += '{:3.3f}\t \t'.format(selected_MPC[col])
-                mp_str += '{:3.2f} \t\t'.format(selected_MP[col])
-                mpd_str += '{:3.2f} \t\t'.format(selected_MPD[col])
+                mpc_str += '{:<3.3f}\t \t'.format(selected_MPC[col])
+                mp_str += '{:<3.2f}\t\t'.format(selected_MP[col])
+                mpd_str += '{:<3.2f}\t\t'.format(selected_MPD[col])
 
             if self.capabilities['std']:
-                std_damp_str += '{:3.3e} \t\t'.format(selected_stdd[col])
-                std_freq_str += '{:3.3e} \t\t'.format(selected_stdf[col])
+                std_damp_str += '{:<3.3e}\t\t'.format(selected_stdd[col])
+                std_freq_str += '{:<3.3e}\t\t'.format(selected_stdf[col])
 
             if self.capabilities['MC']:
-                MC_str += '{:3.3f} \t\t'.format(selected_MC[col])
+                MC_str += '{:<3.3f}\t\t'.format(selected_MC[col])
 
         if self.capabilities['msh']:
             for row in range(selected_modes.shape[0]):
-                msh_str += '\n           \t\t'
+                if self.capabilities['data']:
+                    chan_dofs = self.prep_data.chan_dofs
+                elif isinstance(self.modal_data, PogerSSICovRef):
+                    chan_dofs = self.modal_data.merged_chan_dofs
+                else:
+                    chan_dofs = []
+                for chan_dof in chan_dofs:
+                    chan, node, az, elev = chan_dof[:4]
+                    # print(chan, row, chan==row)
+                    if chan==row:
+                        msh_str += f'\n{node.ljust(10)}  ({az: <+3.2f}, {elev: >+3.2f})                  \t'
+                        break
+                else:
+                    msh_str += '\n                                            '
                 if self.capabilities['std']:
                     std_msh_str += '\n           \t\t'
                 for col in range(selected_modes.shape[1]):
-                    msh_str += '{:+3.4f} \t'.format(selected_modes[row, col])
+                    msh_str += '{:+<3.4f}\t'.format(selected_modes[row, col])
                     if self.capabilities['std']:
-                        std_msh_str += '{:+3.3e} \t'.format(
+                        std_msh_str += '{:+<3.3e} \t'.format(
                             selected_stdmsh[row, col])
 
-        export_modes = 'MANUAL MODAL ANALYSIS\n'
-        export_modes += '=======================\n'
-        export_modes += 'Frequencies [Hz]:\t' + freq_str + '\n'
+        export_modes      = 'MANUAL MODAL ANALYSIS\n'
+        export_modes     += '=======================\n'
+        export_modes     += 'Frequencies [Hz]:                           \t' + freq_str + '\n'
         if self.capabilities['std']:
             export_modes += 'Standard deviations of the Frequencies [Hz]:\t' + \
                 std_freq_str + '\n'
-        export_modes += 'Damping [%]:\t\t' + damp_str + '\n'
+        export_modes     += 'Damping [%]:                                \t' + damp_str + '\n'
         if self.capabilities['std']:
-            export_modes += 'Standard deviations of the Damping [%]:\t' + \
+            export_modes += 'Standard deviations of the Damping [%]:     \t' + \
                 std_damp_str + '\n'
         if self.capabilities['MC']:
-            export_modes += 'Modal Contributions of the mode [-]:\t' + \
+            export_modes += 'Modal Contributions of the mode [-]:        \t' + \
                 MC_str + '\n'
         if self.capabilities['msh']:
-            export_modes += 'Mode shapes:\t\t' + msh_str + '\n'
+            export_modes += 'Node        (Azimuth, Elevation)            \tMode shapes:' + msh_str + '\n'
         if self.capabilities['std']:
-            export_modes += 'Standard Deviations of the Mode shapes:\t\t' + \
+            export_modes += 'Standard Deviations of the Mode shapes:     \t' + \
                 std_msh_str + '\n'
-        export_modes += 'Model order:\t\t' + ord_str + '\n'
+        export_modes     += 'Model order:                                \t' + ord_str + '\n'
         if self.capabilities['msh']:
-            export_modes += 'MPC [-]:\t\t' + mpc_str + '\n'
-            export_modes += 'MP  [\u00b0]:\t\t' + mp_str + '\n'
-            export_modes += 'MPD [-]:\t\t' + mpd_str + '\n\n'
+            export_modes += 'MPC [-]:                                    \t' + mpc_str + '\n'
+            export_modes += 'MP  [\u00b0]:                                    \t' + mp_str + '\n'
+            export_modes += 'MPD [-]:                                    \t' + mpd_str + '\n\n'
         #              + 'SSI parameters\n'
         #              + '=======================\n'\
         #              + 'Maximum order :\t\t'     + str(self.modal_data.max_model_order) + '\n'\

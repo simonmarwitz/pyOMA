@@ -37,7 +37,7 @@ conf_file=working_dir / 'varssi_config.txt'
 # define script switches
 skip_existing=True
 save_results=False
-interactive=True
+interactive=False
 
 
 geometry_data = GeometryProcessor.load_geometry(
@@ -60,7 +60,7 @@ if not os.path.exists(
         'modal_data.npz') or not skip_existing:
 
     modal_data = method.init_from_config(conf_file, prep_data)
-
+    
     if save_results:
         modal_data.save_state(result_folder / 'modal_data.npz')
 else:
@@ -72,7 +72,8 @@ if os.path.exists(result_folder / 'stabil_data.npz') and skip_existing:
         result_folder / 'stabil_data.npz', modal_data, prep_data)
 else:
     stabil_calc = StabilCalc(modal_data, prep_data)
-    
+stabil_calc.export_results('/usr/scratch4/sima9999/test.txt')
+
 if interactive:
     stabil_plot = StabilPlot(stabil_calc)
     start_stabil_gui(stabil_plot, modal_data, geometry_data, prep_data)
@@ -83,6 +84,7 @@ if interactive:
 if interactive:
 
     mode_shape_plot = ModeShapePlot(
+        prep_data=prep_data,
         stabil_calc=stabil_calc,
         geometry_data=geometry_data,
         modal_data=modal_data)

@@ -113,9 +113,9 @@ def multi_setup_analysis():
 
     meas_files = working_dir.glob('measurement*/')
 
-    skip_existing = False
-    save_results = True
-    interactive = True
+    skip_existing = True
+    save_results = False
+    interactive = False
 
     n_lags = 400
 
@@ -154,16 +154,18 @@ def multi_setup_analysis():
         
         if save_results:
             modal_data.save_state(result_folder_merged / 'modal_data.npz')
+        prep_data = None
     else:
         modal_data = PogerSSICovRef.load_state(
             result_folder_merged / 'modal_data.npz',)
+        prep_data = None
 
     if os.path.exists(result_folder_merged / 'stabil_data.npz') and skip_existing:
         stabil_calc = StabilCalc.load_state(
             result_folder_merged / 'stabil_data.npz', modal_data, prep_data)
     else:
         stabil_calc = StabilCalc(modal_data, prep_data)
-
+    stabil_calc.export_results('/usr/scratch4/sima9999/test.txt')
     if interactive:
         stabil_plot = StabilPlot(stabil_calc)
         start_stabil_gui(stabil_plot, modal_data, geometry_data, prep_data)
@@ -287,7 +289,7 @@ def merge_poser_test(skip_existing = False,
 
 if __name__ == '__main__':
     # analysis_chain(tmpdir='/dev/shm/womo1998/')
-    PlotMSHGUI_test()
+    # PlotMSHGUI_test()
     # merge_poser_test(False,False,True)
     
-    # multi_setup_analysis()
+    multi_setup_analysis()
