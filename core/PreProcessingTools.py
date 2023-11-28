@@ -2673,7 +2673,7 @@ def spectral_estimation():
         
     print(f'Theoretic powers')
     print(f'PSD: {np.mean(psd)}')
-    print(f'0-lag correlation: {correlation[0]}')
+    # print(f'0-lag correlation: {correlation[0]}')
     
     prep_signals = PreProcessSignals(y[:,np.newaxis],fs)
     prep_signals.plot_signals(timescale='lags', axest = [ax3], axesf=[ax1], dbscale=False)

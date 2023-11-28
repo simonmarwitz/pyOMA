@@ -31,11 +31,11 @@ from core.ModalBase import ModalBase
 '''
 ..TODO ::
      * define unit tests to check functionality after changes
-     * use covariance estimation from preprocess signals
+     * use covariance estimation from PreProcessSignals
      * optimize multi order qr-based estimation routine
      * iterate over conjugate indices instead of removing them --> SSI_Data MC
      * add mode-shape integration with variances
-     * use monte-carlo sampling in the last step of variance propagation (see: `https://doi.org/10.1007/978-3-7091-0399-9_3`_)
+     * use monte-carlo sampling in the last step of variance propagation (see: `https://doi.org/10.1007/978-3-7091-0399-9_3` -> 5.3)
 
 '''
 import logging
