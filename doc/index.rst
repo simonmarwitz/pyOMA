@@ -24,7 +24,7 @@ In a broader sense it consists of a series of processes:
 
 
 The toolbox is currently used on a daily basis to analyze the continuously 
-acquired vibration measurements of the Geyer tower monitoring system (since 2015). 
+acquired vibration measurements of a structural health monitoring system (since 2015). 
 Further uses include various academic and commercial measreument campaigns 
 on civil engineering structures including bridges, towers/masts, widespanned floors, etc.
 
@@ -35,15 +35,10 @@ Getting started
 ===============
 
  * Learn python 3.xx with packages: ``numpy``, ``scipy``, ``matplotlib``, (``PyQt5``/``PySide``, ``jupyter-notebook``)
- * Install python with scientific Python packages → `Intelpython <https://software.intel.com/content/www/us/en/develop/articles/oneapi-standalone-components.html#python>`_
+ * Install python with scientific Python packages e.g. Anaconda
  * Learn about documenting code with Sphinx (`Tutorial <https://thomas-cokelaer.info/tutorials/sphinx/rest_syntax.html>`_ , `Cheatsheet <https://matplotlib.org/sampledoc/cheatsheet.html>`_)
  * Learn about version control systems with Git: `<https://www.youtube.com/watch?v=8JJ101D3knE>`_
- * (Learn GUI programming with PyQt5)
- * QT-Designer for GUI development
- * Install Eclipse with PyDev and Git, or any other development environment
- * Clone the code with git ``git clone ssh://ism_username1234@stratos.bauing.uni-weimar.de/vegas/projects/pyOMA/repository.git/``
 
-All of the above is available on the `VEGAS-cluster@ISM <https://santafe.bauing.uni-weimar.de/dokuwiki/doku.php?id=ism_it:comp_publ:digitallab:cluster:start>`_ (for working remotely)
 
 Toolbox Structure
 =================
