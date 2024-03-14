@@ -102,7 +102,7 @@ class ModeShapeGUI(QMainWindow):
     # define this class's signals and the types of data they emit
     grid_requested = pyqtSignal(str, bool)
     beams_requested = pyqtSignal(str, bool)
-    childs_requested = pyqtSignal(str, bool)
+    slaves_requested = pyqtSignal(str, bool)
     chan_dofs_requested = pyqtSignal(str, bool)
 
     def __init__(self,
@@ -222,7 +222,7 @@ class ModeShapeGUI(QMainWindow):
         nd_lines_checkbox.stateChanged[int].connect(
             mode_shape_plot.refresh_nd_lines)
 
-        ms_checkbox = QCheckBox('Show parent-childs Assignm.')
+        ms_checkbox = QCheckBox('Show Master-Slaves Assignm.')
         ms_checkbox.setTristate(False)
         chandof_checkbox = QCheckBox('Show Channel-DOF Assignm.')
         chandof_checkbox.setTristate(False)
@@ -236,7 +236,7 @@ class ModeShapeGUI(QMainWindow):
 
         if mode_shape_plot.show_lines:
             line_checkbox.setCheckState(Qt.Checked)
-        elif mode_shape_plot.show_parent_childs:
+        elif mode_shape_plot.show_master_slaves:
             ms_checkbox.setCheckState(Qt.Checked)
         elif mode_shape_plot.show_chan_dofs:
             chandof_checkbox.setCheckState(Qt.Checked)
@@ -262,9 +262,9 @@ class ModeShapeGUI(QMainWindow):
         # beam_button.released.connect(self.stop_ani)
         # beam_button.released.connect(self.geometry_creator.load_lines)
 
-        #ms_button = QPushButton('Edit parent childs')
+        #ms_button = QPushButton('Edit Master Slaves')
         # ms_button.released.connect(self.stop_ani)
-        # ms_button.released.connect(self.geometry_creator.load_parent_child)
+        # ms_button.released.connect(self.geometry_creator.load_master_slave)
 
         #cd_button = QPushButton('Edit Channel-DOFS-Assignment')
         # cd_button.released.connect(self.stop_ani)
@@ -816,7 +816,7 @@ class ModeShapeGUI(QMainWindow):
         '''
         self.draw_button_group.buttonClicked[int].disconnect(self.toggle_draw)
         self.mode_shape_plot.refresh_lines(False)
-        self.mode_shape_plot.refresh_parent_childs(False)
+        self.mode_shape_plot.refresh_master_slaves(False)
         self.mode_shape_plot.refresh_chan_dofs(False)
         if self.draw_button_group.button(i).checkState():
             for j in range(3):
@@ -826,7 +826,7 @@ class ModeShapeGUI(QMainWindow):
             if i == 0:
                 self.mode_shape_plot.refresh_lines(True)
             elif i == 1:
-                self.mode_shape_plot.refresh_parent_childs(True)
+                self.mode_shape_plot.refresh_master_slaves(True)
             elif i == 2:
                 self.mode_shape_plot.refresh_chan_dofs(True)
         self.draw_button_group.buttonClicked[int].connect(self.toggle_draw)

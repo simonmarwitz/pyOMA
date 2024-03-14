@@ -23,7 +23,7 @@ from GUI.StabilGUI import start_stabil_gui
 # Define a function that loads the provided measurement file(s)
 PreProcessSignals.load_measurement_file = np.load
 
-working_dir = Path(f'/home/sima9999/git/pyOMA/tests/files/')
+working_dir = Path(f'/usr/wrk/people9/sima9999/git/pyOMA/tests/files/')
 result_folder = Path(f'{working_dir}/measurement_1/')
 meas_name = os.path.basename(result_folder)
 setup_info=result_folder / 'setup_info.txt'
@@ -37,7 +37,7 @@ conf_file=working_dir / 'varssi_config.txt'
 # define script switches
 skip_existing=True
 save_results=False
-interactive=True
+interactive=False
 
 
 geometry_data = GeometryProcessor.load_geometry(

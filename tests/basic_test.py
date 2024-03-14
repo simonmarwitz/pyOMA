@@ -40,7 +40,7 @@ def analysis_chain(tmpdir):
     geometry = GeometryProcessor.load_geometry(
         nodes_file='../input_files/grid',
         lines_file='../input_files/lines',
-        master_slaves_file='../input_files/master_slaves')
+        parent_childs_file='../input_files/parent_childs')
     PreProcessSignals.load_measurement_file = lambda measurement: measurement
     prep_data = PreProcessSignals.init_from_config(
         conf_file='../input_files/meas_1/setup_info.txt',
@@ -87,7 +87,7 @@ def PlotMSHGUI_test():
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir / 'grid.txt',
         lines_file=working_dir / 'lines.txt',
-        master_slaves_file=working_dir / 'master_slaves.txt',)
+        parent_childs_file=working_dir / 'parent_childs.txt',)
 
     modal_data = PogerSSICovRef.load_state(result_folder / 'modal_data.npz')
     stabil_data = StabilCalc.load_state(result_folder / 'stabil_data.npz', modal_data)
@@ -109,7 +109,7 @@ def multi_setup_analysis():
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir / 'grid.txt',
         lines_file=working_dir / 'lines.txt',
-        master_slaves_file=working_dir / 'master_slaves.txt')
+        parent_childs_file=working_dir / 'parent_childs.txt')
 
     meas_files = working_dir.glob('measurement*/')
 

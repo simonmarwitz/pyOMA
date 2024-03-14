@@ -990,20 +990,7 @@ class StabilCalc(object):
             return self.modal_data.sampling_rate / 2
         else:
             return float(np.amax(self.masked_frequencies))
-        
-    def get_frequencies(self):
-        '''
-        Returns
-        -------
-            frequencies: list
-                Identified frequencies of all currently selected modes.
-        '''
-        selected_indices = self.select_modes
 
-        frequencies = sorted([self.masked_frequencies[index[0], index[1]]
-                              for index in selected_indices])
-        return frequencies
-    
     def get_modal_values(self, i):
         # needed for gui
         assert isinstance(i, (list, tuple))
@@ -2007,8 +1994,7 @@ class StabilPlot(object):
             
         self.ax = self.fig.add_subplot(111)
 
-        # self.ax2 = self.ax.twinx()
-        # self.ax2.set_navigate(False)
+#         self.ax2 = self.ax.twinx()
 
 
         # if self.fig.canvas:
@@ -2397,34 +2383,12 @@ class StabilPlot(object):
     def plot_sv_psd(self, b, NFFT=None):
         '''
         Todo: - add GUI for choosing PSD parameters
-        cases:
-            create new plot with defaults (True, None)
-            hide plot (False, ...)
-            show last plot (True, NFFT==n_lines)
-            recreate plot with other NFFT (True, NFFT!=n_lines)
-            
-        check if something was drawn already
-            check if it should be hidden
-                hide it
-            check if parameters match
         '''
-        if self.psd_plot and not b:
-            for channel in self.psd_plot:
-                for line in channel:
-                    line._visible = b
+        if self.psd_plot:
+            for line in self.psd_plot:
+                line._visible = b
             self.fig.canvas.draw_idle()
             return
-        elif self.psd_plot and NFFT == self.stabil_calc.prep_data.n_lines:
-            for channel in self.psd_plot:
-                for line in channel:
-                    line._visible = b
-            self.fig.canvas.draw_idle()
-            return
-        elif self.psd_plot:
-            for channel in self.psd_plot:
-                for line in channel:
-                    line.remove()
-            self.psd_plot = []
 
         if self.stabil_calc.prep_data is None:
             raise RuntimeError('Measurement Data was not provided!')
@@ -2434,19 +2398,14 @@ class StabilPlot(object):
         sv_psd = self.stabil_calc.prep_data.sv_psd(NFFT)
         freq_psd = self.stabil_calc.prep_data.freqs
 
-        # sv_psd -= np.min(sv_psd)
-        # sv_psd /= (np.max(sv_psd)) * 0.5 * \
-        #     self.stabil_calc.modal_data.max_model_order
-        sv_psd_db_scaled = 10 * np.log10(sv_psd)
-        sv_psd_db_scaled -= np.min(sv_psd_db_scaled)
-        sv_psd_db_scaled /= 2 * np.max(sv_psd_db_scaled)
-        n_channels = sv_psd.shape[0]
-        for channel in range(n_channels):
-            self.psd_plot.append(self.ax.plot(freq_psd,
-                                     sv_psd_db_scaled[channel, :], color='grey', 
-                                     alpha = (n_channels - channel) / n_channels,
+        sv_psd -= np.min(sv_psd)
+        sv_psd /= (np.max(sv_psd)) * 0.5 * \
+            self.stabil_calc.modal_data.max_model_order
+        for channel in range(sv_psd.shape[0]):
+            self.psd_plot.append(self.ax.plot(10 * np.log10(freq_psd),
+                                     sv_psd[channel, :], color='grey',
                                      linestyle='solid', visible=b,
-                                     zorder=-1, transform=self.ax.get_xaxis_transform()))
+                                     zorder=-1))
         self.fig.canvas.draw_idle()
 
     def update_xlim(self, xlim):

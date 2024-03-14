@@ -1380,7 +1380,7 @@ class ComplexPlot(QMainWindow):
 #         self.mode_shape_plot.show_axis = False
 #         # self.mode_shape_plot.draw_nodes()
 #         self.mode_shape_plot.draw_lines()
-#         # self.mode_shape_plot.draw_parent_childs()
+#         # self.mode_shape_plot.draw_master_slaves()
 #         # self.mode_shape_plot.draw_chan_dofs()
 #
 #         self.fig = self.mode_shape_plot.fig
