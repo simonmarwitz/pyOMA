@@ -5,7 +5,6 @@ Created on 04.03.2021
 '''
 import sys
 from pathlib import Path
-import tests
 import matplotlib.pyplot as plt  # avoid import errors
 import os
 
@@ -82,7 +81,7 @@ def analysis_chain(tmpdir):
 
 
 def PlotMSHGUI_test():
-    working_dir = Path(sys.modules['tests'].__path__[0]) / 'files/'
+    working_dir = Path(sys.modules['__main__'].__file__.rstrip('basic_tests.py')) / 'files/'
     result_folder = working_dir / 'merged_poger/'
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir / 'grid.txt',
@@ -103,8 +102,7 @@ def PlotMSHGUI_test():
 def multi_setup_analysis():
 
     PreProcessSignals.load_measurement_file = np.load
-
-    working_dir = Path(sys.modules['tests'].__path__[0]) / 'files/'
+    working_dir = Path(sys.modules['__main__'].__file__.rstrip('basic_tests.py')) / 'files/'
 
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir / 'grid.txt',

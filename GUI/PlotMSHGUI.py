@@ -26,7 +26,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # system i/o
 from copy import deepcopy
 from core.PlotMSH import ModeShapePlot
-from GUI.HelpersGUI import DelayedDoubleSpinBox, my_excepthook
+from .HelpersGUI import DelayedDoubleSpinBox, my_excepthook
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import mpl_toolkits.mplot3d.axes3d

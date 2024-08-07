@@ -34,13 +34,13 @@ obtained from any of the classes derived from ModalBase of the pyOMA project
 import matplotlib.animation
 import matplotlib.patches
 import mpl_toolkits.mplot3d.axes3d
-from core.PostProcessingTools import MergePoSER
-from core.VarSSIRef import VarSSIRef
-from core.SSICovRef import PogerSSICovRef
-from core.ModalBase import ModalBase
-from core.PreProcessingTools import PreProcessSignals, GeometryProcessor
-from core.StabilDiagram import StabilCalc
-from core.Helpers import calc_xyz, nearly_equal
+from .PostProcessingTools import MergePoSER
+from .VarSSIRef import VarSSIRef
+from .SSICovRef import PogerSSICovRef
+from .ModalBase import ModalBase
+from .PreProcessingTools import PreProcessSignals, GeometryProcessor
+from .StabilDiagram import StabilCalc
+from .Helpers import calc_xyz, nearly_equal
 import itertools
 import numpy as np
 import matplotlib.markers

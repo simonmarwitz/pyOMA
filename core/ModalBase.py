@@ -21,7 +21,7 @@ should be inherited.
 @author: womo1998
 '''
 
-from core.PreProcessingTools import PreProcessSignals
+from .PreProcessingTools import PreProcessSignals
 import numpy as np
 from collections import deque
 import os

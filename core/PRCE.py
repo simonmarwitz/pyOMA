@@ -31,8 +31,8 @@ from collections import deque
 #import datetime
 #from copy import deepcopy
 
-from core.PreProcessingTools import PreProcessSignals
-from core.ModalBase import ModalBase
+from .PreProcessingTools import PreProcessSignals
+from .ModalBase import ModalBase
 #from StabilDiagram import main_stabil, StabilPlot, nearly_equal
 
 #import pydevd

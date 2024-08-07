@@ -27,8 +27,8 @@ import copy
 import numpy as np
 import scipy.linalg
 
-from core.PreProcessingTools import PreProcessSignals
-from core.ModalBase import ModalBase
+from .PreProcessingTools import PreProcessSignals
+from .ModalBase import ModalBase
 
 import matplotlib.pyplot as plt
 import logging

@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 import warnings
 from core.PreProcessingTools import PreProcessSignals
-from GUI.HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
-from GUI.PlotMSHGUI import ModeShapeGUI
+from .HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
+from .PlotMSHGUI import ModeShapeGUI
 from core.StabilDiagram import StabilPlot, StabilCluster, DataCursor
 from core.PlotMSH import ModeShapePlot
 from core.ModalBase import ModalBase

@@ -35,8 +35,8 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-from core.PreProcessingTools import PreProcessSignals
-from core.ModalBase import ModalBase
+from .PreProcessingTools import PreProcessSignals
+from .ModalBase import ModalBase
 
 
 class PLSCF(ModalBase):

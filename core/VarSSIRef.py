@@ -25,8 +25,8 @@ import multiprocessing as mp
 import ctypes as c
 from collections import deque
 
-from core.PreProcessingTools import PreProcessSignals
-from core.ModalBase import ModalBase
+from .PreProcessingTools import PreProcessSignals
+from .ModalBase import ModalBase
 
 '''
 ..TODO ::

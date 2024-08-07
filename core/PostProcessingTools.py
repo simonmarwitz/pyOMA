@@ -49,9 +49,9 @@ poser multi-setup (merged_data)
 
 import numpy as np
 import datetime
-from core.PreProcessingTools import PreProcessSignals
-from core.ModalBase import ModalBase
-from core.StabilDiagram import StabilCalc
+from .PreProcessingTools import PreProcessSignals
+from .ModalBase import ModalBase
+from .StabilDiagram import StabilCalc
 import os
 
 import logging

@@ -31,9 +31,9 @@ Modified and Extended by Simon Marwitz 2015 ff.
 '''
 
 import warnings
-from core.PreProcessingTools import PreProcessSignals
-from core.SSICovRef import PogerSSICovRef
-from core.ModalBase import ModalBase
+from .PreProcessingTools import PreProcessSignals
+from .SSICovRef import PogerSSICovRef
+from .ModalBase import ModalBase
 import numpy as np
 
 import scipy.cluster
