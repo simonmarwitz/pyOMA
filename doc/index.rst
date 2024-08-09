@@ -43,7 +43,7 @@ Getting started
 Toolbox Structure
 =================
 
-The toolbox consists of four packages :
+The pyOMA package consists of two modules  :
 
 ::
 
@@ -60,13 +60,14 @@ The toolbox consists of four packages :
     │   ├── PlotMSH.py
     │   ├── PostProcessingTools.py
     │   └── ...
-    ├── doc
-    │   └── ...
     ├── GUI
     │   ├── PlotMSHGUI.py
     │   ├── StabilGUI.py
     │   ├── Helpers.py
     │   └── ...
+    
+Additionally some further files are provided with it:
+    ├── doc
     ├── input_files
     ├── scripts
     ├── tests

@@ -351,7 +351,7 @@ class SSIData(ModalBase):
 
         print('Computing modal parameters...')
 
-        lambda_k = np.array([], dtype=np.complex)
+        lambda_k = np.array([], dtype=complex)
         modal_frequencies = np.zeros((max_model_order, max_model_order))
         modal_damping = np.zeros((max_model_order, max_model_order))
         mode_shapes = np.zeros(

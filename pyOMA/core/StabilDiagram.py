@@ -67,7 +67,7 @@ plot.rc('legend', fontsize=10, labelspacing=0.1)
 plot.rc('axes', linewidth=0.2)
 plot.rc('xtick.major', width=0.2)
 plot.rc('ytick.major', width=0.2)
-plot.ioff()
+# plot.ioff()
 
 NoneType = type(None)
 

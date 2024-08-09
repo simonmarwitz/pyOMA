@@ -557,11 +557,11 @@ class MergePoSER(object):
 
 
 def main():
-    from core.PreProcessingTools import PreProcessSignals, GeometryProcessor
-    from core.SSICovRef import BRSSICovRef
-    from core.StabilDiagram import StabilCalc
-    from core.PlotMSH import ModeShapePlot
-    from GUI.PlotMSHGUI import start_msh_gui
+    from pyOMA.core.PreProcessingTools import PreProcessSignals, GeometryProcessor
+    from pyOMA.core.SSICovRef import BRSSICovRef
+    from pyOMA.core.StabilDiagram import StabilCalc
+    from pyOMA.core.PlotMSH import ModeShapePlot
+    from pyOMA.GUI.PlotMSHGUI import start_msh_gui
 
     working_dir = '/home/womo1998/Projects/2017_modal_merging_test_files/'
     interactive = False

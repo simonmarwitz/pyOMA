@@ -123,7 +123,7 @@ class PRCE(ModalBase):
 #
 #                 x_corr = np.flipud(np.correlate(ref_series, chan_series, mode='valid'))
 #                 x_corr_Tensor[ref, chan,:] = x_corr
-        self.prep_data.compute_correlation_matrices(2 * num_corr_samples + 1)
+        self.prep_data.correlation(2 * num_corr_samples + 1)
 
         self.x_corr_Tensor = np.transpose(
             self.prep_data.corr_matrix, [

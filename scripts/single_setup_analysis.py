@@ -6,17 +6,17 @@ import os
 from pathlib import Path
 
 import numpy as np
-from core.PreProcessingTools import PreProcessSignals, GeometryProcessor
-from core.PLSCF import PLSCF
-from core.PRCE import PRCE
-from core.SSICovRef import BRSSICovRef
-from core.SSIData import SSIData, SSIDataMC
-from core.VarSSIRef import VarSSIRef
-from core.StabilDiagram import StabilCalc, StabilPlot
-from core.PlotMSH import ModeShapePlot
+from pyOMA.core.PreProcessingTools import PreProcessSignals, GeometryProcessor
+from pyOMA.core.PLSCF import PLSCF
+from pyOMA.core.PRCE import PRCE
+from pyOMA.core.SSICovRef import BRSSICovRef
+from pyOMA.core.SSIData import SSIData, SSIDataMC
+from pyOMA.core.VarSSIRef import VarSSIRef
+from pyOMA.core.StabilDiagram import StabilCalc, StabilPlot
+from pyOMA.core.PlotMSH import ModeShapePlot
 
-from GUI.PlotMSHGUI import start_msh_gui
-from GUI.StabilGUI import start_stabil_gui
+from pyOMA.GUI.PlotMSHGUI import start_msh_gui
+from pyOMA.GUI.StabilGUI import start_stabil_gui
 
 
 # Define a function that loads the provided measurement file(s)

@@ -2,7 +2,7 @@ import tempfile
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from core.PreProcessingTools import PreProcessSignals
+from pyOMA.core.PreProcessingTools import PreProcessSignals
 from tests.system_ambient_ifrf import frequency_response, ambient_ifrf, ambient_spectral
 logger = logging.getLogger('core.PreProcessingTools')
 logger.setLevel(level=logging.DEBUG)

@@ -7,12 +7,12 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 import warnings
-from core.PreProcessingTools import PreProcessSignals
+from pyOMA.core.PreProcessingTools import PreProcessSignals
 from .HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
 from .PlotMSHGUI import ModeShapeGUI
-from core.StabilDiagram import StabilPlot, StabilCluster, DataCursor
-from core.PlotMSH import ModeShapePlot
-from core.ModalBase import ModalBase
+from pyOMA.core.StabilDiagram import StabilPlot, StabilCluster, DataCursor
+from pyOMA.core.PlotMSH import ModeShapePlot
+from pyOMA.core.ModalBase import ModalBase
 from PyQt5.QtCore import pyqtSignal, Qt, pyqtSlot, QObject, qInstallMessageHandler, QTimer, QEventLoop
 from PyQt5.QtGui import QIcon, QPalette
 from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton,\

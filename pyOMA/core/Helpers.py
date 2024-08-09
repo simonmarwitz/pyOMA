@@ -74,11 +74,11 @@ def calc_xyz(az, elev, r=1):
     return x, y, z
 
 def get_method_dict():
-    from core.PLSCF import PLSCF
-    from core.PRCE import PRCE
-    from core.SSICovRef import BRSSICovRef, PogerSSICovRef
-    from core.SSIData import SSIData, SSIDataMC
-    from core.VarSSIRef import VarSSIRef
+    from pyOMA.core.PLSCF import PLSCF
+    from pyOMA.core.PRCE import PRCE
+    from pyOMA.core.SSICovRef import BRSSICovRef, PogerSSICovRef
+    from pyOMA.core.SSIData import SSIData, SSIDataMC
+    from pyOMA.core.VarSSIRef import VarSSIRef
     method_dict = {'Reference-based Covariance-Driven Stochastic Subspace Identification': BRSSICovRef, 
                    'Reference-based Data-Driven Stochastic Subspace Identification': SSIDataMC, 
                    'Stochastic Subspace Identification with Uncertainty Estimation': VarSSIRef,

@@ -10,7 +10,7 @@ from IPython.core.display_functions import display
 import numpy as np
 import scipy.spatial
 import scipy.stats
-from core.Helpers import get_method_dict
+from pyOMA.core.Helpers import get_method_dict
 import os
 from pathlib import Path
 # import ipywidgets

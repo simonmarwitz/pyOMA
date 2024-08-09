@@ -1,7 +1,7 @@
 Post-processing
 ===============
 
-.. currentmodule:: core
+.. currentmodule:: pyOMA.core
 
 .. autosummary::
    :recursive:

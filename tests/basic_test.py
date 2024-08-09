@@ -10,22 +10,22 @@ import os
 
 import numpy as np
 
-from core.PreProcessingTools import PreProcessSignals, GeometryProcessor
+from pyOMA.core.PreProcessingTools import PreProcessSignals, GeometryProcessor
 
-from core.ModalBase import ModalBase
-from core.PLSCF import PLSCF
-from core.PRCE import PRCE
-from core.SSICovRef import BRSSICovRef, PogerSSICovRef
-from core.SSIData import SSIData, SSIDataMC
-from core.VarSSIRef import VarSSIRef
-#from core.ERA import *
+from pyOMA.core.ModalBase import ModalBase
+from pyOMA.core.PLSCF import PLSCF
+from pyOMA.core.PRCE import PRCE
+from pyOMA.core.SSICovRef import BRSSICovRef, PogerSSICovRef
+from pyOMA.core.SSIData import SSIData, SSIDataMC
+from pyOMA.core.VarSSIRef import VarSSIRef
+#from pyOMA.core.ERA import *
 
-from core.StabilDiagram import StabilCalc, StabilCluster, StabilPlot
-from core.PostProcessingTools import MergePoSER
-from core.PlotMSH import ModeShapePlot
+from pyOMA.core.StabilDiagram import StabilCalc, StabilCluster, StabilPlot
+from pyOMA.core.PostProcessingTools import MergePoSER
+from pyOMA.core.PlotMSH import ModeShapePlot
 
-from GUI.PlotMSHGUI import start_msh_gui
-from GUI.StabilGUI import start_stabil_gui
+from pyOMA.GUI.PlotMSHGUI import start_msh_gui
+from pyOMA.GUI.StabilGUI import start_stabil_gui
 
 
 
@@ -50,13 +50,13 @@ def analysis_chain(tmpdir):
     prep_data.correct_offset()
     prep_data.filter_signals(lowpass=12)
     prep_data.decimate_signals(2)
-    prep_data.psd_welch()
+    prep_data.psd_welch(200)
     prep_data.corr_welch(400)
-    prep_data.psd_blackman_tukey()
+    prep_data.psd_blackman_tukey(200)
     prep_data.welch(400)
     prep_data.sv_psd()
-    prep_data.compute_correlation_matrices(n_lags=400)
-    prep_data.get_fft(svd=True)
+    prep_data.correlation(n_lags=400)
+    prep_data.sv_psd()
 
     # for each OMA method
     for method, config in list(zip([PLSCF, PRCE, BRSSICovRef, SSIData, SSIDataMC, VarSSIRef],
@@ -245,7 +245,7 @@ def merge_poser_test(skip_existing = False,
 
     PreProcessSignals.load_measurement_file = np.load
 
-    working_dir = Path(sys.modules['tests'].__path__[0]) / 'files/'
+    working_dir = Path(sys.modules['__main__'].__file__.rstrip('basic_tests.py')) / 'files/'
 
     geometry_data = GeometryProcessor.load_geometry(
         nodes_file=working_dir / 'grid.txt',
@@ -288,6 +288,7 @@ def merge_poser_test(skip_existing = False,
 if __name__ == '__main__':
     # analysis_chain(tmpdir='/dev/shm/womo1998/')
     # PlotMSHGUI_test()
-    # merge_poser_test(False,False,True)
+    merge_poser_test(False,False,True)
     
-    multi_setup_analysis()
+    
+    # multi_setup_analysis()

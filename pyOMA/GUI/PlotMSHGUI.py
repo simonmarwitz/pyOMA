@@ -25,7 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 # system i/o
 from copy import deepcopy
-from core.PlotMSH import ModeShapePlot
+from pyOMA.core.PlotMSH import ModeShapePlot
 from .HelpersGUI import DelayedDoubleSpinBox, my_excepthook
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg

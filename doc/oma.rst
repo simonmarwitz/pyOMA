@@ -1,7 +1,7 @@
 System Identification / Modal Analysis
 ======================================
 
-.. currentmodule:: core
+.. currentmodule:: pyOMA.core
 
 .. autosummary::
    :recursive:

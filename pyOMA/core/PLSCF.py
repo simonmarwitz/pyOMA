@@ -429,7 +429,7 @@ class PLSCF(ModalBase):
 
             # Compute modal parameters from matrices A_c and C_c
 
-            lambda_k = np.array([], dtype=np.complex)
+            lambda_k = np.array([], dtype=complex)
 
             eigenvalues_paired, eigenvectors_paired = np.linalg.eig(A_c)
             eigenvectors_single = []
