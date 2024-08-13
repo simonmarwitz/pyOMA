@@ -454,7 +454,7 @@ class ModeShapePlot(object):
         self.subplot.grid(False)
         self.subplot.set_axis_off()
         if not self.select_modes:
-            self.mode_index = [0, 0]
+            self.mode_index = None
         else:
             self.mode_index = self.select_modes[0]
         
@@ -517,7 +517,7 @@ class ModeShapePlot(object):
         self.draw_lines()
         self.draw_chan_dofs()
         self.draw_parent_childs()
-        if self.mode_index[1]:
+        if self.mode_index is not None:
             self.draw_msh()
         self.set_equal_aspect()
         #self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
@@ -1462,8 +1462,8 @@ class ModeShapePlot(object):
             self.refresh_lines()
             self.refresh_nd_lines()
         
-        self.lines_objects[-1].remove()
-        del self.lines_objects[-1]
+        # self.lines_objects[-1].remove()
+        # del self.lines_objects[-1]
         
         # node = line[0]
         # self.lines_objects.append(
@@ -1751,11 +1751,11 @@ class ModeShapePlot(object):
                 sum_z = 0
                 for chan, x, y, z, disp in this_chan_dofs:
                     # print(chan,x,y,z)
-                    if x != 0:
+                    if not np.isclose(x, 0):
                         sum_x += 1
-                    if y != 0:
+                    if not np.isclose(y, 0):
                         sum_y += 1
-                    if z != 0:
+                    if not np.isclose(z, 0):
                         sum_z += 1
                 #print(sum_x, sum_y, sum_z)
                 if sum_x <= 1 and sum_y <= 1 and sum_z <= 1:  # sensors are in coordinate direction
@@ -1764,13 +1764,13 @@ class ModeShapePlot(object):
 
                         phase, mag = to_phase_mag(disp)
 
-                        if x != 0:
+                        if not np.isclose(x, 0):
                             self.phi_nodes[node][0] = phase
                             self.disp_nodes[node][0] = x * mag * ampli
-                        elif y != 0:
+                        elif not np.isclose(y, 0):
                             self.phi_nodes[node][1] = phase
                             self.disp_nodes[node][1] = y * mag * ampli
-                        elif z != 0:
+                        elif not np.isclose(z, 0):
                             self.phi_nodes[node][2] = phase
                             self.disp_nodes[node][2] = z * mag * ampli
                 else:
