@@ -270,7 +270,7 @@ class BRSSICovRef(ModalBase):
             order,
             algo='svd',
             max_modes=None,
-            corr_synth=True,
+            corr_synth=False,
             plot_=False):
 
         num_block_rows = self.num_block_rows
@@ -355,13 +355,14 @@ class BRSSICovRef(ModalBase):
 
             num_modes = len(conj_indices)
             modelist = list(range(num_modes))
-            modelist = [25, 26]
+            # modelist = [25, 26]
             #num_modes = 5
             #num_plots = int(np.ceil(np.sqrt(num_modes)))
             # num_plots=5
             #num_plots = num_modes
             num_plots = len(modelist) + 1
-            fig, axes = plt.subplots(num_plots, 2, 'col', 'none', False)
+            fig, axes = plt.subplots(num_plots, 2, 
+                                     sharex='col', sharey='none', squeeze=False)
             #axes= axes.flatten()
         else:
             axes = None
@@ -406,7 +407,7 @@ class BRSSICovRef(ModalBase):
 
             if plot_:
                 if i in modelist:
-                    print(ip, i)
+                    # print(ip, i)
                     ip += 1
 
             if corr_synth:
