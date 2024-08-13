@@ -495,8 +495,11 @@ def PlotMSHWeb(msp):
     lb = ipywidgets.Label(value='Mode:')
     
     frequencies = [f'{f:1.3f}' for f in msp.get_frequencies()]
-    current = f'{msp.modal_frequencies[msp.mode_index[0], msp.mode_index[1]]:1.3f}'
-    dd = ipywidgets.Dropdown(options=frequencies , value=current)
+    if msp.mode_index is not None:
+        current = f'{msp.modal_frequencies[msp.mode_index[0], msp.mode_index[1]]:1.3f}'
+        dd = ipywidgets.Dropdown(options=frequencies , value=current)
+    else:
+        dd = ipywidgets.Dropdown(options=frequencies)
     
     ft = ipywidgets.FloatText(value=msp.amplitude, description='Amplitude')
     cb = ipywidgets.Checkbox(value=msp.real ,description='Real Modeshape',)
@@ -648,8 +651,8 @@ def PlotMSHWeb(msp):
     cb.observe(handler=lambda change: msp.change_part(bool(change['new'])) , names='value', type='change')
     
     reload_btn.on_click(reload_modes)
-    
-    mode_change(current)
+    if msp.mode_index is not None:
+        mode_change(current)
     
     return vbox
 
