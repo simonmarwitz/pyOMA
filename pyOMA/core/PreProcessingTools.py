@@ -1437,6 +1437,7 @@ class PreProcessSignals(object):
         
         assert isinstance(decimate_factor, int)
         assert decimate_factor >= 1
+        assert nyq_rat >= 2.0
 
         if order is None:
             if filter_type in ['brickwall', 'moving_average']:

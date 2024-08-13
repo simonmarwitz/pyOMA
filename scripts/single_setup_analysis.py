@@ -34,7 +34,7 @@ method=BRSSICovRef
 conf_file=working_dir / 'varssi_config.txt'
 
 # define script switches
-skip_existing=True
+skip_existing=False
 save_results=False
 interactive=True
 
