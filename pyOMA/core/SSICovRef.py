@@ -29,9 +29,11 @@ import scipy.linalg
 
 from .PreProcessingTools import PreProcessSignals
 from .ModalBase import ModalBase
+from .Helpers import validate_array
 
 import matplotlib.pyplot as plt
 import logging
+
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
@@ -46,17 +48,15 @@ class BRSSICovRef(ModalBase):
 
         self.num_block_columns = None
         self.num_block_rows = None
-        self.toeplitz_matrix = None
 
-        # compute_state_matrices
         self.U = None
         self.S = None
-        #self.V_T = None
-        self.max_model_order = None
+        self.V_T = None
+        
         self.modal_contributions = None
 
     @classmethod
-    def init_from_config(cls, conf_file, prep_data):
+    def init_from_config(cls, conf_file, prep_signals):
         assert os.path.exists(conf_file)
 
         with open(conf_file, 'r') as f:
@@ -66,54 +66,84 @@ class BRSSICovRef(ModalBase):
             assert f.__next__().strip('\n').strip(' ') == 'Maximum Model Order:'
             max_model_order = int(f. __next__().strip('\n'))
 
-        ssi_object = cls(prep_data)
+        ssi_object = cls(prep_signals)
         ssi_object.build_toeplitz_cov(num_block_columns)
-        ssi_object.compute_state_matrices(max_model_order)
-        ssi_object.compute_modal_params()
+        ssi_object.compute_modal_params(max_model_order)
 
         return ssi_object
 
     def build_toeplitz_cov(
             self,
-            num_block_columns,
+            num_block_columns=None,
             num_block_rows=None,
             shift=0):
         '''
-        Builds a Block-Toeplitz Matrix of Covariances with varying time lags
+        Builds a Block-Toeplitz Matrix of Covariances with varying time lags and
+        decomposes it by a Singular Value decomposition.
+        
         ::
 
-              <-num_block_columns*num_ref_channels ->  _
-            [     R_i      R_i-1      ...      R_1    ]^
-            [     R_i+1    R_i        ...      R_2    ]num_block_rows*num_analised_channels
-            [     ...      ...        ...      ...    ]v
-            [     R_2i-1   ...        ...      R_i    ]_
+              <-num_block_columns * n_r ->  _
+            [     R_m      R_m-1      ...      R_1    ]^
+            [     R_m+1    R_m        ...      R_2    ]num_block_rows * n_l
+            [     ...      ...        ...      ...    ]
+            [     R_2m-1   ...        ...      R_m    ]v
+        
+        The total number of block columns and block rows should not exceed the
+        maximum time lag of pre-computed correlation functions:
+        
+        num_block_columns + num_block_rows + shift < prep_signals.n_lags
+        
+        Parameters
+        ----------
+            num_block_columns: integer, optional
+                Number of block columns. By default, half the number of time
+                lags are used
+            
+            num_block_rows: integer, optional
+                Number of block rows. By default it is set equal to num_block_columns
+            
+            shift: integer, optional
+                Allows the assembly of a shifted Block-Toeplitz matrix, s. t. 
+                the correlation function starting at shift is assembled into the 
+                block Toeplitz matrix
         '''
-        assert isinstance(num_block_columns, int)
+        
+        max_lags = self.prep_signals.n_lags 
+        
+        if num_block_columns is not None:
+            assert isinstance(num_block_columns, int)
+        else:
+            if max_lags is None:
+                raise RuntimeError('Either num_block_columns, or pre-computed correlation functions must be provided.')
+            
+            if num_block_rows is not None:
+                assert isinstance(num_block_rows, int)
+                num_block_columns = max_lags - num_block_rows - shift
+            else:
+                num_block_columns = (max_lags -shift )// 2
+        
         if num_block_rows is None:
             num_block_rows = num_block_columns
-        assert isinstance(num_block_rows, int)
-
-        print('Assembling toeplitz matrix using pre-computed correlation functions'
+        
+        logger.info('Assembling Toeplitz matrix using pre-computed correlation functions'
               ' {} block-columns and {} block rows'.format(num_block_columns, num_block_rows + 1))
 
-        self.num_block_columns = num_block_columns
-        self.num_block_rows = num_block_rows
-
-        num_analised_channels = self.prep_data.num_analised_channels
-        num_ref_channels = self.prep_data.num_ref_channels
-
-        n_lags = num_block_rows + 1 + num_block_columns - 1
+        n_lags = num_block_rows + 1 + num_block_columns - 1 + shift
         
-        if self.prep_data.n_lags is None:
-            self.prep_data.correlation(n_lags, 'blackman-tukey')
+        if max_lags is None:
+            self.prep_signals.correlation(n_lags, 'blackman-tukey')
             
-        if self.prep_data.n_lags < n_lags:
-            self.prep_data.correlation(n_lags, 'blackman-tukey')
+        if max_lags < n_lags:
+            logger.warning('The pre-computed correlation function is too short for the requested matrix dimensions.')
+            self.prep_signals.correlation(n_lags, 'blackman-tukey')
 
-        corr_matrix = self.prep_data.corr_matrix
+        n_l = self.num_analised_channels
+        n_r = self.num_ref_channels
+        
+        corr_matrix = self.prep_signals.corr_matrix
 
-        Toeplitz_matrix = np.zeros(
-            (num_analised_channels * (num_block_rows + 1), num_ref_channels * num_block_columns))
+        Toeplitz_matrix = np.zeros((n_l * (num_block_rows + 1), n_r * num_block_columns))
 
         for i in range(num_block_rows + 1):
             if i == 0:
@@ -122,375 +152,414 @@ class BRSSICovRef(ModalBase):
                     tau = num_block_columns + i - ii + shift
                     this_block = corr_matrix[:, :, tau - 1]
 
-                    begin_Toeplitz_row = i * num_analised_channels
+                    begin_Toeplitz_row = i * n_l
 
                     Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row +
-                                                        num_analised_channels), ii *
-                                    num_ref_channels:(ii *
-                                                      num_ref_channels +
-                                                      num_ref_channels)] = this_block
+                                                        n_l), ii *
+                                    n_r:(ii *
+                                                      n_r +
+                                                      n_r)] = this_block
             else:
-                previous_Toeplitz_row = (i - 1) * num_analised_channels
+                # shift previous block row down and left
+                previous_Toeplitz_row = (i - 1) * n_l
                 this_block = Toeplitz_matrix[previous_Toeplitz_row:(
-                    previous_Toeplitz_row + num_analised_channels), 0:num_ref_channels * (num_block_columns - 1)]
-                begin_Toeplitz_row = i * num_analised_channels
-                Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row +
-                                                    num_analised_channels), num_ref_channels:(num_ref_channels *
-                                                                                              num_block_columns)] = this_block
+                    previous_Toeplitz_row + n_l), 0:n_r * (num_block_columns - 1)]
+                begin_Toeplitz_row = i * n_l
+                Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row + n_l), 
+                                n_r:(n_r * num_block_columns)] = this_block
+                # fill right most block
                 tau = num_block_columns + i + shift
                 this_block = corr_matrix[:, :, tau - 1]
 
-                Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row + num_analised_channels),
-                                0:num_ref_channels] = this_block
-
-#         import matplotlib.pyplot as plot
-#
-#         for num_channel,ref_channel in enumerate(self.prep_data.ref_channels):
-#             inds=([],[])
-#             for i in range(num_block_columns):
-#                 row = ref_channel
-#                 col = (num_block_columns-i-1)*num_ref_channels+num_channel
-#                 inds[0].append(row)
-#                 inds[1].append(col)
-#             for ii in range(1,num_block_rows):
-#                 row = (ii)*num_analised_channels+ref_channel
-#                 col = num_channel
-#                 inds[0].append(row)
-#                 inds[1].append(col)
-#             means = Toeplitz_matrix[inds]
-#             #print(means.shape, sigma_r[inds,inds].shape, len(inds))
-#             #plt.errorbar(range(num_block_rows+num_block_rows-1), means, yerr=np.sqrt(sigma_r[inds,inds]))
-#             #print(np.sqrt(sigma_r[inds,inds]))
-#
-#             #plt.plot(vec_R[inds,0])
-#             #plt.plot(vec_R[inds,1])
-#             plt.plot(range(1,num_block_columns+num_block_rows), means)
-#         plt.show()
-
-        if shift == 0:
-            self.toeplitz_matrix = Toeplitz_matrix
-        else:
-            return Toeplitz_matrix
-        self.state[0] = True
-
-    def compute_state_matrices(self, max_model_order=None):
-
-        if max_model_order is not None:
-            assert isinstance(max_model_order, int)
-
-        Toeplitz_matrix = self.toeplitz_matrix
-
-        if max_model_order is None:
-            max_model_order = min(Toeplitz_matrix.shape)
-        else:
-            max_model_order = min(max_model_order, *Toeplitz_matrix.shape)
-
-        print('Computing state matrices with pinv-based method, with maximum model order {}...'.format(max_model_order))
-
+                Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row + n_l),
+                                0:n_r] = this_block
+        
+        logger.info('Decomposing Toeplitz matrix')
+        
         U, S, V_T = scipy.linalg.svd(Toeplitz_matrix, 1)
-
-        U = U[:, :max_model_order]
-        V_T = V_T[:max_model_order, :]
-
+        
+        self.num_block_columns = num_block_columns
+        self.num_block_rows = num_block_rows
+        
         self.U = U
         self.S = S
         self.V_T = V_T
+        
+        self.max_model_order = S.shape[0]
+        
+        self.state[0] = True
 
-        self.max_model_order = max_model_order
-
-        self.state[1] = True
-        self.state[2] = False  # previous modal params are invalid now
-
-    def compute_modal_params(self, max_modes=None, algo='svd'):
+    def compute_modal_params(self, max_model_order=None, 
+                             max_modes=None, algo='svd', 
+                             modal_contrib=True):
         '''
-        computes the modal parameters as indicated in Peeters 1999 and Döhler 2012
-        only algorithm svd is optimized for multi-order computation
-        max_modes i.e. crystal clear only works with algorithm svd
+        
+        Perform a multi-order computation of modal parameters. Successively
+        calls 
+         * estimate_state(order, max_modes, algo)
+         * modal_analysis(A,C)
+         * synthesize_correlation(A,C, G), if modal_contrib == True
+        At ascending model orders, up to max_model_order. 
+        See the explanations in the the respective methods, for a detailed 
+        explanation of parameters.
+        
+        Parameters
+        ----------
+            max_model_order: integer, optional
+                Maximum model order, where to interrupt the algorithm. If not given,
+                it is min(num_channels * (num_block_rows + 1), num_reference_channels * num_block_columns)
         '''
 
-        assert algo in ['svd', 'qr', 'opti']
-
-        max_model_order = self.max_model_order
-        num_block_rows = self.num_block_rows
-        num_analised_channels = self.prep_data.num_analised_channels
-        num_ref_channels = self.prep_data.num_ref_channels
-        accel_channels = self.prep_data.accel_channels
-        velo_channels = self.prep_data.velo_channels
-        #merged_num_channels = self.merged_num_channels
-        sampling_rate = self.prep_data.sampling_rate
-
-        U = self.U
-        V_T = self.V_T
-        S = self.S
-        S_2 = np.diag(np.power(S[:max_model_order], 0.5))
-        S_2_inv = np.diag(np.power(S[:max_model_order], -0.5))
-
-        O = np.dot(U, S_2)
-        Z = np.dot(S_2, V_T)
-
-        print('Computing modal parameters...')
+        if max_model_order is not None:
+            assert isinstance(max_model_order, int)
+        else:
+            max_model_order = self.max_model_order
+            
+        assert max_model_order <= self.S.shape[0]
+        
+        num_analised_channels = self.num_analised_channels
+        
+        logger.info('Computing modal parameters...')
 
         modal_frequencies = np.zeros((max_model_order, max_model_order))
         modal_damping = np.zeros((max_model_order, max_model_order))
-        mode_shapes = np.zeros(
-            (num_analised_channels,
-             max_model_order,
-             max_model_order),
-            dtype=complex)
-        eigenvalues = np.zeros(
-            (max_model_order, max_model_order), dtype=complex)
-        modal_contributions = np.zeros((max_model_order, max_model_order))
+        mode_shapes = np.zeros((num_analised_channels, max_model_order, max_model_order),
+                               dtype=complex)
+        eigenvalues = np.zeros((max_model_order, max_model_order), dtype=complex)
+        
+        if modal_contrib:
+            modal_contributions = np.zeros((max_model_order, max_model_order))
 
         printsteps = list(np.linspace(0, max_model_order, 100, dtype=int))
         for order in range(1, max_model_order):
             while order in printsteps:
                 del printsteps[0]
                 print('.', end='', flush=True)
-            this_modal_frequencies, this_modal_damping, this_mode_shapes, this_eigenvalues, this_modal_contributions = \
-                self.single_order_modal(order, algo, max_modes, plot_=False)
-
-            modal_frequencies[order, :order] = this_modal_frequencies
-            modal_damping[order, :order] = this_modal_damping
-            mode_shapes[:, :order, order] = this_mode_shapes
-            eigenvalues[order, :order] = this_eigenvalues
-            modal_contributions[order, :order] = this_modal_contributions
-
+                
+            A, C, G = self.estimate_state(order, max_modes, algo)
+            
+            f, d, phi, lamda, = self.modal_analysis(A, C)
+            modal_frequencies[order, :order] = f
+            modal_damping[order, :order] = d
+            mode_shapes[:phi.shape[0], :order, order] = phi
+            eigenvalues[order, :order] = lamda
+            
+            if modal_contrib:
+                _, delta = self.synthesize_correlation(A, C, G)
+                modal_contributions[order, :order] = delta
+            
+        self.max_model_order = max_model_order
+        
         self.modal_frequencies = modal_frequencies
         self.modal_damping = modal_damping
         self.mode_shapes = mode_shapes
         self.eigenvalues = eigenvalues
-        self.modal_contributions = modal_contributions
+        if modal_contrib:
+            self.modal_contributions = modal_contributions
 
         print('.', end='\n', flush=True)
 
         self.state[2] = True
 
-    def single_order_modal(
-            self,
-            order,
-            algo='svd',
-            max_modes=None,
-            corr_synth=False,
-            plot_=False):
-
+    def estimate_state(self, order, max_modes=None, algo='svd'):
+        '''
+        
+        Compute the state matrix A, output matrix C and next-state-output 
+        covariance matrix G from the singular values and vectors of the 
+        block Toeplitz matrix, truncated at the requested order. Estimation of the
+        state matrix can be performed by QR decomposition or Singular Value decomposition
+        of the shifted observability matrix. If max_modes is specified, the singular
+        value decomposition is truncated additionally, also known as Crystal Clear SSI.
+        
+        Parameters
+        ----------
+            order: integer, required
+                Model order, at which the state matrices should be estimated
+            
+            max_modes: integer, optional
+                Maximum number of modes, that are known to be present in the signal,
+                to suppress noise modes
+            
+            algo: str, optional
+                Algorithm to use for estimation of A. Either 'svd' or 'qr'.
+                
+        Returns
+        -------
+            A: numpy.ndarray
+                State matrix: Array of shape (order, order)
+                
+            C: numpy.ndarray
+                Output matrix: Array of shape (num_analised_channels, order)
+                
+            G: numpy.ndarray
+                next-state-output covariance matrix : Array of shape (order, num_ref_channels)
+        '''
+        if order>self.max_model_order:
+            raise RuntimeError(f'Order cannot be higher than {self.max_model_order}. Consider using more block_rows/block_columns.')
+        
+        assert algo in ['svd', 'qr']
+        
+        n_l = self.num_analised_channels
+        n_r = self.num_ref_channels
+        
         num_block_rows = self.num_block_rows
-        num_analised_channels = self.prep_data.num_analised_channels
-        num_ref_channels = self.prep_data.num_ref_channels
-        accel_channels = self.prep_data.accel_channels
-        velo_channels = self.prep_data.velo_channels
-        sampling_rate = self.prep_data.sampling_rate
-        n_lags = self.prep_data.n_lags
-
+        
         U = self.U[:, :order]
+        S = self.S[:order]
         V_T = self.V_T[:order, :]
-        S = self.S
-        S_2 = np.diag(np.power(S[:order], 0.5))
-        S_2_inv = np.diag(np.power(S[:order], -0.5))
-
-        O = np.dot(U, S_2)
-        Z = np.dot(S_2, V_T)
-
-        #print('Computing modal parameters...')
-
-        corr_mats_shape = (num_analised_channels, num_ref_channels, n_lags)
-        corr_matrix_synth = np.zeros(corr_mats_shape, dtype=np.float64)
-        '''
-        #From Brincker with participation factor for all channels:
-
-        M = np.zeros((num_modes, n_lags*num_analised_channels), dtype=complex)
-        H = np.zeros((num_analised_channels, num_ref_channels*n_lags))
-
-        for tau in range(n_lags):
-            M[:,tau*num_analised_channels:(tau+1)*num_analised_channels]=(mu_n**tau).dot(A.T)
-            H[:,tau*num_ref_channels:(tau+1)*num_ref_channels]=corr_matrix[:,:,tau]
-
-        Gamma = H.dot(np.linalg.pinv(M))/2/np.pi
-        '''
-
-        modal_frequencies = np.zeros((order))
-        modal_damping = np.zeros((order))
-        mode_shapes = np.zeros((num_analised_channels, order), dtype=complex)
-        eigenvalues = np.zeros((order), dtype=complex)
-
-        modal_contributions = np.zeros((order))
-        corr_matrix_data = self.prep_data.corr_matrix**2
-
-        Sigma_data = np.zeros((num_analised_channels * num_ref_channels))
-        Sigma_synth = np.zeros((num_analised_channels * num_ref_channels))
-        Sigma_data_synth = np.zeros(
-            (num_analised_channels * num_ref_channels, order))
-
-        On_up = O[:num_analised_channels * num_block_rows, :order]
-        On_down = O[num_analised_channels:num_analised_channels *
-                    (num_block_rows + 1), :order]
-
-        On_up_i = np.linalg.pinv(On_up)  # , rcond=1e-12)
-
+        
+        # compute state-space model
+        S_2 = np.power(S, 0.5)
+        O = U * S_2[np.newaxis, :]
+        Z = S_2[:,np.newaxis] * V_T
+        
+        On_up = O[:n_l * num_block_rows, :order]
+        On_down = O[n_l:n_l * (num_block_rows + 1), :order]
+        
         if algo == 'svd':
             if max_modes is not None:
                 [u, s, v_t] = np.linalg.svd(On_up, 0)
                 s = 1. / s[:max_modes]
-                On_up_i = np.dot(np.transpose(v_t[:max_modes, :]), np.multiply(
-                    s[:, np.newaxis], np.transpose(u[:, :max_modes])))
+                # On_up_i = np.dot(np.transpose(v_t[:max_modes, :]), np.multiply(
+                #     s[:, np.newaxis], np.transpose(u[:, :max_modes])))
+            
+                On_up_i = v_t[:max_modes, :].T @ (s[:, np.newaxis] *  u[:, :max_modes].T)
             else:
                 On_up_i = np.linalg.pinv(On_up)  # , rcond=1e-12)
-            state_matrix = np.dot(On_up_i, On_down)
+            A = On_up_i @ On_down
 
         elif algo == 'qr':
             Q, R = np.linalg.qr(On_up)
             S = Q.T.dot(On_down)
-            state_matrix = np.linalg.solve(R, S)
+            A = np.linalg.solve(R, S)
 
-        C = O[:num_analised_channels, :order]
-        G = Z[:order, -num_ref_channels:]
-
-        eigval, eigvec_r = np.linalg.eig(state_matrix)
-
-        G_m = np.linalg.solve(eigvec_r, G)
-        Phi = C.dot(eigvec_r)
-
-        conj_indices = self.remove_conjugates(eigval, eigvec_r, inds_only=True)
-
-        if plot_:
-
-            num_modes = len(conj_indices)
-            modelist = list(range(num_modes))
-            # modelist = [25, 26]
-            #num_modes = 5
-            #num_plots = int(np.ceil(np.sqrt(num_modes)))
-            # num_plots=5
-            #num_plots = num_modes
-            num_plots = len(modelist) + 1
-            fig, axes = plt.subplots(num_plots, 2, 
-                                     sharex='col', sharey='none', squeeze=False)
-            #axes= axes.flatten()
-        else:
-            axes = None
-        ip = 0
+        C = O[:n_l, :order] # output matrix
+        G = Z[:order, -n_r:] # next-state-output covariance matrix
+        
+        return A, C, G
+    
+    def modal_analysis(self, A, C, rescale_fun=None):
+        '''
+        Computes the modal parameters from a given state space model as described 
+        by Peeters 1999 and Döhler 2012. Mode shapes are scaled to unit modal 
+        displacements. Complex conjugate and real modes are removed prior to 
+        further processing.
+                
+        Parameters
+        -------
+            A: numpy.ndarray
+                State matrix: Array of shape (order, order)
+                
+            C: numpy.ndarray
+                Output matrix: Array of shape (num_analised_channels, order)
+         
+        Returns
+        -------
+            modal_frequencies: numpy.ndarray, shape (order,)
+                Array holding the modal frequencies for each mode
+            modal_damping: numpy.ndarray, shape (order,)
+                Array holding the modal damping ratios (0,100) for each mode
+            mode_shapes: numpy.ndarray, shape (n_l, order,)
+                Complex array holding the mode shapes 
+            eigenvalues: numpy.ndarray, shape (order,)
+                Complex array holding the eigenvalues for each mode
+        '''
+        # collect variables
+        accel_channels = self.prep_signals.accel_channels
+        velo_channels = self.prep_signals.velo_channels
+        sampling_rate = self.prep_signals.sampling_rate
+        
+        n_l = self.num_analised_channels
+        
+        order = A.shape[0]
+        assert order == A.shape[1]
+        
+        # allocate output arrays
+        modal_frequencies = np.zeros((order))
+        modal_damping = np.zeros((order))
+        mode_shapes = np.zeros((n_l, order), dtype=complex)
+        eigenvalues = np.zeros((order), dtype=complex)
+        
+        # compute modal model
+        eigvals, eigvecs_r = np.linalg.eig(A)
+        Phi = C.dot(eigvecs_r)
+        
+        conj_indices = self.remove_conjugates(eigvals, eigvecs_r, inds_only=True)
         for i, ind in enumerate(conj_indices):
 
-            lambda_i = eigval[ind]
-
-            ident = eigval == lambda_i.conj()
-            ident[ind] = 1
-            # ident=np.diag(ident)
-
-            # this_Lambda=np.diag(eigval).dot(ident)
-            this_eigval = eigval[ident][np.newaxis]
-            this_Lambda = np.diag(eigval[ident])
-
-            this_Phi = Phi[:, ident]
-            this_G_m = G_m[ident, :]
+            lambda_i = eigvals[ind]
+            mode_shape_i  = Phi[:,ind]
 
             a_i = np.abs(np.arctan2(np.imag(lambda_i), np.real(lambda_i)))
             b_i = np.log(np.abs(lambda_i))
             freq_i = np.sqrt(a_i**2 + b_i**2) * sampling_rate / 2 / np.pi
             damping_i = 100 * np.abs(b_i) / np.sqrt(a_i**2 + b_i**2)
-            mode_shape_i = np.dot(C, eigvec_r[:, ind])
-            mode_shape_i = np.array(mode_shape_i, dtype=complex)
-
+            
+            if rescale_fun is not None:
+                mode_shape_i = rescale_fun(mode_shape_i)
+            
+            # scale modeshapes to modal displacements
             mode_shape_i = self.integrate_quantities(
                 mode_shape_i, accel_channels, velo_channels, freq_i * 2 * np.pi)
-
-            k = np.argmax(np.abs(mode_shape_i))
-            s_ik = mode_shape_i[k]
-            alpha_ik = np.angle(s_ik)
-            e_k = np.zeros((num_analised_channels, 1))
-            e_k[k, 0] = 1
-            #print(f'Scale factor {np.exp(-1j*alpha_ik)}')
-            mode_shape_i *= np.exp(-1j * alpha_ik)
+            
+            # rotate mode shape in complex plane
+            mode_shape_i = self.rescale_mode_shape(mode_shape_i)
 
             modal_frequencies[i] = freq_i
             modal_damping[i] = damping_i
-            mode_shapes[:, i] = mode_shape_i
+            mode_shapes[:mode_shape_i.shape[0], i] = mode_shape_i
             eigenvalues[i] = lambda_i
 
-            if plot_:
-                if i in modelist:
-                    # print(ip, i)
-                    ip += 1
+        return modal_frequencies, modal_damping, mode_shapes, eigenvalues, 
+    
+    def synthesize_correlation(self, A, C, G):
+        '''
+        Correlation function synthetization in a modal decoupled form follows 
+        Reynders-2012-SystemIdentificationMethodsFor(Operational)ModalAnalysisReviewAndComparison
+        Eq. 161 p. 74 (24) where \Lambda are the correlation functions of the identified system
+                
+        Parameters
+        -------
+            A: numpy.ndarray
+                State matrix: Array of shape (order, order)
+                
+            C: numpy.ndarray
+                Output matrix: Array of shape (num_analised_channels, order)
+                
+            G: numpy.ndarray
+                next-state-output covariance matrix : Array of shape (order, num_ref_channels)
+        
+         Returns
+        -------
+            corr_matrix_synth: numpy.ndarray, shape (n_l, n_r, n_lags, n_modes)
+                Array holding the modally decomposed correlation functions for
+                each channel n_l and reference channel n_r and all modes
+                
+            modal_contributions: numpy.ndarray, shape (order,)
+                Array holding the contributions of each mode to the input
+                correlation function.
+                
+                
+        To use cross-validation for the modal contributions, manually replace 
+        the correlation matrix, between steps system identification and modal analysis:
+        
+        .. code-block:: python
+        
+            order=40
+            n_lags= 150
+            
+            n_blocks = 40
+            k = 10
+            
+            cardinality = n_blocks // k
+            block_indices = np.arange(cardinality*k)
+            np.random.shuffle(block_indices)
+            
+            prep_signals.corr_blackman_tukey(max_n_lags, num_blocks=n_blocks, refs_only=True)
+            
+            i = 1 # subset i out of k
+            
+            test_set = block_indices[i * cardinality:(i + 1) * cardinality]
+            training_set = np.take(block_indices, np.arange((i + 1) * cardinality, (i + k) * cardinality), mode='wrap')
+            
+            # use the training set for building the Toeplitz matrix
+            prep_signals.corr_matrix_bt = np.mean(prep_signals.corr_matrices_bt[training_set,...,:this_n_lags], axis=0)
+            modal_data.build_toeplitz_cov(int(this_n_lags // 2))
+            
+            # use the test set for modal analysis
+            prep_signals.corr_matrix_bt = np.mean(prep_signals.corr_matrices_bt[test_set,...,:this_n_lags], axis=0)
+            
+            A, C, G = modal_data.estimate_state(order)
+            this_modal_frequencies, this_modal_damping, this_mode_shapes, this_eigenvalues, = modal_data.modal_analysis(A, C)
+            _, this_modal_contributions = modal_data.synthesize_correlation(A, C, G)
+            
+        . . .
+        '''
 
-            if corr_synth:
-                ft_freq = np.fft.rfftfreq(n_lags, d=(
-                    1 / self.prep_data.sampling_rate))
+        num_block_rows = self.num_block_rows
+        num_block_columns = self.num_block_columns
+        
+        n_l = self.num_analised_channels
+        n_r = self.num_ref_channels
+        
+        order = A.shape[0]
+        assert order == A.shape[1]
+        
+        n_lags = num_block_rows + 1 + num_block_columns - 1
+        # n_lags = self.prep_signals.n_lags
+        corr_matrix_data = self.prep_signals.corr_matrix[:,:,:n_lags]
+        
+        corr_mats_shape = (n_l, n_r, n_lags, order // 2)
+        corr_matrix_synth = np.zeros(corr_mats_shape, dtype=np.float64)
+        
+        Sigma_data = np.zeros((n_l * n_r))
+        Sigma_synth = np.zeros((n_l * n_r))
+        Sigma_data_synth = np.zeros((n_l * n_r, order))
+        
+        modal_contributions = np.zeros((order))
+        
+        # redundant: eigendecomposition is recomputed here for better readability of code
+        eigvals, eigvecs_r = np.linalg.eig(A)
+        Phi = C.dot(eigvecs_r)
+        
+        conj_indices = self.remove_conjugates(eigvals, eigvecs_r, inds_only=True)
+        
+        # Peeters-2000-SystemIdentificationAndDamageDetectionInCivilEngineering Eq. 2.57 
+        G_m = np.linalg.solve(eigvecs_r, G)
+            
+        if logger.isEnabledFor(logging.DEBUG):
+            tau=21
+            logger.debug(C @ eigvecs_r @ np.diag(eigvals)**tau @ np.linalg.inv(eigvecs_r) @ G)
+            logger.debug(Phi @ np.diag(eigvals)**tau @ G_m)
+            
+        for i, ind in enumerate(conj_indices):
+            
+            lambda_i = eigvals[ind]
+            
+            conjs_ind = eigvals == lambda_i.conj()
+            conjs_ind[ind] = 1
+            
+            conj_eigvals = eigvals[conjs_ind][np.newaxis]
+            
+            conj_Phis = Phi[:, conjs_ind]
+            conj_Gms = G_m[conjs_ind, :]
+            
+            eigspowtau = conj_eigvals[np.newaxis, ...]**np.arange(n_lags)[:, np.newaxis, np.newaxis]
+            this_corr_synth = (eigspowtau * conj_Phis[np.newaxis, ...]).dot( conj_Gms) 
 
-                this_corr_synth = np.zeros(corr_mats_shape, dtype=np.float64)
-                for tau in range(1, n_lags + 1):
-
-                    #this_corr_synth[:,:,tau-1] = this_Phi.dot(this_Lambda**tau).dot(this_G_m).real
-                    this_corr_synth[:, :, tau -
-                                    1] = this_Phi.dot(this_G_m *
-                                                      (this_eigval.T**tau)).real
-
-                this_corr_synth = this_corr_synth**2
-
-                for ref_channel in range(self.prep_data.num_ref_channels):
-                    for channel in range(self.prep_data.num_analised_channels):
-                        Sigma_data_synth[ref_channel * num_analised_channels + channel,
-                                         i] = corr_matrix_data[channel,
-                                                               ref_channel,
-                                                               :].dot(this_corr_synth[channel,
-                                                                                      ref_channel,
-                                                                                      :].T)
-                        # if
-                        # np.mean(Sigma_data_synth[ref_channel*num_analised_channels+channel,
-                        # i])<1e-11: continue
-
-                        if plot_:
-                            if i in modelist:
-                                axes[ip, 0].plot(
-                                    this_corr_synth[channel, ref_channel, :])
-                                ft_synth = np.fft.rfft(
-                                    this_corr_synth[channel, ref_channel, :] * np.hanning(n_lags))
-                                axes[ip, 1].plot(ft_freq, np.abs(ft_synth))
-
-                corr_matrix_synth += this_corr_synth
-
-        if plot_:
-            for ref_channel in range(self.prep_data.num_ref_channels):
-                for channel in range(self.prep_data.num_analised_channels):
-                    axes[0, 0].plot(
-                        corr_matrix_data[channel, ref_channel, :], alpha=.5)
-
-                    ft_meas = np.fft.rfft(
-                        corr_matrix_data[channel, ref_channel, :] * np.hanning(n_lags))
-                    axes[0, 1].plot(ft_freq, np.abs(ft_meas), alpha=.5)
-
-        if corr_synth:
-            for ref_channel in range(num_ref_channels):
-                for channel in range(num_analised_channels):
-                    corr_data = corr_matrix_data[channel, ref_channel, :]
-                    corr_synth = corr_matrix_synth[channel, ref_channel, :]
-
-                    Sigma_data[ref_channel *
-                               num_analised_channels +
-                               channel] = corr_data.dot(corr_data.T)
-                    Sigma_synth[ref_channel *
-                                num_analised_channels +
-                                channel] = corr_synth.dot(corr_synth.T)
-            ip = 1
-            for i, ind in enumerate(conj_indices):
-                rho = (Sigma_data_synth[:, i] /
-                       np.sqrt(Sigma_data * Sigma_synth)).mean()
-                modal_contributions[i] = rho
-
-                if plot_:
-                    if i in modelist:
-                        axes[ip, 0].set_ylabel('Mode {}, \n MC={:1.2f}'.format(
-                            i, rho), rotation=0, labelpad=30)
-                        ip += 1
-        if plot_:
-            axes[-1, 0].set_xlabel('tau [-]')
-            axes[-1, 1].set_xlabel('f [Hz]')
-#             if plot_:
-#                 fig.suptitle(str(np.sum(modal_contributions)))
-#                 #plt.show()
-            # print(str(np.sum(modal_contributions)))
-            for ax in axes.flat:
-                ax.set_yticks([])
-
-        return modal_frequencies, modal_damping, mode_shapes, eigenvalues, modal_contributions
-
+            if not np.all(np.isclose(this_corr_synth.imag,0)):
+                logger.warning(f'Synthetized correlation functions are complex for mode index {ind}. Something is wrong!')
+            
+            this_corr_synth = np.transpose(this_corr_synth.real, (1,2,0))
+                
+            corr_matrix_synth[:,:,:,i] = this_corr_synth
+        
+        if logger.isEnabledFor(logging.DEBUG):
+            Sigma_data_synthtot = np.zeros((n_l * n_r))
+            
+        for i_r in range(n_r):
+            for i_l in range(n_l):
+                corr_data = corr_matrix_data[i_l, i_r, :]
+                corr_synth = np.sum(corr_matrix_synth, axis=3)[i_l, i_r, :]
+                
+                Sigma_data[i_r * n_l + i_l] = corr_data.dot(corr_data.T)
+                Sigma_synth[i_r * n_l + i_l] = corr_synth.dot(corr_synth.T)
+                
+                if logger.isEnabledFor(logging.DEBUG):
+                    Sigma_data_synthtot[i_r * n_l + i_l] = corr_data.dot(corr_synth.T)
+                
+                for i, ind in enumerate(conj_indices):
+                    Sigma_data_synth[i_r * n_l + i_l, i] = corr_data @ corr_matrix_synth[i_l, i_r, :, i]
+                
+        for i, ind in enumerate(conj_indices):
+            rho = (Sigma_data_synth[:, i] / np.sqrt(Sigma_data * Sigma_synth))
+            modal_contributions[i] = rho.mean()
+            
+        self._corr_matrix_synth = corr_matrix_synth
+        self._modal_contributions = modal_contributions
+        
+        return corr_matrix_synth, modal_contributions
+    
     def synthesize_spectrum(self, A, C, G):
         '''
 
@@ -500,22 +569,23 @@ class BRSSICovRef(ModalBase):
         dt * df = 1/N
         L * P = N
         '''
+        logger.warning('Spectrum estimation is currently untested.')
+        f_max = self.prep_signals.sampling_rate / 2
+        n_lags = self.prep_signals.n_lags
+        delta_t = 1 / self.prep_signals.sampling_rate
 
-        f_max = self.prep_data.sampling_rate / 2
-        n_lags = self.prep_data.n_lags
-        delta_t = 1 / self.prep_data.sampling_rate
-
-        num_analised_channels = self.prep_data.num_analised_channels
-        num_ref_channels = self.prep_data.num_ref_channels
+        num_analised_channels = self.num_analised_channels
+        num_ref_channels = self.num_ref_channels
+        
         order = A.shape[0]
         assert order == A.shape[1]
-
+        
         psd_mats_shape = (num_analised_channels, num_ref_channels, n_lags)
         psd_matrix = np.zeros(psd_mats_shape, dtype=np.float64)
 
         I = np.identity(order)
 
-        Lambda_0 = self.prep_data.signal_power()
+        Lambda_0 = self.prep_signals.signal_power()
 
         for n in range(n_lags):
 
@@ -523,14 +593,14 @@ class BRSSICovRef(ModalBase):
             psd_matrix[:, :, n] = C.dot(np.linalg.solve(
                 z * I - A, G)) + Lambda_0 + G.T.dot(np.linalg.solve(1 / z * I - A.T, C.T))
 
-        self.psd_matrix = psd_matrix
+        self._psd_matrix = psd_matrix
 
         if 0:
             ax = plt.subplot()
             omega_max = psd_matrix.shape[2]
 
             freqs = np.fft.rfftfreq(2 * omega_max - 1, delta_t)
-            print(freqs.max())
+            logger.debug(freqs.max())
 
             for ref_channel in range(num_ref_channels):
                 for channel in range(num_analised_channels):
@@ -548,17 +618,17 @@ class BRSSICovRef(ModalBase):
         # self.state= [Toeplitz, State Mat., Modal Par.]
         out_dict = {'self.state': self.state}
         out_dict['self.setup_name'] = self.setup_name
-        # out_dict['self.prep_data']=self.prep_data
+        # out_dict['self.prep_signals']=self.prep_signals
         if self.state[0]:  # covariances
-            out_dict['self.toeplitz_matrix'] = self.toeplitz_matrix
+            # out_dict['self.toeplitz_matrix'] = self.toeplitz_matrix
             out_dict['self.num_block_columns'] = self.num_block_columns
             out_dict['self.num_block_rows'] = self.num_block_rows
-        if self.state[1]:  # state models
-            out_dict['self.max_model_order'] = self.max_model_order
             out_dict['self.U'] = self.U
             out_dict['self.S'] = self.S
             out_dict['self.V_T'] = self.V_T
+            out_dict['self.max_model_order'] = self.max_model_order
         if self.state[2]:  # modal params
+            
             out_dict['self.modal_frequencies'] = self.modal_frequencies
             out_dict['self.modal_damping'] = self.modal_damping
             out_dict['self.mode_shapes'] = self.mode_shapes
@@ -568,14 +638,14 @@ class BRSSICovRef(ModalBase):
         np.savez_compressed(fname, **out_dict)
 
     @classmethod
-    def load_state(cls, fname, prep_data):
-        print('Now loading previous results from  {}'.format(fname))
+    def load_state(cls, fname, prep_signals):
+        logger.info('Now loading previous results from  {}'.format(fname))
 
         in_dict = np.load(fname)
         #             0         1           2
         # self.state= [Toeplitz, State Mat., Modal Par.]
         if 'self.state' in in_dict:
-            state = list(in_dict['self.state'])
+            state = validate_array(in_dict['self.state'])
         else:
             return
 
@@ -584,38 +654,213 @@ class BRSSICovRef(ModalBase):
                                                     'Modal Parameters Computed',
                                                     ]):
             if this_state:
-                print(state_string)
+                logger.info(state_string)
 
-        assert isinstance(prep_data, PreProcessSignals)
-        setup_name = str(in_dict['self.setup_name'].item())
-        assert setup_name == prep_data.setup_name
-        start_time = prep_data.start_time
+        assert isinstance(prep_signals, PreProcessSignals)
+        setup_name = validate_array(in_dict['self.setup_name'])
+        assert setup_name == prep_signals.setup_name
+        start_time = prep_signals.start_time
 
-        assert start_time == prep_data.start_time
-        ssi_object = cls(prep_data)
+        assert start_time == prep_signals.start_time
+        ssi_object = cls(prep_signals)
         ssi_object.state = state
         if state[0]:  # covariances
-            ssi_object.toeplitz_matrix = in_dict['self.toeplitz_matrix']
-            ssi_object.num_block_columns = int(
-                in_dict['self.num_block_columns'])
-            ssi_object.num_block_rows = int(in_dict['self.num_block_rows'])
-        if state[1]:  # state models
-            ssi_object.max_model_order = int(in_dict['self.max_model_order'])
-            ssi_object.U = in_dict['self.U']
-            ssi_object.S = in_dict['self.S']
-            ssi_object.V_T = in_dict['self.V_T']
+            # ssi_object.toeplitz_matrix = in_dict['self.toeplitz_matrix']
+            ssi_object.num_block_columns = validate_array(in_dict['self.num_block_columns'])
+            ssi_object.num_block_rows = validate_array(in_dict['self.num_block_rows'])
+            ssi_object.U = validate_array(in_dict['self.U'])
+            ssi_object.S = validate_array(in_dict['self.S'])
+            ssi_object.V_T = validate_array(in_dict['self.V_T'])
+            ssi_object.max_model_order = validate_array(in_dict['self.max_model_order'])
         if state[2]:  # modal params
-            ssi_object.modal_frequencies = in_dict['self.modal_frequencies']
-            ssi_object.modal_damping = in_dict['self.modal_damping']
-            ssi_object.mode_shapes = in_dict['self.mode_shapes']
-            ssi_object.eigenvalues = in_dict['self.eigenvalues']
-            ssi_object.modal_contributions = in_dict.get(
-                'self.modal_contributions', None)
+            ssi_object.modal_frequencies = validate_array(in_dict['self.modal_frequencies'])
+            ssi_object.modal_damping = validate_array(in_dict['self.modal_damping'])
+            ssi_object.mode_shapes = validate_array(in_dict['self.mode_shapes'])
+            ssi_object.eigenvalues = validate_array(in_dict['self.eigenvalues'])
+            ssi_object.modal_contributions = validate_array(in_dict.get(
+                'self.modal_contributions', None))
 
         return ssi_object
 
+def show_channel_reconstruction(modal_data, modelist=None, channel_list=None, ref_channel_list=None, axes=None):
+    corr_matrix_synth = modal_data._corr_matrix_synth
+    
+    corr_matrix_data = modal_data.prep_signals.corr_matrix
+    if channel_list is None:
+        channel_list = np.arange(modal_data.prep_signals.num_analised_channels)
+    if ref_channel_list is None:
+        ref_channel_list = np.arange(modal_data.prep_signals.num_ref_channels)
+    
+    num_modes = corr_matrix_synth.shape[-1]
+    if modelist is None:
+        modelist = list(range(num_modes))
+        
+    ratio = len(channel_list) / len(ref_channel_list)
+    
+    num_plots = len(modelist)
+    n_rows = int(num_plots/ratio)
+    n_cols = int(np.ceil(num_plots/n_rows))
+    fig, axes = plt.subplots(n_rows, n_cols, sharex=True, sharey=True)
+    
+    RMS_err = np.zeros((len(channel_list), len(ref_channel_list), num_modes))
+    
+    for mode in modelist:
+        # Error is not normalized and tends to be larger for channels with stronger signals
+        RMS_err[...,mode] = np.sqrt(np.mean(np.power(corr_matrix_synth[...,mode] - corr_matrix_data,2),axis=-1))
+    vmin, vmax = np.min(RMS_err), np.max(RMS_err)
+    
+    for mode in modelist:
+        mappable = axes.flat[mode].imshow(RMS_err[...,mode], vmin=vmin, vmax=vmax)
+        if axes.flat[mode].get_subplotspec().is_first_col():
+            axes.flat[mode].set_yticks(np.arange(len(channel_list)), modal_data.prep_signals.channel_headers)
+        
+        if axes.flat[mode].get_subplotspec().is_last_row():
+            axes.flat[mode].set_xticks(np.arange(len(ref_channel_list)), np.array(modal_data.prep_signals.channel_headers)[modal_data.prep_signals.ref_channels])
+        axes.flat[mode].set_title(f'{modal_data._modal_frequencies[mode]:1.3f} Hz')
+    cbar = fig.colorbar(mappable)
+    cbar.set_label('RMS error')
+    
+def plot_corr_synth(modal_data, modelist=None, channel_inds=None, ref_channel_inds=None, axes=None):
+    
+    corr_matrix_synth = modal_data._corr_matrix_synth
+    n_lags = corr_matrix_synth.shape[2]
+    corr_matrix_data = modal_data.prep_signals.corr_matrix[:,:,:n_lags]
+    
+    
+    ref_channels = modal_data.prep_signals.ref_channels
+    sampling_rate = modal_data.prep_signals.sampling_rate
+    channel_headers = modal_data.prep_signals.channel_headers
+    modal_contributions = modal_data._modal_contributions
+    
 
-class PogerSSICovRef(ModalBase):
+    if channel_inds is None:
+        channel_inds = np.arange(modal_data.prep_signals.num_analised_channels)
+    num_channels = len(channel_inds)
+    if ref_channel_inds is None:
+        ref_channel_inds = np.arange(modal_data.prep_signals.num_ref_channels)
+    num_ref_channels = len(ref_channel_inds)
+    
+    # build non-repeating channel combinations
+    # contains indices for all_channels (=channel numbers) and ref_channels
+    # channel numbers for ref_channels can be obtained from prep_signals.ref_channels
+    i_l_i_r = np.full((num_channels * num_ref_channels, 2), np.nan)
+    j = 0
+    for index_l in channel_inds:
+
+        if index_l in ref_channels:
+            index_l_in_ref_channels = ref_channels.index(index_l)
+        else:
+            index_l_in_ref_channels = None
+
+        for index_r in ref_channel_inds:
+            if index_l_in_ref_channels is None:
+                i_l_i_r[j, 0] = index_l
+                i_l_i_r[j, 1] = index_r
+                j += 1
+            else:
+                index_r_in_all_channels = ref_channels[index_r]
+                inds_inverted = np.array([[index_r_in_all_channels, index_l_in_ref_channels]])
+                if not (np.any(np.all(i_l_i_r == inds_inverted , axis=1))):
+                    i_l_i_r[j, 0] = index_l
+                    i_l_i_r[j, 1] = index_r
+                    j += 1
+
+    i_l_i_r = i_l_i_r[~np.all(np.isnan(i_l_i_r), axis=1),:].astype(int)
+    
+    
+    # Plot correlation functions for each mode and all channel combinations        
+    num_modes = corr_matrix_synth.shape[-1]
+    if modelist is None:
+        modelist = list(range(num_modes))
+    num_plots = len(modelist) + 2
+    
+    fig1, axes = plt.subplots(num_plots, 1, sharex='col', sharey='col', squeeze=False)
+    
+    taus = np.linspace(0, n_lags/sampling_rate, n_lags)
+    
+    for ip,i in enumerate(modelist):
+        rho = modal_contributions[i] 
+        this_corr_synth = corr_matrix_synth[:,:,:,i]
+        for j in range(len(i_l_i_r)):
+            i_l,i_r = i_l_i_r[j,:]
+            
+            color = str(np.linspace(0, 1, len(i_l_i_r) + 2)[j + 1])
+            ls='solid'
+            
+            axes[ip, 0].plot(taus,this_corr_synth[i_l, i_r, :], color=color, ls=ls)
+            
+        axes[ip, 0].set_ylabel(f'$\delta_{{{i + 1}}}$={rho:1.2f}', 
+                               rotation=0, labelpad=40, va='center',ha='left')
+        
+    for j in range(len(i_l_i_r)):
+        i_l,i_r = i_l_i_r[j,:]
+        
+        color = str(np.linspace(0, 1, len(i_l_i_r) + 2)[j + 1])
+        ls='solid'
+        
+        this_corr_data = corr_matrix_data[i_l, i_r, :]
+        this_corr_synth = np.sum(corr_matrix_synth, axis=3)[i_l, i_r, :]
+
+        axes[-1, 0].plot(taus, this_corr_data, color=color, ls=ls, 
+                         label=f'{channel_headers[i_l]} $\leftrightarrow$  {channel_headers[ref_channels[i_r]]}')
+        axes[-2, 0].plot(taus, this_corr_synth, color=color, ls=ls, )
+
+        axes[-1, 0].set_ylabel('Measured', rotation=0, labelpad=50, va='center',ha='left')
+        axes[-2, 0].set_ylabel(f'$\sum\delta$={np.sum(modal_contributions):1.2f}', 
+                               rotation=0, labelpad=50, va='center',ha='left')
+            
+    axes[-1, 0].set_xlabel('$\\tau$ [\si{\second}]')
+    
+    for ax in axes.flat:
+        ax.set_yticks([])
+        ax.set_xlim(0,taus.max()/2)
+    fig1.legend(title='Channels')
+    fig1.subplots_adjust(left=None, bottom=None, right=0.97, top=0.97, wspace=None, hspace=0.1,)
+    
+
+    # Plot power spectral density functions for each channel combination and all modes
+    num_plots =  len(i_l_i_r)
+    
+    fig2, axes = plt.subplots(num_plots, 1, sharex='col', sharey='col', squeeze=False)
+    
+    ft_freq = np.fft.rfftfreq(n_lags, d=(1 / sampling_rate))
+    
+    for j in range(num_plots):
+        i_l, i_r = i_l_i_r[j,:]    
+        
+        this_corr_data = corr_matrix_data[i_l, i_r, :]
+        ft_meas = np.fft.rfft(this_corr_data * np.hanning(n_lags))
+        
+        if j==0: label=f'Inp.'
+        else: label=None
+        
+        axes[j, 0].plot(ft_freq, 10 * np.log10(np.abs(ft_meas)), ls='solid', color='k', label=label)
+        
+        for ip,i in enumerate(modelist):
+            ft_synth = np.fft.rfft(corr_matrix_synth[i_l, i_r, :, i] * np.hanning(n_lags))
+            
+            color = str(np.linspace(0, 1, len(modelist) + 2)[ip + 1])
+            ls = ['-','--',':','-.'][i%4]
+            if j==0: label=f'm={i+1}'
+            else: label=None
+            
+            axes[j, 0].plot(ft_freq, 10*np.log10(np.abs(ft_synth)), color=color, ls=ls, label=label)
+            axes[j,0].set_ylabel(f'{channel_headers[i_l]}\n $\leftrightarrow$ \n{channel_headers[ref_channels[i_r]]}', 
+                                 rotation=0, labelpad=20, va='center', ha='center')
+
+            
+    axes[-1, 0].set_xlabel('$f$ [\si{\hertz}]')
+    for ax in axes.flat:
+        ax.set_yticks([])
+        ax.set_xlim(0,1/2*sampling_rate)
+        
+        ax.set_ylim(ymin=-90)
+    fig2.legend(title='Mode')
+    fig2.subplots_adjust(left=None, bottom=None, right=0.97, top=0.97, wspace=None, hspace=0.1,)
+    
+    return fig1, fig2
+
+class PogerSSICovRef(BRSSICovRef):
     '''
     "In the PoGER approach, first a nonparametric system model is identified
     for each setup separately. In the time domain, this nonparametric model
@@ -643,7 +888,7 @@ class PogerSSICovRef(ModalBase):
     (note: n_lags >= num_block_columns + num_block_rows >= 2 * num_block_columns + 1)
     * add the PreProcessData objects of each setup using add_setup
     * call pair_channels(), build_merged_subspace_matrix(),
-    compute_state_matrices(), compute_modal_params()
+    estimate_state(), compute_modal_params()
 
     Notes on the reference channels:
     There are two different uses of reference channels:
@@ -671,8 +916,6 @@ class PogerSSICovRef(ModalBase):
     always be added first.
     
     .. TODO::
-        * Think about ways, how this class could be instantiated from 
-          configuration files
         * Add modal contributions
         * Implement PreGER merging with variance computation in a new class
     '''
@@ -683,9 +926,7 @@ class PogerSSICovRef(ModalBase):
         channel definition: channels start at 0
         '''
         super().__init__()
-        #             0             1                2              3           4
-        # self.state= [Setups Added, Channels Paired, Subspace Mat., State
-        # Mat., Modal Par.]
+
         self.state = [False, False, False, False, False]
 
         # __init__
@@ -712,73 +953,66 @@ class PogerSSICovRef(ModalBase):
         self.subspace_matrix = None
         self.num_block_columns = None
         self.num_block_rows = None
-
-        # compute_state_matrices
         self.U = None
         self.S = None
-        #self.V_T = None
-        self.max_model_order = None
+        self.V_T = None
 
-        # compute_modal_params
-#         self.eigenvalues = None
-#         self.modal_damping = None
-#         self.modal_frequencies = None
-#         self.mode_shapes = None
 
-    def add_setup(self, prep_data):
+    def add_setup(self, prep_signals):
         '''
         todo:
         check that ref_channels are equal in each setup (by number and by DOF)
         '''
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
 
         # assure chan_dofs were assigned
-        assert prep_data.chan_dofs
+        assert prep_signals.chan_dofs
 
         if self.sampling_rate is not None:
-            assert prep_data.sampling_rate == self.sampling_rate
+            assert prep_signals.sampling_rate == self.sampling_rate
         else:
-            self.sampling_rate = prep_data.sampling_rate
+            self.sampling_rate = prep_signals.sampling_rate
 
         if self.num_ref_channels is not None:
-            if self.num_ref_channels != prep_data.num_ref_channels:
+            if self.num_ref_channels != prep_signals.num_ref_channels:
                 warnings.warn(
                     'This setup contains a different number of reference channels ({}), than the previous setups ({})!'.format(
-                        prep_data.num_ref_channels, self.num_ref_channels))
+                        prep_signals.num_ref_channels, self.num_ref_channels))
                 self.num_ref_channels = min(
-                    self.num_ref_channels, prep_data.num_ref_channels)
+                    self.num_ref_channels, prep_signals.num_ref_channels)
         else:
-            self.num_ref_channels = prep_data.num_ref_channels
+            self.num_ref_channels = prep_signals.num_ref_channels
 
         if self.n_lags is not None:
-            self.n_lags = min(self.n_lags, prep_data.n_lags)
+            self.n_lags = min(self.n_lags, prep_signals.n_lags)
         else:
-            self.n_lags = prep_data.n_lags
+            self.n_lags = prep_signals.n_lags
 
-        self.setup_name += prep_data.setup_name + '_'
-        # self.start_times.append(prep_data.start_time)
+        self.setup_name += prep_signals.setup_name + '_'
+        # self.start_times.append(prep_signals.start_time)
 
         # extract needed information and store them in a dictionary
-        self.setups.append({'setup_name': prep_data.setup_name,
-                            'num_analised_channels': prep_data.num_analised_channels,
-                            'chan_dofs': prep_data.chan_dofs,
-                            'ref_channels': prep_data.ref_channels,
-                            # 'roving_channels': prep_data.roving_channels,
-                            'accel_channels': prep_data.accel_channels,
-                            'velo_channels': prep_data.velo_channels,
-                            'disp_channels': prep_data.disp_channels,
-                            'corr_matrix': prep_data.corr_matrix,
-                            'start_time': prep_data.start_time,
+        self.setups.append({'setup_name': prep_signals.setup_name,
+                            'num_analised_channels': prep_signals.num_analised_channels,
+                            'chan_dofs': prep_signals.chan_dofs,
+                            'ref_channels': prep_signals.ref_channels,
+                            # 'roving_channels': prep_signals.roving_channels,
+                            'accel_channels': prep_signals.accel_channels,
+                            'velo_channels': prep_signals.velo_channels,
+                            'disp_channels': prep_signals.disp_channels,
+                            'corr_matrix': prep_signals.corr_matrix,
+                            'start_time': prep_signals.start_time,
                             })
 
-        print(
+        logger.info(
             'Added setup "{}" with {} channels'.format(
-                prep_data.setup_name,
-                prep_data.num_analised_channels))
+                prep_signals.setup_name,
+                prep_signals.num_analised_channels))
+        
+        # assign last setup, to be able to display spectra in stabil_plot
+        self.prep_signals = prep_signals
 
-        self.state[0] = True
-        for i in range(1, 5):
-            self.state[i] = False
+        self.state[3] = True
 
     def pair_channels(self, ):
         '''
@@ -792,7 +1026,7 @@ class PogerSSICovRef(ModalBase):
         rescale reference channels are assumed to be equal to ssi_reference channels
         '''
 
-        print('Pairing channels and dofs...')
+        logger.info('Pairing channels and dofs...')
         setups = self.setups
         merged_chan_dofs = []
         merged_accel_channels = []
@@ -899,7 +1133,7 @@ class PogerSSICovRef(ModalBase):
         #base_ssi_ref_channels = ssi_ref_channels[0]
         rescale_ref_channels = []
         for setup, chan_dofs in zip(setups, merged_chan_dofs):
-            #prep_data = setup['prep_data']
+            #prep_signals = setup['prep_signals']
             this_ssi_ref_channels = []
             this_rescale_ref_channels = []
             for rnode, raz, relev, rname in ssi_ref_dofs:
@@ -963,7 +1197,7 @@ class PogerSSICovRef(ModalBase):
         # delete channels of the reference dofs
         for chan_dofs, accel_channels, velo_channels, disp_channels in zip(
                 merged_chan_dofs[1:], merged_accel_channels[1:], merged_velo_channels[1:], merged_disp_channels[1:]):
-            #prep_data = setup['prep_data']
+            #prep_signals = setup['prep_signals']
             for rnode, raz, relev, rname in ssi_ref_dofs:
                 index = None
                 for i, (node, az, elev, name) in enumerate(chan_dofs):
@@ -1033,8 +1267,6 @@ class PogerSSICovRef(ModalBase):
         self.start_time = min([stp['start_time'] for stp in setups])
 
         self.state[1] = True
-        for i in range(2, 5):
-            self.state[i] = False
 
         return ssi_ref_channels, merged_chan_dofs
 
@@ -1043,7 +1275,7 @@ class PogerSSICovRef(ModalBase):
             num_block_columns,
             num_block_rows=None):
         '''
-        Builds a Block-HankelMatrix of Covariances with varying time lags
+        Builds a Block-Hankel Matrix of Covariances with varying time lags
 
         ::
 
@@ -1080,7 +1312,7 @@ class PogerSSICovRef(ModalBase):
 
         setups = self.setups
 
-        print(
+        logger.info(
             'Assembling subspace matrix using pre-computed correlation'
             ' functions from {} setups with {} block-columns and {} '
             'block rows'.format(
@@ -1131,141 +1363,33 @@ class PogerSSICovRef(ModalBase):
                 sum_analised_channels += this_analised_channels
 
             # block_row    0                                            1
-            # setup 0: zeile 0*this_analised_channels ... 1*this_analised_channels,   3*this_analised_channels ... 4*this_analised_channels
-            # setup 1: zeile 1*this_analised_channels ... 2*this_analised_channels,   4*this_analised_channels ... 5*this_analised_channels
-            # setup 2: zeile 2*this_analised_channels ... 3*this_analised_channels,   5*this_analised_channels ... 6*this_analised_channels
+            # setup 0: row 0*this_analised_channels ... 1*this_analised_channels,   3*this_analised_channels ... 4*this_analised_channels
+            # setup 1: row 1*this_analised_channels ... 2*this_analised_channels,   4*this_analised_channels ... 5*this_analised_channels
+            # setup 2: row 2*this_analised_channels ... 3*this_analised_channels,   5*this_analised_channels ... 6*this_analised_channels
             # (bc*num_setups+setup)*num_ref_channels
         assert (subspace_matrix != 0).all()
-        self.subspace_matrix = subspace_matrix
-        self.num_block_rows = num_block_rows
-        self.num_block_columns = num_block_columns
-
-        self.state[2] = True
-        for i in range(3, 5):
-            self.state[i] = False
-
-    def compute_state_matrices(self, max_model_order=None):
-
-        if max_model_order is not None:
-            assert isinstance(max_model_order, int)
-
-        subspace_matrix = self.subspace_matrix
-
-        if max_model_order is None:
-            max_model_order = min(subspace_matrix.shape)
-        else:
-            max_model_order = min(max_model_order, *subspace_matrix.shape)
-
-        print('Computing state matrices with pinv-based method, with maximum model order {}...'.format(max_model_order))
-
-        U, S, _ = scipy.linalg.svd(subspace_matrix, 1)
-
-        # choose highest possible model order
-
-        U = U[:, :max_model_order]
-        #V_T = V_T[:max_model_order,:]
+        
+        U, S, V_T = scipy.linalg.svd(subspace_matrix, 1)
 
         self.U = U
         self.S = S
-        #self.V_T = V_T
+        self.V_T = V_T
+        
+        self.max_model_order = S.shape[0]
+        # self.subspace_matrix = subspace_matrix
+        self.num_block_rows = num_block_rows
+        self.num_block_columns = num_block_columns
 
-        self.max_model_order = max_model_order
+        self.state[0] = True
 
-        self.state[3] = True
-        for i in range(4, 5):
-            self.state[i] = False
-
-    def compute_modal_params(self, max_model_order=None):
-
-        if max_model_order is None:
-            max_model_order = self.max_model_order
-
-        num_block_rows = self.num_block_rows
-        num_analised_channels = self.num_analised_channels
-        merged_num_channels = self.merged_num_channels
-        sampling_rate = self.sampling_rate
-
-        U = self.U
-        S = self.S
-        S_2 = np.diag(np.power(S[:max_model_order], -0.5))
-
-        O = np.dot(U, S_2)
-
-        print('Computing modal parameters...')
-
-        modal_frequencies = np.zeros((max_model_order, max_model_order))
-        modal_damping = np.zeros((max_model_order, max_model_order))
-        mode_shapes = np.zeros(
-            (merged_num_channels,
-             max_model_order,
-             max_model_order),
-            dtype=complex)
-        eigenvalues = np.zeros(
-            (max_model_order, max_model_order), dtype=complex)
-
-        printsteps = list(np.linspace(0, max_model_order, 100, dtype=int))
-        for order in range(1, max_model_order):
-            while order in printsteps:
-                del printsteps[0]
-                print('.', end='', flush=True)
-            # print('\n\n{}\n\n'.format(order))
-
-            On_up = O[:num_analised_channels * num_block_rows, :order]
-            On_down = O[num_analised_channels:num_analised_channels *
-                        (num_block_rows + 1), :order]
-
-            state_matrix = np.dot(np.linalg.pinv(On_up), On_down)
-
-            C = O[:num_analised_channels, :order]
-
-            eigval, eigvec_r = np.linalg.eig(state_matrix)
-
-            conj_indices = self.remove_conjugates(
-                eigval, eigvec_r, inds_only=True)
-
-            for i, ind in enumerate(conj_indices):
-
-                lambda_i = eigval[ind]
-
-                ident = eigval == lambda_i.conj()
-                ident[ind] = 1
-                ident = np.diag(ident)
-
-                a_i = np.abs(np.arctan2(np.imag(lambda_i), np.real(lambda_i)))
-                b_i = np.log(np.abs(lambda_i))
-                freq_i = np.sqrt(a_i**2 + b_i**2) * sampling_rate / 2 / np.pi
-                damping_i = 100 * np.abs(b_i) / np.sqrt(a_i**2 + b_i**2)
-                mode_shape_i = np.dot(C, eigvec_r[:, ind])
-                mode_shape_i = np.array(mode_shape_i, dtype=complex)
-
-                mode_shape_i = self.rescale_by_references(mode_shape_i)
-                mode_shape_i = self.integrate_quantities(
-                    mode_shape_i,
-                    self.merged_accel_channels,
-                    self.merged_velo_channels,
-                    freq_i * 2 * np.pi)
-
-                k = np.argmax(np.abs(mode_shape_i))
-                s_ik = mode_shape_i[k]
-                alpha_ik = np.angle(s_ik)
-                e_k = np.zeros((num_analised_channels, 1))
-                e_k[k, 0] = 1
-                mode_shape_i *= np.exp(-1j * alpha_ik)
-
-                modal_frequencies[order, i] = freq_i
-                modal_damping[order, i] = damping_i
-                mode_shapes[:, i, order] = mode_shape_i
-                eigenvalues[order, i] = lambda_i
-
-        self.modal_frequencies = modal_frequencies
-        self.modal_damping = modal_damping
-        self.mode_shapes = mode_shapes
-        self.eigenvalues = eigenvalues
-
-        print('.', end='\n', flush=True)
-
-        self.state[4] = True
-
+    def compute_modal_params(self, max_model_order=None, 
+                             max_modes=None, algo='svd'):
+        super().compute_modal_params(max_model_order, max_modes, algo, modal_contrib=False)
+        self.mode_shapes = self.mode_shapes[:self.merged_num_channels,:,:]
+        
+    def modal_analysis(self, A, C,):
+        return super().modal_analysis(A, C, rescale_fun=self.rescale_by_references)
+        
     def rescale_by_references(self, mode_shape):
         '''
         This is PoGer Rescaling
@@ -1319,39 +1443,7 @@ class PogerSSICovRef(ModalBase):
         start_row_scaled = 0
         end_row_scaled = self.setups[0]['num_analised_channels']
 
-        row_unscaled = self.setups[0]['num_analised_channels']
-
         new_mode_shape[start_row_scaled:end_row_scaled] = mode_shape[start_row_scaled:end_row_scaled]
-
-#         for setup_num,setup in enumerate(self.setups):
-#             if setup_num == 0: continue
-#             #ssi_ref_channels is ref_channels with respect to setup not to merged mode shape
-#
-#             base_refs = self.rescale_ref_channels[0]
-#
-#             this_refs = self.rescale_ref_channels[setup_num]
-#             this_all = range(setup['num_analised_channels'])#setup['roving_channels']+setup['ref_channels']
-#             this_rovs = list(set(this_all).difference(this_refs))
-#
-#             this_refs = [int(ref+row_unscaled) for ref in this_refs]
-#             this_rovs = [rov+row_unscaled for rov in this_rovs]
-#
-#             mode_refs_base = mode_shape[base_refs]
-#             mode_refs_this = mode_shape[this_refs]
-#             mode_refs_this_conj = mode_refs_this.conj()
-#             mode_rovs_this = mode_shape[this_rovs]
-#
-#             numer = np.inner(mode_refs_this_conj, mode_refs_base )
-#             denom = np.inner(mode_refs_this_conj, mode_refs_this )
-#             scale_fact=numer/denom
-#
-#             start_row_scaled = end_row_scaled
-#             end_row_scaled += len(this_rovs)
-#             #print(mode_refs_base, mode_refs_this, scale_fact)
-#             new_mode_shape[start_row_scaled:end_row_scaled] = scale_fact * mode_rovs_this
-#
-#             row_unscaled += setup['num_analised_channels']
-#         return new_mode_shape
 
         num_setups = len(self.setups)
 
@@ -1380,14 +1472,10 @@ class PogerSSICovRef(ModalBase):
                 # merged mode shape
 
                 base_refs = self.rescale_ref_channels[setup_num_1]
-
                 this_refs = self.rescale_ref_channels[setup_num_2]
-                # this_all = range(setup['num_analised_channels'])#setup['roving_channels']+setup['ref_channels']
-                #this_rovs = list(set(this_all).difference(this_refs))
 
                 base_refs = [int(ref + row_unscaled_1) for ref in base_refs]
                 this_refs = [int(ref + row_unscaled_2) for ref in this_refs]
-                #this_rovs = [rov+row_unscaled for rov in this_rovs]
 
                 mode_refs_base = mode_shape[base_refs]
                 mode_refs_this = mode_shape[this_refs]
@@ -1406,7 +1494,6 @@ class PogerSSICovRef(ModalBase):
         # compute scaling factors
         rhs = np.zeros(S_phi.shape[0], dtype=complex)
         rhs[0] = num_setups + 0j
-        # rhs[0]=1+0j
         alpha = np.linalg.pinv(S_phi).dot(rhs)
 
         end_row_scaled = 0  # self.setups[0]['num_analised_channels']
@@ -1428,7 +1515,6 @@ class PogerSSICovRef(ModalBase):
                 base_refs = self.rescale_ref_channels[0]
 
                 this_refs = [int(ref + row_unscaled) for ref in this_refs]
-                #this_rovs = [rov+row_unscaled for rov in this_rovs]
 
                 mode_refs_base = mode_shape[base_refs]
                 mode_refs_this = mode_shape[this_refs]
@@ -1437,8 +1523,6 @@ class PogerSSICovRef(ModalBase):
                 numer = np.inner(mode_refs_this_conj, mode_refs_base)
                 denom = np.inner(mode_refs_this_conj, mode_refs_this)
                 scale_fact = numer / denom
-
-                #print( scale_fact, scale_fact_old)
 
             if setup_num == 0:
                 mode_refs_this = mode_shape[this_refs]
@@ -1462,14 +1546,10 @@ class PogerSSICovRef(ModalBase):
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
 
-        #             0             1                2              3           4
-        # self.state= [Setups Added, Channels Paired, Subspace Mat., State
-        # Mat., Modal Par.]
         out_dict = {'self.state': self.state}
         out_dict['self.setup_name'] = self.setup_name
-        # out_dict['self.start_times']=self.start_times
 
-        if self.state[0]:  # add_setup
+        if self.state[3]:  # add_setup
             out_dict['self.setups'] = self.setups
             out_dict['self.sampling_rate'] = self.sampling_rate
             out_dict['self.num_ref_channels'] = self.num_ref_channels
@@ -1484,15 +1564,15 @@ class PogerSSICovRef(ModalBase):
             out_dict['self.merged_num_channels'] = self.merged_num_channels
             out_dict['self.num_analised_channels'] = self.num_analised_channels
             out_dict['self.start_time'] = self.start_time
-        if self.state[2]:  # build_merged_subspace_matrix
-            out_dict['self.subspace_matrix'] = self.subspace_matrix
+        if self.state[0]:  # build_merged_subspace_matrix
+            # out_dict['self.subspace_matrix'] = self.subspace_matrix
             out_dict['self.num_block_columns'] = self.num_block_columns
             out_dict['self.num_block_rows'] = self.num_block_rows
-        if self.state[3]:  # compute_state_matrices
             out_dict['self.U'] = self.U
             out_dict['self.S'] = self.S
+            out_dict['self.V_T'] = self.V_T
             out_dict['self.max_model_order'] = self.max_model_order
-        if self.state[4]:  # compute_modal_params
+        if self.state[2]:  # compute_modal_params
             out_dict['self.eigenvalues'] = self.eigenvalues
             out_dict['self.modal_damping'] = self.modal_damping
             out_dict['self.modal_frequencies'] = self.modal_frequencies
@@ -1502,12 +1582,10 @@ class PogerSSICovRef(ModalBase):
 
     @classmethod
     def load_state(cls, fname, ):
-        print('Now loading previous results from  {}'.format(fname))
+        logger.info('Now loading previous results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
-        #             0             1                2              3           4
-        # self.state= [Setups Added, Channels Paired, Subspace Mat., State
-        # Mat., Modal Par.]
+
         if 'self.state' in in_dict:
             state = list(in_dict['self.state'])
         else:
@@ -1520,9 +1598,8 @@ class PogerSSICovRef(ModalBase):
                                                     'Modal parameters computed',
                                                     ]):
             if this_state:
-                print(state_string)
+                logger.info(state_string)
 
-        #assert isinstance(prep_data, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
 
         ssi_object = cls()
@@ -1530,44 +1607,35 @@ class PogerSSICovRef(ModalBase):
 
         ssi_object.state = state
         # debug_here
-        if state[0]:  # add_setup
-            ssi_object.setups = list(in_dict['self.setups'])
-            ssi_object.sampling_rate = in_dict['self.sampling_rate'].item()
-            ssi_object.num_ref_channels = in_dict['self.num_ref_channels'].item(
-            )
-            ssi_object.n_lags = in_dict['self.n_lags'].item()
+        if state[3]:  # add_setup
+            ssi_object.setups = validate_array(in_dict['self.setups'])
+            ssi_object.sampling_rate = validate_array(in_dict['self.sampling_rate'])
+            ssi_object.num_ref_channels = validate_array(in_dict['self.num_ref_channels'])
+            ssi_object.n_lags = validate_array(in_dict['self.n_lags'])
         if state[1]:  # pair_channels
-            ssi_object.ssi_ref_channels = [
-                list(l) for l in in_dict['self.ssi_ref_channels']]
-            ssi_object.rescale_ref_channels = [
-                list(l) for l in in_dict['self.rescale_ref_channels']]
+            ssi_object.ssi_ref_channels = validate_array(in_dict['self.ssi_ref_channels'])
+            ssi_object.rescale_ref_channels = validate_array(in_dict['self.rescale_ref_channels'])
             ssi_object.merged_chan_dofs = [[int(float(cd[0])), str(cd[1]), float(cd[2]), float(
                 cd[3]), str(cd[4] if len(cd) == 5 else '')] for cd in in_dict['self.merged_chan_dofs']]
-            ssi_object.merged_accel_channels = list(
-                in_dict['self.merged_accel_channels'])
-            ssi_object.merged_velo_channels = list(
-                in_dict['self.merged_velo_channels'])
-            ssi_object.merged_disp_channels = list(
-                in_dict['self.merged_disp_channels'])
-            ssi_object.merged_num_channels = in_dict['self.merged_num_channels'].item(
-            )
-            ssi_object.num_analised_channels = in_dict['self.num_analised_channels'].item(
-            )
-            ssi_object.start_time = in_dict['self.start_time'].item()
-        if state[2]:  # build_merged_subspace_matrix
-            ssi_object.subspace_matrix = in_dict['self.subspace_matrix']
-            ssi_object.num_block_columns = in_dict['self.num_block_columns'].item(
-            )
-            ssi_object.num_block_rows = in_dict['self.num_block_rows'].item()
-        if state[3]:  # compute_state_matrices
-            ssi_object.U = in_dict['self.U']
-            ssi_object.S = in_dict['self.S']
-            ssi_object.max_model_order = in_dict['self.max_model_order'].item()
-        if state[4]:  # compute_modal_params
-            ssi_object.eigenvalues = in_dict['self.eigenvalues']
-            ssi_object.modal_damping = in_dict['self.modal_damping']
-            ssi_object.modal_frequencies = in_dict['self.modal_frequencies']
-            ssi_object.mode_shapes = in_dict['self.mode_shapes']
+            ssi_object.merged_accel_channels = validate_array(in_dict['self.merged_accel_channels'])
+            ssi_object.merged_velo_channels = validate_array(in_dict['self.merged_velo_channels'])
+            ssi_object.merged_disp_channels = validate_array(in_dict['self.merged_disp_channels'])
+            ssi_object.merged_num_channels = validate_array(in_dict['self.merged_num_channels'])
+            ssi_object.num_analised_channels = validate_array(in_dict['self.num_analised_channels'])
+            ssi_object.start_time = validate_array(in_dict['self.start_time'])
+        if state[0]:  # build_merged_subspace_matrix
+            # ssi_object.subspace_matrix = validate_array(in_dict['self.subspace_matrix'])
+            ssi_object.num_block_columns = validate_array(in_dict['self.num_block_columns'])
+            ssi_object.num_block_rows = validate_array(in_dict['self.num_block_rows'])
+            ssi_object.U = validate_array(in_dict['self.U'])
+            ssi_object.S = validate_array(in_dict['self.S'])
+            ssi_object.V_T = validate_array(in_dict.get('self.V_T', None))
+            ssi_object.max_model_order = validate_array(in_dict['self.max_model_order'])
+        if state[2]:  # compute_modal_params
+            ssi_object.eigenvalues = validate_array(in_dict['self.eigenvalues'])
+            ssi_object.modal_damping = validate_array(in_dict['self.modal_damping'])
+            ssi_object.modal_frequencies = validate_array(in_dict['self.modal_frequencies'])
+            ssi_object.mode_shapes = validate_array(in_dict['self.mode_shapes'])
 
         return ssi_object
 

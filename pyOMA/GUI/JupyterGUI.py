@@ -287,7 +287,7 @@ def StabilGUIWeb(stabil_plot):
         widgets.append(sl_mtn)
         # ..TODO:: implement
     if stabil_calc.capabilities['MC']:    
-        sl_mc = ipywidgets.FloatSlider(value=stabil_calc.MC_min, min=0, max=100, step=1, description='MC_min []')
+        sl_mc = ipywidgets.FloatSlider(value=stabil_calc.MC_min, min=0, max=1, step=0.01, description='MC_min []')
         sl_mc.observe(lambda change: stabil_plot.update_stabilization(MC_min=float(change['new'])),
                         names='value', type='change')
         widgets.append(sl_mc)
@@ -593,42 +593,84 @@ def PlotMSHWeb(msp):
 
     def mode_change(current):
         mode, order, frequency, damping, MPC, MP, MPD = msp.change_mode(float(current))
-
+        if msp.stabil_calc is not None:
+            n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC, ex_1, ex_2 = msp.stabil_calc.get_modal_values((order, mode))
+            print(n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC, ex_1, ex_2)
+            if msp.stabil_calc.capabilities['std']:
+                num_blocks = msp.tabil_calc.modal_data.num_blocks
+                stdf = scipy.stats.t.ppf(
+                    0.975, num_blocks) * stdf / np.sqrt(num_blocks)
+                stdd = scipy.stats.t.ppf(
+                    0.975, num_blocks) * stdd / np.sqrt(num_blocks)
+        
+            text = '<table>\n'
+            text += ''.join([f'<tr>\n<td> Frequency [Hz]:</td>\n <td> {f:1.3f} </td>\n</tr>\n' if not np.isnan(f) else '',
+                          f'<tr>\n<td> CI Frequency [Hz]:</td>\n <td> {stdf:1.3e} </td>\n</tr>\n' if not np.isnan(stdf) else '',
+                          f'<tr>\n<td> Model order:</td>\n <td> {n:1.0f} </td>\n</tr>\n' if not np.isnan(n) else '',
+                          f'<tr>\n<td> Damping [%]:</td>\n <td> {d:1.3f} </td>\n</tr>\n' if not np.isnan(d) else '',
+                          f'<tr>\n<td> CI Damping [%]:</td>\n <td> {stdd:1.3e} </td>\n</tr>\n' if not np.isnan(stdd) else '',
+                          f'<tr>\n<td> MPC [-]:</td>\n <td> {mpc:1.5f} </td>\n</tr>\n' if not np.isnan(mpc) else '',
+                          f'<tr>\n<td> MP  [\u00b0]:</td>\n <td> {mp:1.3f} </td>\n</tr>\n' if not np.isnan(mp) else '',
+                          f'<tr>\n<td> MPD [-]:</td>\n <td> {mpd:1.5f} </td>\n</tr>\n' if not np.isnan(mpd) else '',
+                          f'<tr>\n<td> dMP  [\u00b0]:</td>\n <td> {dmp:1.3f} </td>\n</tr>\n' if not np.isnan(dmp) else '',
+                          f'<tr>\n<td> MTN [%]:</td>\n <td> {mtn:1.5f} </td>\n</tr>\n' if not np.isnan(mtn) else '',
+                          f'<tr>\n<td> MC [%]:</td>\n <td> {MC:1.5f} </td>\n</tr>\n' if not np.isnan(MC) else '',
+                          f'<tr>\n<td> Ext [-]:</td>\n <td> {ex_1:1.5f} </td>\n</tr>\n' if not np.isnan(ex_1) else '',
+                          f'<tr>\n<td> Ext [-]:</td>\n <td> {ex_2:1.5f} </td>\n</tr>\n' if not np.isnan(ex_2) else ''
+                          ])
+            text += '</table>'
+        else:
+            text = f'''
+                    <table>
+                      <tr>
+                          <td> Frequency [Hz]:</td>
+                          <td> {frequency:1.3f} </td>
+                      </tr>
+                      <tr>
+                          <td> Damping [%]:</td>
+                          <td> {damping:1.3f} </td>
+                      </tr>
+                      '''
+            if order is not None:
+                text += f'''
+                      <tr>
+                          <td> Model order:</td>
+                          <td> {order} </td>
+                      </tr>
+                      '''
+            if mode is not None:
+                text += f'''
+                      <tr>
+                          <td> Mode number:</td>
+                          <td> {mode} </td>
+                      </tr>
+                      '''
+            if MPC is not None:
+                text += f'''
+                      <tr>
+                          <td> MPC [-]:</td>
+                          <td> {MPC:1.3f} </td>
+                      </tr>
+                      '''
+            if MP is not None:
+                text += f'''
+                      <tr>
+                          <td> MP  [\u00b0]:</td>
+                          <td> {MP:1.3f} </td>
+                      </tr>
+                      '''
+            if MPD is not None:
+                text += f'''
+                      <tr>
+                          <td> MPD [-]:</td>
+                          <td> {MPD:1.3f} </td>
+                      </tr>
+                      '''
+            text += f'''
+                    </table>
+                    '''
+            
         dd.value = f'{msp.modal_frequencies[msp.mode_index[0], msp.mode_index[1]]:1.3f}'
-
-        text = f'''
-                <table>
-                  <tr>
-                      <td> Frequency [Hz]:</td>
-                      <td> {frequency:1.3f} </td>
-                  </tr>
-                  <tr>
-                      <td> Damping [%]:</td>
-                      <td> {damping:1.3f} </td>
-                  </tr>
-                  <tr>
-                      <td> Model order:</td>
-                      <td> {order} </td>
-                  </tr>
-                  <tr>
-                      <td> Mode number:</td>
-                      <td> {mode} </td>
-                  </tr>
-                  <tr>
-                      <td> MPC [-]:</td>
-                      <td> {MPC:1.3f} </td>
-                  </tr>
-                  <tr>
-                      <td> MP  [\u00b0]:</td>
-                      <td> {MP:1.3f} </td>
-                  </tr>
-                  <tr>
-                      <td> MPD [-]:</td>
-                      <td> {MPD:1.3f} </td>
-                  </tr>
-                </table>
-                 '''
-
         html.value = text
         
     def reload_modes(btn): 

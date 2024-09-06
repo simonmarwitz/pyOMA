@@ -23,8 +23,9 @@ import os
 
 import multiprocessing as mp
 import ctypes as c
-from collections import deque
+# from collections import deque
 
+from .Helpers import rq_decomp, ql_decomp, lq_decomp
 from .PreProcessingTools import PreProcessSignals
 from .ModalBase import ModalBase
 
@@ -72,6 +73,12 @@ def vectorize(matrix):
     return np.reshape(matrix, (np.product(matrix.shape), 1), 'F')
 
 
+def dot(a, b):
+    if sparse.issparse(b):
+        return b.T.dot(a.T).T
+    else:
+        return a.dot(b)
+
 #import scipy.sparse.linalg
 
 
@@ -86,54 +93,15 @@ def permutation(a, b):
     return P
 
 
-def rq_decomp(a, mode='full'):
-    q, r = np.linalg.qr(np.flipud(a).T, mode=mode)
-    return np.flipud(r.T), q.T
-
-
-def ql_decomp(a, mode='full'):
-    q, r = np.linalg.qr(np.fliplr(a), mode)
-    return q, np.fliplr(r)
-
-
-def dot(a, b):
-    if sparse.issparse(b):
-        return b.T.dot(a.T).T
-    else:
-        return a.dot(b)
-
-
-def lq_decomp(a, mode='full', unique=True):
-    '''
-    a: array_like, shape (M,N)
-    l: (M,K)
-    q: (K,N)
-    '''
-    if mode == 'r':
-        r = np.linalg.qr(a.T, mode)
-    else:
-        q, r = np.linalg.qr(a.T, mode)
-
-    if unique:
-        fact = np.sign(np.diag(r))
-        r *= np.repeat(np.reshape(fact, (r.shape[0], 1)), r.shape[1], axis=1)
-        if mode != 'r':
-            q *= fact
-            # print(np.allclose(a.T,q.dot(r)))
-
-    if mode == 'r':
-        return r.T
-    else:
-        return r.T, q.T
 
 
 class VarSSIRef(ModalBase):
 
-    def __init__(self, prep_data):
+    def __init__(self, prep_signals):
         '''
         channel definition: channels start at 0
         '''
-        super().__init__(prep_data)
+        super().__init__(prep_signals)
 
         #             0         1           2
         # self.state= [Hankel, State Mat., Modal Par.
@@ -151,9 +119,9 @@ class VarSSIRef(ModalBase):
         self.output_matrix = None
 
     @classmethod
-    def init_from_config(cls, conf_file, prep_data):
+    def init_from_config(cls, conf_file, prep_signals):
         assert os.path.exists(conf_file)
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
 
         with open(conf_file, 'r') as f:
 
@@ -173,7 +141,7 @@ class VarSSIRef(ModalBase):
             assert f.__next__().strip('\n').strip(' ') == 'Variance Algorithm (fast/slow):'
             variance_algo = f.__next__().strip('\n').strip(' ')
 
-        ssi_object = cls(prep_data)
+        ssi_object = cls(prep_signals)
 
         ssi_object.build_subspace_mat(
             num_block_columns,
@@ -219,12 +187,12 @@ class VarSSIRef(ModalBase):
         self.num_blocks = num_blocks
         self.subspace_method = subspace_method
 
-        total_time_steps = self.prep_data.total_time_steps
-        ref_channels = sorted(self.prep_data.ref_channels)
-        #roving_channels = self.prep_data.roving_channels
-        measurement = self.prep_data.signals
-        num_analised_channels = self.prep_data.num_analised_channels
-        num_ref_channels = self.prep_data.num_ref_channels
+        total_time_steps = self.prep_signals.total_time_steps
+        ref_channels = sorted(self.prep_signals.ref_channels)
+        #roving_channels = self.prep_signals.roving_channels
+        measurement = self.prep_signals.signals
+        num_analised_channels = self.prep_signals.num_analised_channels
+        num_ref_channels = self.prep_signals.num_ref_channels
 
         # ref_channels + roving_channels
         all_channels = list(range(num_analised_channels))
@@ -509,8 +477,8 @@ class VarSSIRef(ModalBase):
     def plot_covariances(self):
         num_block_rows = self.num_block_rows
         num_block_columns = self.num_block_columns
-        num_ref_channels = self.prep_data.num_ref_channels
-        num_analised_channels = self.prep_data.num_analised_channels
+        num_ref_channels = self.prep_signals.num_ref_channels
+        num_analised_channels = self.prep_signals.num_analised_channels
 
 #         subspace_matrices = []
 #         for n_block in range(self.num_blocks):
@@ -528,7 +496,7 @@ class VarSSIRef(ModalBase):
         matrices = [self.subspace_matrix]
         for subspace_matrix in matrices:
             for num_channel, ref_channel in enumerate(
-                    self.prep_data.ref_channels):
+                    self.prep_signals.ref_channels):
                 inds = ([], [])
                 for i in range(num_block_columns):
                     row = ref_channel
@@ -627,7 +595,7 @@ class VarSSIRef(ModalBase):
         assert self.state[0]
 
         subspace_matrix = self.subspace_matrix
-        num_channels = self.prep_data.num_analised_channels
+        num_channels = self.prep_signals.num_analised_channels
         num_block_rows = self.num_block_rows  # p
         logger.info('Computing state matrices with {}-based method...'.format(lsq_method))
 
@@ -692,8 +660,8 @@ class VarSSIRef(ModalBase):
         logger.info('Preparing sensitivities for use with {} (co)variance algorithm...'.format(
             variance_algo))
 
-        num_channels = self.prep_data.num_analised_channels  # r
-        num_ref_channels = self.prep_data.num_ref_channels  # r_o
+        num_channels = self.prep_signals.num_analised_channels  # r
+        num_ref_channels = self.prep_signals.num_ref_channels  # r_o
         num_block_columns = self.num_block_columns  # q
         num_block_rows = self.num_block_rows
 
@@ -715,7 +683,7 @@ class VarSSIRef(ModalBase):
                  num_ref_channels,
                  num_blocks))
 
-            #T *= np.sqrt(int(np.floor((self.prep_data.total_time_steps-num_block_rows-num_block_columns)/num_blocks))*num_blocks)
+            #T *= np.sqrt(int(np.floor((self.prep_signals.total_time_steps-num_block_rows-num_block_columns)/num_blocks))*num_blocks)
             if 1:  # subspace_method == 'covariance':
                 for n_block in range(num_blocks):
                     this_hankel = subspace_matrices[n_block]
@@ -730,7 +698,7 @@ class VarSSIRef(ModalBase):
 #                 for n_block in range(num_blocks):
 #                     this_hankel = subspace_matrices[n_block]
 #                     T[:,n_block:n_block+1]=vectorize(this_hankel-subspace_matrix)
-#                 #T *= np.sqrt(int(np.floor((self.prep_data.total_time_steps-num_block_rows-num_block_columns)/num_blocks))*num_blocks)
+#                 #T *= np.sqrt(int(np.floor((self.prep_signals.total_time_steps-num_block_rows-num_block_columns)/num_blocks))*num_blocks)
 #                 T /= np.sqrt(num_blocks-1)
             self.hankel_cov_matrix = T
 
@@ -1177,15 +1145,15 @@ class VarSSIRef(ModalBase):
         lsq_method = self.lsq_method
         variance_algo = self.variance_algo
         max_model_order = self.max_model_order
-        sampling_rate = self.prep_data.sampling_rate
+        sampling_rate = self.prep_signals.sampling_rate
 
-        num_channels = self.prep_data.num_analised_channels
-        num_ref_channels = self.prep_data.num_ref_channels
+        num_channels = self.prep_signals.num_analised_channels
+        num_ref_channels = self.prep_signals.num_ref_channels
         num_block_columns = self.num_block_columns
         num_block_rows = self.num_block_rows
 
-        accel_channels = self.prep_data.accel_channels
-        velo_channels = self.prep_data.velo_channels
+        accel_channels = self.prep_signals.accel_channels
+        velo_channels = self.prep_signals.velo_channels
 
         if lsq_method == 'qr':
             R_nmax = self.R_nmax
@@ -1225,7 +1193,7 @@ class VarSSIRef(ModalBase):
             (num_channels, max_model_order, max_model_order), dtype=complex)
 
         # for future parallelization, may not even be necessary if numpy is using Intel MKL
-        # params: order, max_model_order, num_channels, accel_channels, velo_channels, self.prep_data.channel_factors
+        # params: order, max_model_order, num_channels, accel_channels, velo_channels, self.prep_signals.channel_factors
         # read: state_matrix, output_matrix, Oi,  Q1,Q2,Q3,Q4,
         # functions: remove_conjugates(), integrate_quantities(), self.rescale_mode_shape()
         # write: modal_frequencies, std_frequencies, modal_damping,
@@ -1387,7 +1355,7 @@ class VarSSIRef(ModalBase):
                 # integrate acceleration and velocity channels to level out all channels in phase and amplitude
                 #mode_shape_i = self.integrate_quantities(mode_shape_i, accel_channels, velo_channels, complex(freq_i*2*np.pi))
                 # if each channel was preconditioned to a common vibration level reverse this in the mode shapes
-                # mode_shape_i*=self.prep_data.channel_factors
+                # mode_shape_i*=self.prep_signals.channel_factors
                 # scale mode shapes to unit modal displacement
                 #mode_shape_i = self.rescale_mode_shape(mode_shape_i, doehler_style=True)
                 k = np.argmax(np.abs(mode_shape_i))
@@ -1642,14 +1610,14 @@ class VarSSIRef(ModalBase):
 #
 #         lsq_method = self.lsq_method
 #         max_model_order = self.max_model_order
-#         sampling_rate = self.prep_data.sampling_rate
-#         num_channels = self.prep_data.num_analised_channels
-#         num_ref_channels = self.prep_data.num_ref_channels
+#         sampling_rate = self.prep_signals.sampling_rate
+#         num_channels = self.prep_signals.num_analised_channels
+#         num_ref_channels = self.prep_signals.num_ref_channels
 #         num_block_columns = self.num_block_columns
 #         num_block_rows = self.num_block_rows
 #
-#         accel_channels=self.prep_data.accel_channels
-#         velo_channels=self.prep_data.velo_channels
+#         accel_channels=self.prep_signals.accel_channels
+#         velo_channels=self.prep_signals.velo_channels
 #
 #         modal_frequencies = np.zeros((max_model_order, max_model_order))
 #         std_frequencies = np.zeros((max_model_order, max_model_order))
@@ -1754,7 +1722,7 @@ class VarSSIRef(ModalBase):
 #                 # integrate acceleration and velocity channels to level out all channels in phase and amplitude
 #                 #mode_shape_i = self.integrate_quantities(mode_shape_i, accel_channels, velo_channels, complex(freq_i*2*np.pi))
 #                 # if each channel was preconditioned to a common vibration level reverse this in the mode shapes
-#                 #mode_shape_i*=self.prep_data.channel_factors
+#                 #mode_shape_i*=self.prep_signals.channel_factors
 #                 # scale mode shapes to unit modal displacement
 #                 #mode_shape_i = self.rescale_mode_shape(mode_shape_i)
 #
@@ -1967,7 +1935,7 @@ class VarSSIRef(ModalBase):
         logger.info('Modal results saved to {}'.format(fname))
 
     @classmethod
-    def load_state(cls, fname, prep_data):
+    def load_state(cls, fname, prep_signals):
         logger.info('Loading results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
@@ -1983,15 +1951,15 @@ class VarSSIRef(ModalBase):
 #                                                     ]):
 #             if this_state: print(state_string)
 
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
         start_time = in_dict['self.start_time'].item()
-        assert setup_name == prep_data.setup_name
-        start_time = prep_data.start_time
+        assert setup_name == prep_signals.setup_name
+        start_time = prep_signals.start_time
 
-        assert start_time == prep_data.start_time
-        #prep_data = in_dict['self.prep_data'].item()
-        ssi_object = cls(prep_data)
+        assert start_time == prep_signals.start_time
+        #prep_signals = in_dict['self.prep_signals'].item()
+        ssi_object = cls(prep_signals)
         ssi_object.state = state
         if state[0]:  # covariances
 
