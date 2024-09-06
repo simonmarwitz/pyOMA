@@ -374,8 +374,8 @@ class PreProcessSignals(object):
 
         assert isinstance(signals, np.ndarray)
         assert signals.shape[0] > signals.shape[1]
-        self.signals = signals
-        self.signals_filtered = signals
+        self.signals = np.copy(signals)
+        self.signals_filtered = np.copy(signals)
         
         assert isinstance(sampling_rate, (int, float))
         self.sampling_rate = sampling_rate
@@ -443,6 +443,7 @@ class PreProcessSignals(object):
         self.n_segments_wl = None
         
         self.corr_matrix_bt = None
+        self.corr_matrices_bt = None
         self.psd_matrix_bt = None
         self.n_lines_bt = None
         self.n_segments_bt = None
@@ -801,6 +802,7 @@ class PreProcessSignals(object):
         out_dict['self.n_segments_wl'] = self.n_segments_wl
         
         out_dict['self.corr_matrix_bt'] = self.corr_matrix_bt
+        out_dict['self.corr_matrices_bt'] = self.corr_matrices_bt
         out_dict['self.psd_matrix_bt'] = self.psd_matrix_bt
         out_dict['self.n_lines_bt'] = self.n_lines_bt
         out_dict['self.n_segments_bt'] = self.n_segments_bt
@@ -870,6 +872,8 @@ class PreProcessSignals(object):
             preprocessor.n_segments_wl = validate_array(in_dict['self.n_segments_wl'])
             
             preprocessor.corr_matrix_bt = validate_array(in_dict['self.corr_matrix_bt'])
+            if 'self.corr_matrices_bt' in in_dict:
+                preprocessor.corr_matrices_bt = validate_array(in_dict['self.corr_matrices_bt'])
             preprocessor.psd_matrix_bt = validate_array(in_dict['self.psd_matrix_bt'])
             preprocessor.n_lines_bt = validate_array(in_dict['self.n_lines_bt'])
             preprocessor.n_segments_bt = validate_array(in_dict['self.n_segments_bt'])
@@ -1224,7 +1228,7 @@ class PreProcessSignals(object):
         assert amplitude != 0 or snr != 0
 
         if snr != 0 and amplitude == 0:
-            rms = self.signal_rms()
+            rms = self.signal_rms
             amplitude = rms * snr
         else:
             amplitude = [
@@ -1760,7 +1764,7 @@ class PreProcessSignals(object):
         
         return corr_matrix
     
-    def corr_blackman_tukey(self, n_lags, num_blocks=1, refs_only=True, **kwargs):
+    def corr_blackman_tukey(self, n_lags, num_blocks=None, refs_only=True, **kwargs):
         '''
         Estimate the (cross- and auto-) correlation functions (C/ACF),
         by direct computation of the standard un-biased estimator:
@@ -1838,6 +1842,9 @@ class PreProcessSignals(object):
             logger.debug("Using previously computed Correlation Functions (BT)...")
             return self.corr_matrix_bt
         
+        if num_blocks is None:
+            num_blocks = 1
+            
         logger.info(f'Estimating Correlation Functions (BT) with n_lags='
                     f'{n_lags} and num_blocks={num_blocks}...')
         
@@ -1892,12 +1899,13 @@ class PreProcessSignals(object):
         assert np.all(corr_matrix.shape == corr_matrix_shape)
         
         self.corr_matrix_bt = corr_matrix
+        self.corr_matrices_bt = np.stack(corr_matrices, axis=0)
         self.var_corr_bt = np.var(corr_matrices, axis=0)
         self.n_lines_bt = (n_lags - 1) * 2
         self.n_segments_bt = num_blocks
 
         return corr_matrix
-        
+    
     def psd_blackman_tukey(self, n_lines=None, refs_only=True, window='hamming', **kwargs):
         '''
         Estimate the (cross- and auto-) power spectral densities (PSD),
@@ -2170,9 +2178,9 @@ class PreProcessSignals(object):
     
 class SignalPlot(object):
     
-    def __init__(self,prep_data):
-        assert isinstance(prep_data, PreProcessSignals)
-        self.prep_data = prep_data
+    def __init__(self,prep_signals):
+        assert isinstance(prep_signals, PreProcessSignals)
+        self.prep_signals = prep_signals
         
     def plot_signals(self,
                      channels=None,
@@ -2221,13 +2229,13 @@ class SignalPlot(object):
             kwargs:
                 Additional kwargs are passed to the spectral estimation method
         '''
-        prep_data = self.prep_data
+        prep_signals = self.prep_signals
         refs = kwargs.pop('refs', None)
-        channel_numbers, ref_numbers = prep_data._channel_numbers(channels, refs)
+        channel_numbers, ref_numbers = prep_signals._channel_numbers(channels, refs)
         all_ref_numbers = set(sum(ref_numbers, []))
-        # if all requested reference channels are in prep_data.ref_channels,
+        # if all requested reference channels are in prep_signals.ref_channels,
         # a reduced correlation function may be computed
-        refs_only = all_ref_numbers.issubset(prep_data.ref_channels)
+        refs_only = all_ref_numbers.issubset(prep_signals.ref_channels)
         # if not all are needed, but the user requested so, compute full correlation matrix
         if (refs_only and not kwargs.pop('refs_only', True)) or psd_scale == 'svd':
             refs_only = False
@@ -2306,16 +2314,16 @@ class SignalPlot(object):
         
         # precompute relevant spectral matrices
         n_lines = kwargs.pop('n_lines', None)
-        method = kwargs.pop('method', prep_data._last_meth)
-        prep_data.psd(n_lines, method, refs_only=refs_only, **kwargs.copy())
+        method = kwargs.pop('method', prep_signals._last_meth)
+        prep_signals.psd(n_lines, method, refs_only=refs_only, **kwargs.copy())
         if timescale == 'lags':
-            prep_data.correlation(prep_data.n_lags, method, refs_only=refs_only, **kwargs.copy())
+            prep_signals.correlation(prep_signals.n_lags, method, refs_only=refs_only, **kwargs.copy())
         
         for axt, axf, channel in zip(axest, axesf, channel_numbers):
             
             if timescale == 'lags':
                 #omitting **kwargs here to not trigger recomputation, except refs_only
-                self.plot_correlation(prep_data.n_lags, [channel], axt, timescale, refs,
+                self.plot_correlation(prep_signals.n_lags, [channel], axt, timescale, refs,
                                       plot_kwarg_dict.copy(),
                                       refs_only=refs_only, method=method)
             else:
@@ -2324,7 +2332,7 @@ class SignalPlot(object):
             axt.grid(True, axis='y', ls='dotted')
             
             #omitting **kwargs here to not trigger recomputation, except refs_only
-            self.plot_psd(n_lines, [channel], axf, psd_scale, refs,
+            self.plot_psd(prep_signals.n_lines, [channel], axf, psd_scale, refs,
                           plot_kwarg_dict.copy(),
                           refs_only=refs_only, method=method)
         
@@ -2365,35 +2373,35 @@ class SignalPlot(object):
              * correct labeling of channels and axis (using accel\_, velo\_, and disp\_channels)
         '''
             
-        prep_data = self.prep_data
-        signals = prep_data.signals
+        prep_signals = self.prep_signals
+        signals = prep_signals.signals
         
-        t = prep_data.t
+        t = prep_signals.t
         if scale == 'samples':
-            t *= prep_data.sampling_rate
+            t *= prep_signals.sampling_rate
             xlabel = '$n$ [-]'
             ylabel = '$f[n]$ [...]'
         else:
             xlabel = '$t$ [s]'
             ylabel = '$f(t)$ [...]'
         
-        channel_numbers, _ = prep_data._channel_numbers(channels)
+        channel_numbers, _ = prep_signals._channel_numbers(channels)
 
         if ax is None:
             ax = plt.subplot(111)
         
         for channel in channel_numbers:
             
-            if channel in prep_data.accel_channels: f = 'a'
-            elif channel in prep_data.velo_channels: f = 'v'
-            elif channel in prep_data.disp_channels: f = 'd'
+            if channel in prep_signals.accel_channels: f = 'a'
+            elif channel in prep_signals.velo_channels: f = 'v'
+            elif channel in prep_signals.disp_channels: f = 'd'
             else: f = 'f'
             
-            channel_name = prep_data.channel_headers[channel]
+            channel_name = prep_signals.channel_headers[channel]
             
             ax.plot(t, signals[:, channel], label=f'${f}_\mathrm{{{channel_name}}}$', **kwargs)
             
-        ax.set_xlim((0, prep_data.duration))
+        ax.set_xlim((0, prep_signals.duration))
         if ax.get_subplotspec().is_last_row():
             ax.set_xlabel(xlabel)
         if ax.get_subplotspec().is_first_col():
@@ -2443,34 +2451,34 @@ class SignalPlot(object):
          
         '''
         
-        prep_data = self.prep_data
-        method = kwargs.pop('method', prep_data._last_meth)
+        prep_signals = self.prep_signals
+        method = kwargs.pop('method', prep_signals._last_meth)
         assert method is not None
         # inspect, which reference channels are needed; ref_numbers is a list-of-lists
-        channel_numbers, ref_numbers = prep_data._channel_numbers(channels, refs)
+        channel_numbers, ref_numbers = prep_signals._channel_numbers(channels, refs)
         all_ref_numbers = set(sum(ref_numbers, []))
-        # if all requested reference channels are in prep_data.ref_channels,
+        # if all requested reference channels are in prep_signals.ref_channels,
         # a reduced correlation function may be computed
-        refs_only = all_ref_numbers.issubset(prep_data.ref_channels)
+        refs_only = all_ref_numbers.issubset(prep_signals.ref_channels)
         # if not all are needed, but the user requested so or full correlation matrix has been computed already -> use that
         if refs_only:
-            if method == 'welch' and prep_data.corr_matrix_wl is not None:
-                refs_only = prep_data.num_ref_channels == prep_data.corr_matrix_wl.shape[1]
+            if method == 'welch' and prep_signals.corr_matrix_wl is not None:
+                refs_only = prep_signals.num_ref_channels == prep_signals.corr_matrix_wl.shape[1]
                 logger.debug(f'reverting refs_only: False -> Welch precomputed')
-            elif method == 'blackman-tukey' and prep_data.corr_matrix_bt is not None:
-                refs_only = prep_data.num_ref_channels == prep_data.corr_matrix_bt.shape[1]
+            elif method == 'blackman-tukey' and prep_signals.corr_matrix_bt is not None:
+                refs_only = prep_signals.num_ref_channels == prep_signals.corr_matrix_bt.shape[1]
                 logger.debug(f'reverting refs_only: False -> Blackman-Tukey precomputed')
             if not kwargs.pop('refs_only', True):
                 refs_only = False
                 logger.debug(f'reverting refs_only: False -> User input')
         
-        corr_matrix = prep_data.correlation(n_lags, refs_only=refs_only, method=method, **kwargs)
+        corr_matrix = prep_signals.correlation(n_lags, refs_only=refs_only, method=method, **kwargs)
 
-        assert refs_only is (prep_data.num_ref_channels == corr_matrix.shape[1])
+        assert refs_only is (prep_signals.num_ref_channels == corr_matrix.shape[1])
         
-        lags = prep_data.lags
+        lags = prep_signals.lags
         if scale == 'samples':
-            lags *= prep_data.sampling_rate
+            lags *= prep_signals.sampling_rate
             xlabel = '$m$ [-]'
             ylabel = '$\hat{R}_{i,j}[m]$ [...]'
         else:
@@ -2478,10 +2486,11 @@ class SignalPlot(object):
             ylabel = '$\hat{R}_{i,j}(\\tau)$ [...]'
         
         if ax is None:
+            plt.figure()
             ax = plt.subplot(111)
         # print(lags.shape, corr_matrix.shape)
         for channel_number, current_ref_numbers in zip(channel_numbers, ref_numbers):
-            channel_name = prep_data.channel_headers[channel_number]
+            channel_name = prep_signals.channel_headers[channel_number]
             for ref_index, ref_number in enumerate(current_ref_numbers):
                 
                 if refs_only:
@@ -2492,14 +2501,14 @@ class SignalPlot(object):
                     corr = corr_matrix[channel_number, ref_number, :]
                     
                 if method == 'welch':
-                    norm_fact = prep_data.n_lines
+                    norm_fact = prep_signals.n_lines
                 elif method == 'blackman-tukey':
-                    norm_fact = prep_data.total_time_steps
+                    norm_fact = prep_signals.total_time_steps
                 
                 if ref_number == channel_number:
                     label = f'$\hat{{R}}_\mathrm{{{channel_name}}}$'
                 else:
-                    ref_name = prep_data.channel_headers[ref_number]
+                    ref_name = prep_signals.channel_headers[ref_number]
                     label = f'$\hat{{R}}_\mathrm{{{ref_name},{channel_name}}}$'
                 
                 ax.plot(lags, corr * norm_fact, label=label, **plot_kwarg_dict)
@@ -2549,43 +2558,43 @@ class SignalPlot(object):
             * do we need sample scaling on the abscissa
         '''
         
-        prep_data = self.prep_data
+        prep_signals = self.prep_signals
         assert scale in ['db', 'power', 'rms', 'svd', 'phase']
         
-        method = kwargs.pop('method', prep_data._last_meth)
+        method = kwargs.pop('method', prep_signals._last_meth)
         if scale == 'svd':
             if refs is not None or kwargs.pop('refs_only', False):
                 logger.warning("Reference channels are not used in SVD PSD.")
             refs_only = False
-            channel_numbers, ref_numbers = prep_data._channel_numbers(channels, [0])
-            psd_matrix = prep_data.sv_psd(n_lines, method=method, **kwargs)
+            channel_numbers, ref_numbers = prep_signals._channel_numbers(channels, [0])
+            psd_matrix = prep_signals.sv_psd(n_lines, method=method, **kwargs)
         else:
             # inspect, which reference channels are needed; ref_numbers is a list-of-lists
-            channel_numbers, ref_numbers = prep_data._channel_numbers(channels, refs)
+            channel_numbers, ref_numbers = prep_signals._channel_numbers(channels, refs)
             all_ref_numbers = set(sum(ref_numbers, []))
-            # if all requested reference channels are in prep_data.ref_channels,
+            # if all requested reference channels are in prep_signals.ref_channels,
             # a reduced correlation function may be computed
-            refs_only = all_ref_numbers.issubset(prep_data.ref_channels)
+            refs_only = all_ref_numbers.issubset(prep_signals.ref_channels)
             # if not all are needed, but the user requested so or full psd matrix has been computed already -> use that
             if refs_only:
-                if method == 'welch' and prep_data.psd_matrix_wl is not None:
-                    refs_only = prep_data.num_ref_channels == prep_data.psd_matrix_wl.shape[1]
-                elif method == 'blackman-tukey' and prep_data.psd_matrix_bt is not None:
-                    refs_only = prep_data.num_ref_channels == prep_data.psd_matrix_bt.shape[1]
+                if method == 'welch' and prep_signals.psd_matrix_wl is not None:
+                    refs_only = prep_signals.num_ref_channels == prep_signals.psd_matrix_wl.shape[1]
+                elif method == 'blackman-tukey' and prep_signals.psd_matrix_bt is not None:
+                    refs_only = prep_signals.num_ref_channels == prep_signals.psd_matrix_bt.shape[1]
                 if not kwargs.pop('refs_only', True):
                     refs_only = False
             
-            psd_matrix = prep_data.psd(n_lines, refs_only=refs_only, method=method, **kwargs)
-            assert refs_only is (prep_data.num_ref_channels == psd_matrix.shape[1])
+            psd_matrix = prep_signals.psd(n_lines, refs_only=refs_only, method=method, **kwargs)
+            assert refs_only is (prep_signals.num_ref_channels == psd_matrix.shape[1])
         
-        # prep_data.freqs refers to the last call of any spectral estimation method
-        freqs = prep_data.freqs
+        # prep_signals.freqs refers to the last call of any spectral estimation method
+        freqs = prep_signals.freqs
         
         if ax is None:
             ax = plt.subplot(111)
             
         for channel_number, current_ref_numbers in zip(channel_numbers, ref_numbers):
-            channel_name = prep_data.channel_headers[channel_number]
+            channel_name = prep_signals.channel_headers[channel_number]
             for ref_index, ref_number in enumerate(current_ref_numbers):
                 
                 if scale == 'svd':
@@ -2595,11 +2604,11 @@ class SignalPlot(object):
                 elif refs_only:
                     # reduced-size psd matrix is indexed by reference channel indices
                     psd = psd_matrix[channel_number, ref_index, :]
-                    ref_name = prep_data.channel_headers[ref_number]
+                    ref_name = prep_signals.channel_headers[ref_number]
                 else:
                     # full-size  psd matrix is indexed by reference channel numbers
                     psd = psd_matrix[channel_number, ref_number, :]
-                    ref_name = prep_data.channel_headers[ref_number]
+                    ref_name = prep_signals.channel_headers[ref_number]
                     
                 if scale == 'db':
                     psd = 10 * np.log10(np.abs(psd))
@@ -2610,10 +2619,12 @@ class SignalPlot(object):
                 elif scale == 'phase':
                     psd = np.angle(psd) / np.pi * 180
                 
-                if ref_number == channel_number:
+                if scale == 'svd':
+                    label = f'$\hat{{\sigma}}_\mathrm{{{channel_number}}}$'
+                elif ref_number == channel_number:
                     label = f'$\hat{{S}}_\mathrm{{{channel_name}}}$'
                 else:
-                    ref_name = prep_data.channel_headers[ref_number]
+                    ref_name = prep_signals.channel_headers[ref_number]
                     label = f'$\hat{{S}}_\mathrm{{{ref_name},{channel_name}}}$'
                     
                 ax.plot(freqs, psd, label=label, **plot_kwarg_dict)
@@ -2634,11 +2645,11 @@ class SignalPlot(object):
         return ax
 
     def plot_svd_spectrum(self, NFFT=512, log_scale=True, ax=None):
-        prep_data = self.prep_data
+        prep_signals = self.prep_signals
         logger.warning("DeprecationWarning: method plot_svd_spectrum() will soon be dropped. Use plot_psd(scale='svd')")
         if not log_scale:
             raise NotImplementedError("Log scale for SVD plots cannot be deactivated")
-        return prep_data.plot_psd(n_lines=NFFT, ax=ax, scale='svd')
+        return prep_signals.plot_psd(n_lines=NFFT, ax=ax, scale='svd')
         
 
 def load_measurement_file(fname, **kwargs):

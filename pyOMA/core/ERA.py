@@ -28,15 +28,15 @@ logger.setLevel(level=logging.INFO)
 
 class ERA(object):
 
-    def __init__(self, prep_data):
+    def __init__(self, prep_signals):
         '''
         channel definition: channels start at 0
         '''
         super().__init__()
-        assert isinstance(prep_data, PreProcessSignals)
-        self.prep_data = prep_data
-        self.setup_name = prep_data.setup_name
-        self.start_time = prep_data.start_time
+        assert isinstance(prep_signals, PreProcessSignals)
+        self.prep_signals = prep_signals
+        self.setup_name = prep_signals.setup_name
+        self.start_time = prep_signals.start_time
         #             0         1           2
         # self.state= [SHankelMatrix, State Mat., Modal Par.
         self.state = [False, False, False]
@@ -60,13 +60,13 @@ class ERA(object):
         FRF(Frequency response function) is convertion of signal from time to frequency domain.
         The following function performs this conversion.
         '''
-        measurement = self.prep_data.signals
+        measurement = self.prep_signals.signals
         num_channels = measurement.shape[1]
-        num_time_steps = self.prep_data.F.shape[0]
+        num_time_steps = self.prep_signals.F.shape[0]
         acceleration_fft = np.zeros(
             (num_time_steps // 2 + 1, num_channels), dtype=complex)
 
-        F_fft = np.fft.rfft(np.hamming(num_time_steps) * self.prep_data.F)
+        F_fft = np.fft.rfft(np.hamming(num_time_steps) * self.prep_signals.F)
 
         for channel in range(num_channels):  # loop over channels
             fft_this_channel = np.fft.rfft(np.hamming(
@@ -94,7 +94,7 @@ class ERA(object):
         '''
 
         IRFT = self.IFRF
-        num_channels = self.prep_data.num_analised_channels
+        num_channels = self.prep_signals.num_analised_channels
         num_block_rows = num_block_columns + 1
 
         self.num_block_columns = num_block_columns
@@ -125,7 +125,7 @@ class ERA(object):
         assert self.state[0]
 
         hankel_matrix = self.hankel_matrix  # anil
-        num_channels = self.prep_data.num_analised_channels
+        num_channels = self.prep_signals.num_analised_channels
         num_block_columns = self.num_block_columns
         num_block_rows = self.num_block_rows
         print('Computing state matrices...')
@@ -161,12 +161,12 @@ class ERA(object):
         assert self.state[1]
         print('Computing modal parameters...')
         max_model_order = self.max_model_order
-        num_analised_channels = self.prep_data.num_analised_channels
+        num_analised_channels = self.prep_signals.num_analised_channels
         num_block_rows = self.num_block_rows
         #state_matrix = self.state_matrix
         Oi = self.Oi
         output_matrix = self.output_matrix
-        sampling_rate = self.prep_data.sampling_rate
+        sampling_rate = self.prep_signals.sampling_rate
 
         modal_frequencies = np.zeros((max_model_order, max_model_order))
         modal_damping = np.zeros((max_model_order, max_model_order))
@@ -272,7 +272,7 @@ class ERA(object):
         out_dict = {'self.state': self.state}
         out_dict['self.setup_name'] = self.setup_name
         out_dict['self.start_time'] = self.start_time
-        # out_dict['self.prep_data']=self.prep_data
+        # out_dict['self.prep_signals']=self.prep_signals
         if self.state[0]:  # SHankelMatrix
             #out_dict['self.toeplitz_matrix'] = self.toeplitz_matrix
             out_dict['self.hankel_matrix'] = self.hankel_matrix
@@ -291,7 +291,7 @@ class ERA(object):
         np.savez_compressed(fname, **out_dict)
 
     @classmethod
-    def load_state(cls, fname, prep_data):
+    def load_state(cls, fname, prep_signals):
         print('Now loading previous results from  {}'.format(fname))
 
         in_dict = np.load(fname)
@@ -309,15 +309,15 @@ class ERA(object):
             if this_state:
                 print(state_string)
 
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
         start_time = in_dict['self.start_time'].item()
-        assert setup_name == prep_data.setup_name
-        start_time = prep_data.start_time
+        assert setup_name == prep_signals.setup_name
+        start_time = prep_signals.start_time
 
-        assert start_time == prep_data.start_time
-        #prep_data = in_dict['self.prep_data'].item()
-        ssi_object = cls(prep_data)
+        assert start_time == prep_signals.start_time
+        #prep_signals = in_dict['self.prep_signals'].item()
+        ssi_object = cls(prep_signals)
         ssi_object.state = state
         if state[0]:  # SHankelMatrix
             ssi_object.hankel_matrix = in_dict['self.hankel_matrix']

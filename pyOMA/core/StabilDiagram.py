@@ -79,7 +79,7 @@ logger.setLevel(level=logging.INFO)
 
 class StabilCalc(object):
 
-    def __init__(self, modal_data, prep_data=None, **kwargs):
+    def __init__(self, modal_data, prep_signals=None, **kwargs):
 
         super().__init__()
         #print(type(modal_data), file=sys.stderr)
@@ -92,15 +92,16 @@ class StabilCalc(object):
         self.setup_name = modal_data.setup_name
         self.start_time = modal_data.start_time
 
-        if prep_data is not None:
-            assert isinstance(prep_data, PreProcessSignals)
-        self.prep_data = prep_data
+        if prep_signals is not None:
+            logger.warning('Providing prep_signals is not required anymore. Ignoring argument!')
+            # assert isinstance(prep_signals, PreProcessSignals)
+        self.prep_signals = modal_data.prep_signals
 
         has_mode_shapes = self.modal_data.__dict__.get(
             'mode_shapes', None) is not None
         has_variances = self.modal_data.__dict__.get(
             'std_frequencies', None) is not None
-        has_data = prep_data is not None
+        has_data = prep_signals is not None
         has_MC = self.modal_data.__dict__.get(
             'modal_contributions', None) is not None
         has_ev = self.modal_data.__dict__.get(
@@ -645,7 +646,7 @@ class StabilCalc(object):
         if self.capabilities['msh']:
             for row in range(selected_modes.shape[0]):
                 if self.capabilities['data']:
-                    chan_dofs = self.prep_data.chan_dofs
+                    chan_dofs = self.prep_signals.chan_dofs
                 elif isinstance(self.modal_data, PogerSSICovRef):
                     chan_dofs = self.modal_data.merged_chan_dofs
                 else:
@@ -984,8 +985,8 @@ class StabilCalc(object):
         return np.logical_not(mask)
 
     def get_max_f(self):
-        if self.prep_data is not None:
-            return self.prep_data.sampling_rate / 2
+        if self.prep_signals is not None:
+            return self.prep_signals.sampling_rate / 2
         elif isinstance(self.modal_data, PogerSSICovRef):
             return self.modal_data.sampling_rate / 2
         else:
@@ -1159,7 +1160,7 @@ class StabilCalc(object):
         np.savez_compressed(fname, **out_dict)
 
     @classmethod
-    def load_state(cls, fname, modal_data, prep_data=None):
+    def load_state(cls, fname, modal_data, prep_signals=None):
         print('Now loading previous results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
@@ -1175,7 +1176,7 @@ class StabilCalc(object):
         assert setup_name == modal_data.setup_name
         #assert start_time == modal_data.start_time
 
-        stabil_data = cls(modal_data, prep_data)
+        stabil_data = cls(modal_data, prep_signals)
 
         if state >= 1:
             if stabil_data.capabilities['ev']:
@@ -1291,11 +1292,11 @@ class StabilCluster(StabilCalc):
 
     """
 
-    def __init__(self, modal_data, prep_data=None):
+    def __init__(self, modal_data, prep_signals=None):
         '''
         stab_* in %
         '''
-        super().__init__(modal_data, prep_data)
+        super().__init__(modal_data, prep_signals)
 
         assert self.capabilities['ev']
 
@@ -1351,7 +1352,7 @@ class StabilCluster(StabilCalc):
         self.order_dummy.mask = od_mask
         self.masked_frequencies.mask = mf_mask
         plot.ylim((0, 200))
-        plot.xlim((0, self.prep_data.sampling_rate / 2))
+        plot.xlim((0, self.prep_signals.sampling_rate / 2))
         plot.xlabel('Frequency [Hz]')
         plot.ylabel('Model Order ')
         plot.tight_layout()
@@ -1906,7 +1907,7 @@ class StabilCluster(StabilCalc):
         ax2.set_ylabel('Nr. of elements')
         ax2.set_title('Clusters')
         plot.tight_layout()
-        plot.xlim((0, self.prep_data.sampling_rate / 2))
+        plot.xlim((0, self.prep_signals.sampling_rate / 2))
         #plot.savefig('Main_plot_clusters_' + self.timestamp + '.' + self.format_plot, format=self.format_plot)
         if save_path is not None:
             plot.savefig(save_path + 'select_clusters.pdf')
@@ -2414,7 +2415,7 @@ class StabilPlot(object):
                     line._visible = b
             self.fig.canvas.draw_idle()
             return
-        elif self.psd_plot and NFFT == self.stabil_calc.prep_data.n_lines:
+        elif self.psd_plot and NFFT == self.stabil_calc.prep_signals.n_lines:
             for channel in self.psd_plot:
                 for line in channel:
                     line._visible = b
@@ -2426,13 +2427,13 @@ class StabilPlot(object):
                     line.remove()
             self.psd_plot = []
 
-        if self.stabil_calc.prep_data is None:
+        if self.stabil_calc.prep_signals is None:
             raise RuntimeError('Measurement Data was not provided!')
         if not b:
             return
         
-        sv_psd = self.stabil_calc.prep_data.sv_psd(NFFT)
-        freq_psd = self.stabil_calc.prep_data.freqs
+        sv_psd = self.stabil_calc.prep_signals.sv_psd(NFFT)
+        freq_psd = self.stabil_calc.prep_signals.freqs
 
         # sv_psd -= np.min(sv_psd)
         # sv_psd /= (np.max(sv_psd)) * 0.5 * \

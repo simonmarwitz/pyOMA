@@ -63,9 +63,9 @@ class PLSCF(ModalBase):
         self.max_model_order = None
 
     @classmethod
-    def init_from_config(cls, conf_file, prep_data):
+    def init_from_config(cls, conf_file, prep_signals):
         assert os.path.exists(conf_file)
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
 
         with open(conf_file, 'r') as f:
 
@@ -78,7 +78,7 @@ class PLSCF(ModalBase):
             assert f.__next__().strip('\n').strip(' ') == 'Maximum Model Order:'
             max_model_order = int(f. __next__().strip('\n'))
 
-        pLSCF_object = cls(prep_data)
+        pLSCF_object = cls(prep_signals)
         pLSCF_object.build_half_spectra(
             begin_frequency, end_frequency, nperseg)
         pLSCF_object.compute_modal_params(max_model_order)
@@ -104,17 +104,17 @@ class PLSCF(ModalBase):
         self.begin_frequency = begin_frequency
         self.end_frequency = end_frequency
         self.nperseg = nperseg
-        total_time_steps = self.prep_data.total_time_steps
-        ref_channels = sorted(self.prep_data.ref_channels)
+        total_time_steps = self.prep_signals.total_time_steps
+        ref_channels = sorted(self.prep_signals.ref_channels)
         roving_channels = [
             i for i in range(
-                self.prep_data.num_analised_channels) if i not in ref_channels]
+                self.prep_signals.num_analised_channels) if i not in ref_channels]
 
-        measurement = self.prep_data.signals
-        num_analised_channels = self.prep_data.num_analised_channels
-        num_ref_channels = self.prep_data.num_ref_channels
+        measurement = self.prep_signals.signals
+        num_analised_channels = self.prep_signals.num_analised_channels
+        num_ref_channels = self.prep_signals.num_ref_channels
 
-        sampling_rate = self.prep_data.sampling_rate
+        sampling_rate = self.prep_signals.sampling_rate
 
         # Extract reference time series for half spectra
 
@@ -298,16 +298,16 @@ class PLSCF(ModalBase):
 
         print('Computing modal parameters...')
 
-        #ref_channels = sorted(self.prep_data.ref_channels)
-        #roving_channels = self.prep_data.roving_channels
-        #signals = self.prep_data.signals
-        num_analised_channels = self.prep_data.num_analised_channels
-        num_ref_channels = self.prep_data.num_ref_channels
+        #ref_channels = sorted(self.prep_signals.ref_channels)
+        #roving_channels = self.prep_signals.roving_channels
+        #signals = self.prep_signals.signals
+        num_analised_channels = self.prep_signals.num_analised_channels
+        num_ref_channels = self.prep_signals.num_ref_channels
         selected_omega_vector = self.selected_omega_vector
         num_omega = self.num_omega
         spectrum_tensor = self.spectrum_tensor
 
-        sampling_rate = self.prep_data.sampling_rate
+        sampling_rate = self.prep_signals.sampling_rate
         Delta_t = 1 / sampling_rate
 
         # Compute the modal solutions for all model orders
@@ -504,7 +504,7 @@ class PLSCF(ModalBase):
         out_dict = {'self.state': self.state}
         out_dict['self.setup_name'] = self.setup_name
         out_dict['self.start_time'] = self.start_time
-        # out_dict['self.prep_data']=self.prep_data
+        # out_dict['self.prep_signals']=self.prep_signals
         if self.state[0]:  # spectral tensor
             out_dict['self.begin_frequency'] = self.begin_frequency
             out_dict['self.end_frequency'] = self.end_frequency
@@ -521,7 +521,7 @@ class PLSCF(ModalBase):
         np.savez_compressed(fname, **out_dict)
 
     @classmethod
-    def load_state(cls, fname, prep_data):
+    def load_state(cls, fname, prep_signals):
         print('Now loading previous results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
@@ -537,15 +537,15 @@ class PLSCF(ModalBase):
             if this_state:
                 print(state_string)
 
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
         start_time = in_dict['self.start_time'].item()
-        assert setup_name == prep_data.setup_name
-        start_time = prep_data.start_time
+        assert setup_name == prep_signals.setup_name
+        start_time = prep_signals.start_time
 
-        assert start_time == prep_data.start_time
-        #prep_data = in_dict['self.prep_data'].item()
-        pLSCF_object = cls(prep_data)
+        assert start_time == prep_signals.start_time
+        #prep_signals = in_dict['self.prep_signals'].item()
+        pLSCF_object = cls(prep_signals)
         pLSCF_object.state = state
         if state[0]:  # spectral tensor
             pLSCF_object.begin_frequency = in_dict['self.begin_frequency']

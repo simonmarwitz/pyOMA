@@ -335,7 +335,7 @@ class ModeShapeGUI(QMainWindow):
         self.ani_button.setToolTip("Play")
         self.ani_button.released.connect(self.animate)
 
-        if mode_shape_plot.prep_data is not None:
+        if mode_shape_plot.prep_signals is not None:
             self.ani_lowpass_box = DelayedDoubleSpinBox()
             self.ani_lowpass_box.setRange(0, 1000000000)
             self.ani_lowpass_box.valueChangedDelayed.connect(
@@ -353,7 +353,7 @@ class ModeShapeGUI(QMainWindow):
 
             self.ani_position_slider = QSlider(Qt.Horizontal)
             self.ani_position_slider.setRange(
-                0, mode_shape_plot.prep_data.signals.shape[0])
+                0, mode_shape_plot.prep_signals.signals.shape[0])
             self.ani_position_slider.valueChanged.connect(self.set_ani_time)
             self.ani_position_data = QLineEdit()
 
@@ -482,7 +482,7 @@ class ModeShapeGUI(QMainWindow):
 
         lay_1.addWidget(self.ani_button, 3, 0,)
         tab_1.setLayout(lay_1)
-        if mode_shape_plot.prep_data is not None:
+        if mode_shape_plot.prep_signals is not None:
             lay_2.addWidget(QLabel('Lowpass [Hz]:'), 0, 0)
             lay_2.addWidget(self.ani_lowpass_box, 0, 1)
             lay_2.addWidget(QLabel('Highpass [Hz]:'), 1, 0)
@@ -883,11 +883,11 @@ class ModeShapeGUI(QMainWindow):
         if lowpass and highpass:
             assert lowpass > highpass
         #print(highpass, lowpass)
-        self.mode_shape_plot.prep_data.filter_signals(lowpass, highpass)
+        self.mode_shape_plot.prep_signals.filter_signals(lowpass, highpass)
 
     def set_ani_time(self, pos):
         # print(pos)
-        tot_len = self.mode_shape_plot.prep_data.signals.shape[0]
+        tot_len = self.mode_shape_plot.prep_signals.signals.shape[0]
         #pos = int(pos*tot_len)
         self.mode_shape_plot.line_ani.frame_seq = iter(range(pos, tot_len))
 

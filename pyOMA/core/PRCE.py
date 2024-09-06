@@ -64,9 +64,9 @@ class PRCE(ModalBase):
         self.x_corr_Tensor = None
 
     @classmethod
-    def init_from_config(cls, mod_ID_file, prep_data):
+    def init_from_config(cls, mod_ID_file, prep_signals):
         assert os.path.exists(mod_ID_file)
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
 
         #print('mod_ID_file: ', mod_ID_file)
 
@@ -77,7 +77,7 @@ class PRCE(ModalBase):
             assert f.__next__().strip('\n').strip(' ') == 'Maximum Model Order:'
             max_model_order = int(f. __next__().strip('\n'))
 
-        prce_object = cls(prep_data)
+        prce_object = cls(prep_signals)
         print(num_corr_samples, max_model_order)
         prce_object.build_corr_tensor(num_corr_samples)
         prce_object.compute_modal_params(max_model_order)
@@ -95,12 +95,12 @@ class PRCE(ModalBase):
         assert isinstance(num_corr_samples, int)
 
         self.num_corr_samples = num_corr_samples
-#         total_time_steps = self.prep_data.total_time_steps
-#         ref_channels = sorted(self.prep_data.ref_channels)      # List of ref. channel numbers
-#         roving_channels = self.prep_data.roving_channels        # List of rov. channel numbers
-#         measurement = self.prep_data.measurement
-#         num_analised_channels = self.prep_data.num_analised_channels
-#         num_ref_channels =self.prep_data.num_ref_channels
+#         total_time_steps = self.prep_signals.total_time_steps
+#         ref_channels = sorted(self.prep_signals.ref_channels)      # List of ref. channel numbers
+#         roving_channels = self.prep_signals.roving_channels        # List of rov. channel numbers
+#         measurement = self.prep_signals.measurement
+#         num_analised_channels = self.prep_signals.num_analised_channels
+#         num_ref_channels =self.prep_signals.num_ref_channels
 #
 #         all_channels = ref_channels + roving_channels
 #         all_channels.sort()
@@ -123,10 +123,10 @@ class PRCE(ModalBase):
 #
 #                 x_corr = np.flipud(np.correlate(ref_series, chan_series, mode='valid'))
 #                 x_corr_Tensor[ref, chan,:] = x_corr
-        self.prep_data.correlation(2 * num_corr_samples + 1)
+        self.prep_signals.correlation(2 * num_corr_samples + 1)
 
         self.x_corr_Tensor = np.transpose(
-            self.prep_data.corr_matrix, [
+            self.prep_signals.corr_matrix, [
                 1, 0, 2])  # x_corr_Tensor
         self.state[0] = True
 
@@ -181,12 +181,12 @@ class PRCE(ModalBase):
         num_corr_samples = self.num_corr_samples
         #state_matrix = self.state_matrix
         #output_matrix = self.output_matrix
-        sampling_rate = self.prep_data.sampling_rate
+        sampling_rate = self.prep_signals.sampling_rate
         # List of ref. channel numbers
-        ref_channels = sorted(self.prep_data.ref_channels)
+        ref_channels = sorted(self.prep_signals.ref_channels)
 
-        num_analised_channels = self.prep_data.num_analised_channels
-        num_ref_channels = self.prep_data.num_ref_channels
+        num_analised_channels = self.prep_signals.num_analised_channels
+        num_ref_channels = self.prep_signals.num_ref_channels
 
 #         all_channels = ref_channels + roving_channels
 #         all_channels.sort()
@@ -351,7 +351,7 @@ class PRCE(ModalBase):
                 # integrate acceleration and velocity channels to level out all channels in phase and amplitude
                 #mode_shapes_j = self.integrate_quantities(mode_shapes_j, accel_channels, velo_channels, np.abs(lambda_k))
 
-                # mode_shapes_j*=self.prep_data.channel_factors
+                # mode_shapes_j*=self.prep_signals.channel_factors
 
                 modal_frequencies[(this_model_order - 1), index] = freq_j
                 modal_damping[(this_model_order - 1), index] = damping_j
@@ -407,7 +407,7 @@ class PRCE(ModalBase):
         # self.state= [Corr. Tensor, Modal Par.
         out_dict = {'self.state': self.state}
         out_dict['self.setup_name'] = self.setup_name
-        # out_dict['self.prep_data']=self.prep_data
+        # out_dict['self.prep_signals']=self.prep_signals
         if self.state[0]:  # cross correlation tensor
             out_dict['self.x_corr_Tensor'] = self.x_corr_Tensor
         if self.state[1]:  # modal params
@@ -419,7 +419,7 @@ class PRCE(ModalBase):
         np.savez_compressed(fname, **out_dict)
 
     @classmethod
-    def load_state(cls, fname, prep_data):
+    def load_state(cls, fname, prep_signals):
         print('Now loading previous results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
@@ -436,10 +436,10 @@ class PRCE(ModalBase):
             if this_state:
                 print(state_string)
 
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
-        #prep_data = in_dict['self.prep_data'].item()
-        prce_object = cls(prep_data)
+        #prep_signals = in_dict['self.prep_signals'].item()
+        prce_object = cls(prep_signals)
         prce_object.state = state
         if state[0]:  # covariances
             prce_object.x_corr_Tensor = in_dict['self.x_corr_Tensor']

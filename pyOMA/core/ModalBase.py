@@ -38,17 +38,22 @@ class ModalBase(object):
           modal base instead of each possible modal analysis class
     '''
 
-    def __init__(self, prep_data=None):
+    def __init__(self, prep_signals=None):
         super().__init__()
-        if prep_data is not None:
-            assert isinstance(prep_data, PreProcessSignals)
-            self.setup_name = prep_data.setup_name
-            self.start_time = prep_data.start_time
+        if prep_signals is not None:
+            assert isinstance(prep_signals, PreProcessSignals)
+            self.setup_name = prep_signals.setup_name
+            self.start_time = prep_signals.start_time
+            self.num_analised_channels = prep_signals.num_analised_channels
+            self.num_ref_channels = prep_signals.num_ref_channels
         else:
             self.setup_name = ''
             self.start_time = None
-        self.prep_data = prep_data
-
+            self.num_analised_channels = None
+            self.num_ref_channels = None
+            
+        self.prep_signals = prep_signals
+        
         self.max_model_order = None
 
         self.eigenvalues = None
@@ -117,7 +122,7 @@ class ModalBase(object):
             return eigval, eigvec_l, eigvec_r
 
     @classmethod
-    def init_from_config(cls, conf_file, prep_data):
+    def init_from_config(cls, conf_file, prep_signals):
         '''
         A method for initializing a modal object from configuration data
         bypassing common operations in explicit code for semi-automated
@@ -129,13 +134,13 @@ class ModalBase(object):
         '''
 
         assert os.path.exists(conf_file)
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
 
         with open(conf_file, 'r') as _:
             # read configuration parameters line by line
             pass
 
-        modal_object = cls(prep_data)
+        modal_object = cls(prep_signals)
 
         return modal_object
 
@@ -145,7 +150,8 @@ class ModalBase(object):
         # output quantities = [d, d, d]
         # converts amplitude and phase
         #                     phase + 180; magn / omega^2
-
+        vector = np.copy(vector)
+        
         vector[accel_channels] *= -1 / (omega ** 2)
         #                    phase + 90; magn / omega
         vector[velo_channels] *= 1j / omega
@@ -182,7 +188,7 @@ class ModalBase(object):
         np.savez_compressed(fname, **out_dict)
 
     @classmethod
-    def load_state(cls, fname, prep_data):
+    def load_state(cls, fname, prep_signals):
         '''
         Loads the state of the object from a compressed numpy archive file
         and returns the object
@@ -192,7 +198,7 @@ class ModalBase(object):
         print('Now loading previous results from  {}'.format(fname))
 
         assert os.path.exists(fname)
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
         in_dict = np.load(fname, allow_pickle=True)
 
         if 'self.state' in in_dict:
@@ -206,9 +212,9 @@ class ModalBase(object):
                 print(state_string)
 
         setup_name = str(in_dict['self.setup_name'].item())
-        assert setup_name == prep_data.setup_name
+        assert setup_name == prep_signals.setup_name
 
-        modal_object = cls(prep_data)
+        modal_object = cls(prep_signals)
         modal_object.state = state
 
         raise NotImplementedError(

@@ -1571,7 +1571,7 @@ def start_stabil_gui(
         stabil_plot,
         modal_data,
         geometry_data=None,
-        prep_data=None,
+        prep_signals=None,
         select_modes=[],
         **kwargs):
     # print(kwargs)
@@ -1586,12 +1586,12 @@ def start_stabil_gui(
 
     assert isinstance(stabil_plot, StabilPlot)
     cmpl_plot = ComplexPlot()
-    if geometry_data is not None:  # and prep_data is not None:
+    if geometry_data is not None:  # and prep_signals is not None:
 
         mode_shape_plot = ModeShapePlot(stabil_calc=stabil_plot.stabil_calc,
                                         modal_data=modal_data,
                                         geometry_data=geometry_data,
-                                        prep_data=prep_data,
+                                        prep_signals=prep_signals,
                                         **kwargs)
 
         msh_plot = ModeShapeGUI(mode_shape_plot, reduced_gui=True)

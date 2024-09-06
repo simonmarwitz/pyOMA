@@ -23,7 +23,7 @@ Multi-Setup Merging PoSER
 
 for each setup provide:
 
-prep_data -> PreProcessSignals: chan_dofs, ref_channels, roving_channels
+prep_signals -> PreProcessSignals: chan_dofs, ref_channels, roving_channels
 modal_data -> modal_frequencies, modal_damping, mode_shapes
 stabil_data -> select_modes
 
@@ -42,7 +42,7 @@ modal_data ->  modal_frequencies, modal_damping, mode_shapes, chan_dofs, ref_cha
 stabil_data -> select_modes
 
 PlotMSH (or other postprocessing routines) have to distinguish these three cases:
-single-setup (prep_data, modal_data, stabil_data)
+single-setup (prep_signals, modal_data, stabil_data)
 poger/preger multi-setup (modal_data, stabil_data)
 poser multi-setup (merged_data)
 '''
@@ -85,7 +85,7 @@ class MergePoSER(object):
 
     def add_setup(
             self,
-            prep_data,
+            prep_signals,
             modal_data,
             stabil_data,
             override_ref_channels=None):
@@ -94,34 +94,34 @@ class MergePoSER(object):
         if override_ref_channels:
             raise RuntimeWarning('This function is not implemented yet!')
 
-        assert isinstance(prep_data, PreProcessSignals)
+        assert isinstance(prep_signals, PreProcessSignals)
         assert isinstance(modal_data, ModalBase)
         assert isinstance(stabil_data, StabilCalc)
 
         # assure objects belong to the same setup
-        assert prep_data.setup_name == modal_data.setup_name
+        assert prep_signals.setup_name == modal_data.setup_name
         assert modal_data.setup_name == stabil_data.setup_name
 
         # assure chan_dofs were assigned
-        assert prep_data.chan_dofs
+        assert prep_signals.chan_dofs
 
         # assure modes were selected
         assert stabil_data.select_modes
 
         # extract needed information and store them in a dictionary
-        self.setups.append({'setup_name': prep_data.setup_name,
-                            'chan_dofs': prep_data.chan_dofs,
-                            'num_channels': prep_data.num_analised_channels,
-                            'ref_channels': prep_data.ref_channels,
+        self.setups.append({'setup_name': prep_signals.setup_name,
+                            'chan_dofs': prep_signals.chan_dofs,
+                            'num_channels': prep_signals.num_analised_channels,
+                            'ref_channels': prep_signals.ref_channels,
                             'modal_frequencies': [modal_data.modal_frequencies[index] for index in stabil_data.select_modes],
                             'modal_damping': [modal_data.modal_damping[index] for index in stabil_data.select_modes],
                             'mode_shapes': [modal_data.mode_shapes[:, index[1], index[0]] for index in stabil_data.select_modes]
                             })
-        self.start_time = min(self.start_time, prep_data.start_time)
+        self.start_time = min(self.start_time, prep_signals.start_time)
 
         print(
             'Added setup "{}" with {} channels and {} selected modes.'.format(
-                prep_data.setup_name, prep_data.num_analised_channels, len(
+                prep_signals.setup_name, prep_signals.num_analised_channels, len(
                     stabil_data.select_modes)))
 
         self.state[0] = True
@@ -575,13 +575,13 @@ def main():
     for setup in setups:
         result_folder = working_dir + setup
 
-        prep_data = PreProcessSignals.load_state(result_folder + 'prep_data.npz')
+        prep_signals = PreProcessSignals.load_state(result_folder + 'prep_signals.npz')
         modal_data = BRSSICovRef.load_state(
-            result_folder + 'modal_data.npz', prep_data)
+            result_folder + 'modal_data.npz', prep_signals)
         stabil_data = StabilCalc.load_state(
-            result_folder + 'stabi_data.npz', modal_data, prep_data)
+            result_folder + 'stabi_data.npz', modal_data, prep_signals)
 
-        merger.add_setup(prep_data, modal_data, stabil_data)
+        merger.add_setup(prep_signals, modal_data, stabil_data)
 
     merger.merge()
 

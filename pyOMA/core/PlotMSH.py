@@ -111,7 +111,7 @@ class ModeShapePlot(object):
                  geometry_data,
                  stabil_calc=None,
                  modal_data=None,
-                 prep_data=None,
+                 prep_signals=None,
                  merged_data=None,
                  selected_mode=[0, 0],
                  amplitude=1,
@@ -144,9 +144,9 @@ class ModeShapePlot(object):
         +----------------+--------------+-------------+--------------+
         |modeshapes      | modal_data   |modal_data   |merged_data   |
         +----------------+--------------+-------------+--------------+
-        |num_channels    | prep_data    |modal_data   |merged_data   |
+        |num_channels    | prep_signals    |modal_data   |merged_data   |
         +----------------+--------------+-------------+--------------+
-        |chan_dofs       | prep_data    |modal_data   |merged_data   |
+        |chan_dofs       | prep_signals    |modal_data   |merged_data   |
         +----------------+--------------+-------------+--------------+
         |select_modes    | stabil_data  |stabil_data  |merged_data   |
         +----------------+--------------+-------------+--------------+
@@ -171,7 +171,7 @@ class ModeShapePlot(object):
                     containing the estimated modal parameters at multiple
                     model orders.
 
-            prep_data : PreProcessingTools.PreProcessSignals, optional
+            prep_signals : PreProcessingTools.PreProcessSignals, optional
                     Object containing the signals data and information
                     about it.
 
@@ -235,9 +235,9 @@ class ModeShapePlot(object):
             assert isinstance(modal_data, ModalBase)
         self.modal_data = modal_data
 
-        if prep_data is not None:
-            assert isinstance(prep_data, PreProcessSignals)
-        self.prep_data = prep_data
+        if prep_signals is not None:
+            assert isinstance(prep_signals, PreProcessSignals)
+        self.prep_signals = prep_signals
 
         if merged_data is not None:
             assert isinstance(merged_data, MergePoSER)
@@ -254,25 +254,25 @@ class ModeShapePlot(object):
             merging = 'PoSER'
             req_obj = {}
             nreq_obj = {'modal_data':modal_data,
-                        'prep_data':prep_data,
+                        'prep_signals':prep_signals,
                         'stabil_calc':stabil_calc}
         elif isinstance(modal_data, PogerSSICovRef):
             merging = 'PoGER'
             req_obj = {'modal_data':modal_data,
                        'stabil_calc':stabil_calc}
-            nreq_obj = {'prep_data':prep_data,
+            nreq_obj = {'prep_signals':prep_signals,
                         'merged_data':merged_data}
         elif modal_data is not None:
             merging = 'single' # also when used from within stabil_diagram
             req_obj = {'modal_data':modal_data,
-                       'prep_data':prep_data,
+                       'prep_signals':prep_signals,
                        'stabil_calc':stabil_calc}
             nreq_obj = {'merged_data':merged_data}
         else: # modal_data is None and merged_data is None
             # time-history visualization, testing
             merging = None
             req_obj = {}
-            nreq_obj = {'prep_data':prep_data,
+            nreq_obj = {'prep_signals':prep_signals,
                         'stabil_calc':stabil_calc,
                         }
         
@@ -314,8 +314,8 @@ class ModeShapePlot(object):
             self.start_time = modal_data.start_time
             
         elif merging == 'single':
-            self.chan_dofs = prep_data.chan_dofs
-            self.num_channels = prep_data.num_analised_channels
+            self.chan_dofs = prep_signals.chan_dofs
+            self.num_channels = prep_signals.num_analised_channels
 
             self.modal_frequencies = modal_data.modal_frequencies
             self.modal_damping = modal_data.modal_damping
@@ -332,9 +332,9 @@ class ModeShapePlot(object):
             self.start_time = modal_data.start_time
 
         else:
-            if prep_data is not None:
-                self.chan_dofs = prep_data.chan_dofs
-                self.num_channels = prep_data.num_analised_channels
+            if prep_signals is not None:
+                self.chan_dofs = prep_signals.chan_dofs
+                self.num_channels = prep_signals.num_analised_channels
             else:
                 self.chan_dofs = []
                 self.num_channels = 0
@@ -2200,7 +2200,7 @@ class ModeShapePlot(object):
             '''
             Subfunction to calculate displacements.
             '''
-            self.callback(f'{num/self.prep_data.sampling_rate:.4f}')
+            self.callback(f'{num/self.prep_signals.sampling_rate:.4f}')
             disp_nodes = {i: [0, 0, 0]
                           for i in self.geometry_data.nodes.keys()}
             for chan_dof in self.chan_dofs:
@@ -2211,11 +2211,11 @@ class ModeShapePlot(object):
                 if node not in self.geometry_data.nodes.keys():
                     continue
                 x, y, z = self.calc_xyz(az * np.pi / 180, elev * np.pi / 180)
-                disp_nodes[node][0] += self.prep_data.signals_filtered[num,
+                disp_nodes[node][0] += self.prep_signals.signals_filtered[num,
                                                                        chan_] * x * self.amplitude
-                disp_nodes[node][1] += self.prep_data.signals_filtered[num,
+                disp_nodes[node][1] += self.prep_signals.signals_filtered[num,
                                                                        chan_] * y * self.amplitude
-                disp_nodes[node][2] += self.prep_data.signals_filtered[num,
+                disp_nodes[node][2] += self.prep_signals.signals_filtered[num,
                                                                        chan_] * z * self.amplitude
 
             # print(num)
@@ -2276,17 +2276,17 @@ class ModeShapePlot(object):
         self.connect_handles = [c1, c2, c3]
         self.button_pressed = None
 
-        #self.prep_data.filter_data(lowpass, highpass)
+        #self.prep_signals.filter_data(lowpass, highpass)
         if callback is not None:
             self.callback = callback
         self.line_ani = matplotlib.animation.FuncAnimation(
             fig=self.fig,
             func=update_lines,
             frames=range(
-                self.prep_data.signals_filtered.shape[0]),
+                self.prep_signals.signals_filtered.shape[0]),
             init_func=init_lines,
             interval=1 /
-            self.prep_data.sampling_rate,
+            self.prep_signals.sampling_rate,
             save_count=0,
             blit=True)
 
