@@ -1,7 +1,7 @@
 Number of Block-Columns:
 200
 Maximum Model Order:
-200
+40
 Use Multiprocessing:
 yes
 
