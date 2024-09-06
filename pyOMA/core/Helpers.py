@@ -73,6 +73,30 @@ def calc_xyz(az, elev, r=1):
 
     return x, y, z
 
+def validate_array(arr):
+    '''
+    Determine whether the argument has a numeric datatype and if
+    not convert the argument to a scalar object or a list.
+
+    Booleans, unsigned integers, signed integers, floats and complex
+    numbers are the kinds of numeric datatype.
+
+    Parameters
+    ----------
+    array : array-like
+        The array to check.
+    
+    '''
+    if arr is None:
+        return None
+    _NUMERIC_KINDS = set('buifc')
+    if not arr.shape:
+        return arr.item()
+    elif arr.dtype.kind in _NUMERIC_KINDS:
+        return arr
+    else:
+        return list(arr)
+
 def get_method_dict():
     from pyOMA.core.PLSCF import PLSCF
     from pyOMA.core.PRCE import PRCE
@@ -85,3 +109,37 @@ def get_method_dict():
                    'Poly-reference Least Squares Complex Frequency': PLSCF,
                    'Poly-reference Complex Exponential': PRCE, }
     return method_dict
+
+
+def rq_decomp(a, mode='full'):
+    q, r = np.linalg.qr(np.flipud(a).T, mode=mode)
+    return np.flipud(r.T), q.T
+
+
+def ql_decomp(a, mode='full'):
+    q, r = np.linalg.qr(np.fliplr(a), mode)
+    return q, np.fliplr(r)
+
+
+def lq_decomp(a, mode='full', unique=True):
+    '''
+    a: array_like, shape (M,N)
+    l: (M,K)
+    q: (K,N)
+    '''
+    if mode == 'r':
+        r = np.linalg.qr(a.T, mode)
+    else:
+        q, r = np.linalg.qr(a.T, mode)
+
+    if unique:
+        fact = np.sign(np.diag(r))
+        r *= np.repeat(np.reshape(fact, (r.shape[0], 1)), r.shape[1], axis=1)
+        if mode != 'r':
+            q *= fact
+            # print(np.allclose(a.T,q.dot(r)))
+
+    if mode == 'r':
+        return r.T
+    else:
+        return r.T, q.T
