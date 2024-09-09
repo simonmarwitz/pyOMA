@@ -66,6 +66,7 @@ collections = {
    'single_setup_analysis.ipynb': {
       'driver': 'copy_file',
       'source': '../scripts/single_setup_analysis.ipynb',
-      'final_clean': False
+      'final_clean': False, 
+      'clean': False
    }
 }
