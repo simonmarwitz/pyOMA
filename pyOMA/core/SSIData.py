@@ -576,10 +576,12 @@ class SSIDataMC(ModalBase):
     def compute_modal_params(self, max_model_order=None, j=None, synth_sig=True):
         '''
         Perform a multi-order computation of modal parameters. Successively
-        calls 
-        * estimate_state(order,)
-        * modal_analysis(A,C)
-        * synthesize_signals(A, C, Q, R, S, j) 
+        calls
+        
+         * estimate_state(order,)
+         * modal_analysis(A,C)
+         * synthesize_signals(A, C, Q, R, S, j) 
+        
         at ascending model orders, up to max_model_order. 
         See the explanations in the the respective methods, for a detailed 
         explanation of parameters.
@@ -657,9 +659,10 @@ class SSIDataMC(ModalBase):
         '''
         Estimate the state matrices A, C and noise covariances Q, R and S from
         the subspace / projection matrix. Several methods exist, e.g. 
-        * Peeters 1999 Reference Based Stochastic Subspace Identification for OMA
-        * DeCock 2007 Subspace Identification Methods
-        * the algorithm used in BRSSICovRef.
+        
+         * Peeters 1999 Reference Based Stochastic Subspace Identification for OMA
+         * DeCock 2007 Subspace Identification Methods
+         * the algorithm used in BRSSICovRef.
         
         Here, the first algorithm, a residual-based computation of Q, R  and S, 
         is implemented.
@@ -975,6 +978,24 @@ class SSIDataMC(ModalBase):
 class SSIData(SSIDataMC):
     
     def compute_modal_params(self, max_model_order):
+        
+        '''
+        Perform a multi-order computation of modal parameters. Successively
+        calls
+        
+         * estimate_state(order,)
+         * modal_analysis(A,C)
+        
+        at ascending model orders, up to max_model_order. 
+        See the explanations in the the respective methods, for a detailed 
+        explanation of parameters.
+        
+        Parameters
+        ----------
+            max_model_order: integer, optional
+                Maximum model order, where to interrupt the algorithm. If not given,
+                it is determined from the previously computed subspace matrix.
+        '''
         super().compute_modal_params(max_model_order, synth_sig=False)
     
     def estimate_state(self, order, max_modes=None, algo='svd'):

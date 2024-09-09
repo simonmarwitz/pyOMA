@@ -2228,6 +2228,10 @@ class SignalPlot(object):
                 A dictionary to pass arguments to matplotlib.plot
             kwargs:
                 Additional kwargs are passed to the spectral estimation method
+        
+        .. TO DO::
+            * share y-axis scaling on axes' only between channels of the same 
+              measurement quantity (acceleration, velocity, displacement/strains)
         '''
         prep_signals = self.prep_signals
         refs = kwargs.pop('refs', None)

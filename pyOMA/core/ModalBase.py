@@ -62,26 +62,43 @@ class ModalBase(object):
         self.mode_shapes = None
 
     @staticmethod
-    def remove_conjugates(eigval, eigvec_r, eigvec_l=None, inds_only=False):
+    def remove_conjugates(eigval, eigvec_r=None, eigvec_l=None, inds_only=False):
         '''
-        finds conjugates:
-        :math:`\\lambda_i = \\overline{\\lambda_j} \\text{for} i \\neq j`
+        This method finds complex conjugate modes, and removes unstable and 
+        overdamped poles. 
+        
+        A complex conjugate is defined as:
+        :math:`\\lambda_i = \\overline{\\lambda_j} \\text{ for } i \\neq j`
 
-        unstable poles i.e. negatively damped poles
+        Unstable poles, i.e. negatively damped poles, are defined by:
         :math:`[\\ln(|\\lambda|)<0]: |\\lambda_i|> 1`
 
-        overdamped poles
-        :math:`[\\operatorname{atan}(\\Im/\\Re)=0]`
-        i.e. real poles: :math:`\\Im(\\lambda_i)==0`
+        Overdamped poles, are purely real poles:
+        :math:`[\\operatorname{atan}(\\Im/\\Re)=0]: \\Im(\\lambda_i)=0`
 
-        imaginary poles i.e. nyquist frequency:
-        :math:`\\Re(\\lambda_i)==0`
-
-        keeps the second occurance of a conjugate pair (usually the one
-        with the negative imaginary part)
-
-        eigvec_l.shape = [order+1, order+1]
-        eigval.shape = [order+1,1]
+        The method keeps the second occurance of a conjugate pair (usually the one
+        with the negative imaginary part) and either returns a truncated set of 
+        eigenvalues and eigenvectors or a list of (physical) poles that can be 
+        iterated.
+        
+        Parameters
+        ----------
+            eigval: (order,) numpy.ndarray
+                Complex array of all eigenvalues
+            eigvec_r, eigvec_l: (order, n_channels) numpy.ndarray, optional
+                Complex array(s) of all right (left) eigenvectors
+            inds_only: bool, optional
+                Whether to return a list of pole indices, or a reduced set of 
+                eigenvalues and eigenvectors
+        
+        Returns
+        -------
+            conj_indices:  list
+                list of (physical) pole indices
+            eigval: (order,) numpy.ndarray
+                Complex array of reduced (physical) eigenvalues
+            eigvec_l, eigvec_r: (order, n_channels) numpy.ndarray, optional
+                Complex array(s) of reduced (physical) left (right) eigenvectors
         '''
 
         num_val = len(eigval)
@@ -146,6 +163,28 @@ class ModalBase(object):
 
     @staticmethod
     def integrate_quantities(vector, accel_channels, velo_channels, omega):
+        '''
+        Rescales mode shapes from modal accelerations / velocities to modal
+        displacements, by multiplication of the relevant modal coordinates 
+        (where accelerometers, or velocimeters were used, with 
+        $-1 \omega^2$ or $i \omega$, respectively,
+        
+        Parameters
+        ----------
+            vector: (n_channels,) numpy.ndarray
+                Complex modeshape for all n_channels
+            accel_channels: list
+                A list containing the channel numbers of all acceleration channels
+            velo_channels: list
+                A list containing the channel numbers of all velocity channels
+            omega: float
+                The circular frequency of the corresponding mode ($\omega = 2 \pi f$)
+        
+        Returns
+        -------
+            vector:  (n_channels,) numpy.ndarray
+                Rescaled complex modeshape for all n_channels
+        '''
         # input quantities = [a, v, d]
         # output quantities = [d, d, d]
         # converts amplitude and phase
@@ -159,9 +198,30 @@ class ModalBase(object):
         return vector
 
     @staticmethod
-    def rescale_mode_shape(modeshape, doehler_style=False):
+    def rescale_mode_shape(modeshape, rotate_only=False):
+        '''
+        Rescales and rotates modeshapes in the complex plane. Default behaviour 
+        is to scale the larges component to unit modal displacement. If argument
+        rotate_only is provided, the method given in Appendix C2 of Doehler 2013
+        (doi:0.1016/j.ymssp.2012.11.011) is used to rotate but not rescale the 
+        mode shape. Note: The scale of identified mode shapes is arbitrary in most 
+        OMA methods.
+        
+        Parameters
+        ----------
+            modeshape: (n_channels,) numpy.ndarray
+                Complex modeshape for all n_channels
+            
+            rotate_only: bool, optional
+                Whether to rotate, but not rescale, the mode shape.
+        
+        Returns
+        -------
+            modeshape:  (n_channels,) numpy.ndarray
+                Rescaled complex modeshape for all n_channels
+        '''
         # scaling of mode shape
-        if doehler_style:
+        if rotate_only:
             k = np.argmax(np.abs(modeshape))
             alpha = np.angle(modeshape[k])
             return modeshape * np.exp(-1j * alpha)

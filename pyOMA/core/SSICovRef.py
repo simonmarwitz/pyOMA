@@ -195,9 +195,10 @@ class BRSSICovRef(ModalBase):
         '''
         Perform a multi-order computation of modal parameters. Successively
         calls 
-        * estimate_state(order, max_modes, algo)
-        * modal_analysis(A,C)
-        * synthesize_correlation(A,C, G), if modal_contrib == True
+        
+         * estimate_state(order, max_modes, algo)
+         * modal_analysis(A,C)
+         * synthesize_correlation(A,C, G), if modal_contrib == True
         
         At ascending model orders, up to max_model_order. 
         See the explanations in the the respective methods, for a detailed 
@@ -881,21 +882,24 @@ class PogerSSICovRef(BRSSICovRef):
     28th International Modal Analysis Conference, 2010 , 57-70
 
     Analysis steps:
-    * Create your geometry definitions
-    * Create configuration files and channel-dof-assignments for each setup
-    * Pre-process each setup using PreProcessData
-    * Pre-compute correlations functions using PreProcessData.compute_correlation_functions
-    (note: n_lags >= num_block_columns + num_block_rows >= 2 * num_block_columns + 1)
-    * add the PreProcessData objects of each setup using add_setup
-    * call pair_channels(), build_merged_subspace_matrix(),
-    estimate_state(), compute_modal_params()
+    
+        * Create your geometry definitions
+        * Create configuration files and channel-dof-assignments for each setup
+        * Pre-process each setup using PreProcessData
+        * Pre-compute correlations functions using 
+          PreProcessData.compute_correlation_functions
+          (note: n_lags >= num_block_columns + num_block_rows >= 2 * num_block_columns + 1)
+        * add the PreProcessData objects of each setup using add_setup
+        * call pair_channels(), build_merged_subspace_matrix(), estimate_state(),
+          compute_modal_params()
 
     Notes on the reference channels:
     There are two different uses of reference channels:
-    1. Reference channels for reducing the computational effort /
-    improving results if noisy channels are present
-    2. Reference channels for mode shape rescaling when multiple
-    setups should be merged
+    
+        1. Reference channels for reducing the computational effort /
+           improving results if noisy channels are present
+        2. Reference channels for mode shape rescaling when multiple
+           setups should be merged
 
     In PoGER merging the first group of reference channels are required
     for  joint identification. In this case, reference-based correlation
@@ -906,8 +910,10 @@ class PogerSSICovRef(BRSSICovRef):
     Based on each setups' channel-dof-assignments and selected reference
     channels, the PogerSSICovRef class automatically determines the
     reference channels for:
-    * joint identification and
-    * mode shape rescaling / merging.
+    
+        * joint identification and
+        * mode shape rescaling / merging.
+     
     Thus, by changing the reference channel definition in each setup,
     the used reference channels in joint identification can be influenced.
     The reference channels for modeshape rescaling are automatically
