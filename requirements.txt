@@ -11,3 +11,4 @@ ipython
 ipympl
 jupyterlab
 myst-nb
+sphinx-collections
