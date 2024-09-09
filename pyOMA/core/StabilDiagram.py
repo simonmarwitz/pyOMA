@@ -2397,18 +2397,21 @@ class StabilPlot(object):
 
     def plot_sv_psd(self, b, NFFT=None):
         '''
-        Todo: - add GUI for choosing PSD parameters
-        cases:
-            create new plot with defaults (True, None)
-            hide plot (False, ...)
-            show last plot (True, NFFT==n_lines)
-            recreate plot with other NFFT (True, NFFT!=n_lines)
-            
-        check if something was drawn already
-            check if it should be hidden
-                hide it
-            check if parameters match
-        '''
+         .. TODO::
+             * add GUI for choosing PSD parameters
+         '''    
+        
+        #cases:
+        # create new plot with defaults (True, None)
+        # hide plot (False, ...)
+        #     show last plot (True, NFFT==n_lines)
+        #     recreate plot with other NFFT (True, NFFT!=n_lines)
+        #
+        # check if something was drawn already
+        #     check if it should be hidden
+        #         hide it
+        #     check if parameters match
+        
         if self.psd_plot and not b:
             for channel in self.psd_plot:
                 for line in channel:

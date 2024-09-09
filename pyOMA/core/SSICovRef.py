@@ -193,12 +193,12 @@ class BRSSICovRef(ModalBase):
                              max_modes=None, algo='svd', 
                              modal_contrib=True):
         '''
-        
         Perform a multi-order computation of modal parameters. Successively
         calls 
-         * estimate_state(order, max_modes, algo)
-         * modal_analysis(A,C)
-         * synthesize_correlation(A,C, G), if modal_contrib == True
+        * estimate_state(order, max_modes, algo)
+        * modal_analysis(A,C)
+        * synthesize_correlation(A,C, G), if modal_contrib == True
+        
         At ascending model orders, up to max_model_order. 
         See the explanations in the the respective methods, for a detailed 
         explanation of parameters.
@@ -346,7 +346,7 @@ class BRSSICovRef(ModalBase):
         further processing.
                 
         Parameters
-        -------
+        ----------
             A: numpy.ndarray
                 State matrix: Array of shape (order, order)
                 
@@ -355,13 +355,13 @@ class BRSSICovRef(ModalBase):
          
         Returns
         -------
-            modal_frequencies: numpy.ndarray, shape (order,)
+            modal_frequencies: (order,) numpy.ndarray 
                 Array holding the modal frequencies for each mode
-            modal_damping: numpy.ndarray, shape (order,)
+            modal_damping: (order,) numpy.ndarray 
                 Array holding the modal damping ratios (0,100) for each mode
-            mode_shapes: numpy.ndarray, shape (n_l, order,)
+            mode_shapes: (n_l, order,) numpy.ndarray 
                 Complex array holding the mode shapes 
-            eigenvalues: numpy.ndarray, shape (order,)
+            eigenvalues: (order,) numpy.ndarray
                 Complex array holding the eigenvalues for each mode
         '''
         # collect variables
@@ -419,7 +419,7 @@ class BRSSICovRef(ModalBase):
         Eq. 161 p. 74 (24) where \Lambda are the correlation functions of the identified system
                 
         Parameters
-        -------
+        ----------
             A: numpy.ndarray
                 State matrix: Array of shape (order, order)
                 
@@ -429,14 +429,14 @@ class BRSSICovRef(ModalBase):
             G: numpy.ndarray
                 next-state-output covariance matrix : Array of shape (order, num_ref_channels)
         
-         Returns
+        Returns
         -------
-            corr_matrix_synth: numpy.ndarray, shape (n_l, n_r, n_lags, n_modes)
-                Array holding the modally decomposed correlation functions for
+            corr_matrix_synth: (n_l, n_r, n_lags, n_modes) numpy.ndarray
+                Array holding the modally decomposed correlation functions for 
                 each channel n_l and reference channel n_r and all modes
                 
-            modal_contributions: numpy.ndarray, shape (order,)
-                Array holding the contributions of each mode to the input
+            modal_contributions: (order,) numpy.ndarray
+                Array holding the contributions of each mode to the input 
                 correlation function.
                 
                 

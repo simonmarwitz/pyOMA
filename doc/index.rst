@@ -20,7 +20,6 @@ In a broader sense it consists of a series of processes:
       "Modal Analysis" [description = "Estimation of modal parameters (frequencies, damping ratios, mode shapes) from identified systems. Manually, using stabilization diagrams or automatically using multi-stage clustering methods."];
       "Post Processing" [description = "E.g. plotting of mode shapes, merging of multiple result datasets (setups), statistical analyses."];
     }
-    
 
 
 The toolbox is currently used on a daily basis to analyze the continuously 
@@ -34,11 +33,18 @@ python and the required python packages.
 Getting started
 ===============
 
- * Learn python 3.xx with packages: ``numpy``, ``scipy``, ``matplotlib``, (``PyQt5``/``PySide``, ``jupyter-notebook``)
- * Install python with scientific Python packages e.g. Anaconda
- * Learn about documenting code with Sphinx (`Tutorial <https://thomas-cokelaer.info/tutorials/sphinx/rest_syntax.html>`_ , `Cheatsheet <https://matplotlib.org/sampledoc/cheatsheet.html>`_)
- * Learn about version control systems with Git: `<https://www.youtube.com/watch?v=8JJ101D3knE>`_
+ * Install Python with scientific Python packages e.g. https://www.anaconda.com/download
+ * Download or clone the project in to some directory  ``git clone https://github.com/simonmarwitz/pyOMA.git /dir/to/pyOMA/``
+ * Install required packages from ``/dir/to/pyOMA/requirements.txt`` using the Anaconda GUI or with pip ``pip install -r /dir/to/pyOMA/requirements.txt`` 
+ * Setup a project directory with measurement and result files ``/dir/to/project/``
+ * Copy the script ``scripts/single_setup_analysis.ipynb`` to your project directory. An example JuPyter notebook can be found on the left.
+ * Startup JupyterLab or JupyterNotebook and open the script ``/dir/to/project/single_setup_analysis.ipynb``
+ * Modify the paths and etc. in the script
 
+For developers:
+
+ * Learn about documenting code with Sphinx (`Tutorial <https://thomas-cokelaer.info/tutorials/sphinx/rest_syntax.html>`_ , `Cheatsheet <https://matplotlib.org/sampledoc/cheatsheet.html>`_). The code can be built by navigating to the doc folder in a CLI and run ``make clean && make html`` to mitigate any errors from wrongly formatted documentation syntax.
+ * Learn about version control systems with Git: `<https://www.youtube.com/watch?v=8JJ101D3knE>`_
 
 Toolbox Structure
 =================
@@ -48,25 +54,29 @@ The pyOMA package consists of two modules  :
 ::
 
     pyOMA
-    ├── core
-    │   ├── PreProcessingTools.py
-    │   ├── ModalBase.py
-    │   ├── PLSCF.py
-    │   ├── PRCE.py
-    │   ├── SSICovRef.py
-    │   ├── SSIData.py
-    │   ├── VarSSIRef.py
-    │   ├── StabilDiagram.py
-    │   ├── PlotMSH.py
-    │   ├── PostProcessingTools.py
-    │   └── ...
-    ├── GUI
-    │   ├── PlotMSHGUI.py
-    │   ├── StabilGUI.py
-    │   ├── Helpers.py
-    │   └── ...
+    ├── pyOMA
+    │   ├── core
+    │   │  ├── PreProcessingTools.py
+    │   │  ├── ModalBase.py
+    │   │  ├── PLSCF.py
+    │   │  ├── PRCE.py
+    │   │  ├── SSICovRef.py
+    │   │  ├── SSIData.py
+    │   │  ├── VarSSIRef.py
+    │   │  ├── StabilDiagram.py
+    │   │  ├── PlotMSH.py
+    │   │  ├── PostProcessingTools.py
+    │   │  └── ...
+    │   ├── GUI
+    │   │  ├── PlotMSHGUI.py
+    │   │  ├── StabilGUI.py
+    │   │  ├── Helpers.py
+    │   │  └── ...
     
 Additionally some further files are provided with it:
+
+::
+
     ├── doc
     ├── input_files
     ├── scripts
@@ -82,7 +92,9 @@ Additionally some further files are provided with it:
 
 Current development is focused on the ``core`` package which contains all the algorithms.
 
-Major rework has to be done for the ``GUI``, using QTDesigner to design the GUIs and then only add functionality in the respective classes.
+Major rework has to be done for the ``GUI``, 
+ * Re-design the GUIs with QtDesigner and then only add functionality in the respective classes.
+ * Supplying Jupyter Notebooks with JupyterWidgets for interactive Analysis 
 
 The ``input_files`` packages provides templates for input files for automated and structured analysis of a dataset consisting of multiple measurements.
 
@@ -90,15 +102,18 @@ The ``scripts`` package shall contain templates for certain recurring tasks, as 
 
 The ``tests`` package contains common use cases and files, which could be run to test if any changes in the modules result in breaking existing functionality.
 
-The documentation is generated from the git repository by `Sphinx <https://www.sphinx-doc.org/>`_  automatically and available on `<https://santafe.bauing.uni-weimar.de/pyOMA>`_
+The documentation is generated from the git repository by `Sphinx <https://www.sphinx-doc.org/>`_  automatically and available on `<https://py-oma.readthedocs.io/>`_
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-    
+   
    preprocessing
    oma
    postprocessing
+   _collections/single_setup_analysis
+
+   
 
 .. TODO::
    
@@ -107,7 +122,6 @@ The documentation is generated from the git repository by `Sphinx <https://www.s
         * Creating missing GUI parts for the PreProcessing and OMA modules
         * Setup jupyter notebooks for interactive analyses
         * Improvement of the documentation, where needed
-        * Add licensing statements to each file
     * Intermediate :
         * re-factoring of the StabilizationGUI class into the new GUI package using QtDesigner and proper python code
         * re-factoring of the PlotMSH GUI class into the new GUI package using QtDesigner and proper python code
@@ -115,7 +129,6 @@ The documentation is generated from the git repository by `Sphinx <https://www.s
         * Improvement of the documentation, where needed
     * Advanced :
         * Automatic unit tests
-        * Test out possibilities for an interactive jupyter StabilizationDiagram `<https://towardsdatascience.com/interactive-visualizations-in-jupyter-notebook-3be02ab2b8cd>`_
         * Creating a new Modeshape plot class based on pyvista or mayavi
         * Profiling and performance improvement of frequently executed code pieces
         * Implementation of variance estimation for PLSCF, PRCE?

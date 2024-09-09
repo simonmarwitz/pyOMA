@@ -144,9 +144,9 @@ class ModeShapePlot(object):
         +----------------+--------------+-------------+--------------+
         |modeshapes      | modal_data   |modal_data   |merged_data   |
         +----------------+--------------+-------------+--------------+
-        |num_channels    | prep_signals    |modal_data   |merged_data   |
+        |num_channels    | prep_signals |modal_data   |merged_data   |
         +----------------+--------------+-------------+--------------+
-        |chan_dofs       | prep_signals    |modal_data   |merged_data   |
+        |chan_dofs       | prep_signals |modal_data   |merged_data   |
         +----------------+--------------+-------------+--------------+
         |select_modes    | stabil_data  |stabil_data  |merged_data   |
         +----------------+--------------+-------------+--------------+

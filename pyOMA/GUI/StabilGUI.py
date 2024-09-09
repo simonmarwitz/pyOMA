@@ -26,8 +26,8 @@ import os
 
 import matplotlib
 # check if python is running in headless mode i.e. as a server script
-if 'DISPLAY' in os.environ:
-    matplotlib.use("Qt5Agg", force=True)
+# if 'DISPLAY' in os.environ:
+    # matplotlib.use("Qt5Agg", force=True)
 from matplotlib import rcParams
 from matplotlib import ticker
 

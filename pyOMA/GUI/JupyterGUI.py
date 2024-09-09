@@ -20,6 +20,7 @@ class SnappingCursor:
     """
     A cross-hair cursor that snaps to the data point of a line, which is
     closest to the cursor.
+    
     .. TODO::
         waiting for https://github.com/matplotlib/matplotlib/pull/27160 to be approved
         then blitting should be tested and enabled
@@ -116,11 +117,6 @@ class SnappingCursor:
     def findIndexNearestXY(self, x_point, y_point):
         '''
         Finds the nearest neighbour
-
-        .. TODO::
-            currently a very inefficient brute force implementation
-            should be replaced by e.g. a k-d-tree nearest neighbour search
-            `https://en.wikipedia.org/wiki/K-d_tree`
         '''
         # distance = np.square(self.pix_data[:, 1] - y_point) + np.square(self.pix_data[:, 0] - x_point)
         # index = np.argmin(distance)

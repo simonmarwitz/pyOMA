@@ -29,7 +29,7 @@ author = 'Simon Marwitz, Volkmar Zabel, Andrei Udrea'
 # ones.
 extensions = ['autoclasstoc', 'sphinx.ext.autodoc','sphinx.ext.autosummary', 
               'sphinx.ext.napoleon', 'sphinx.ext.viewcode', 'sphinx.ext.mathjax',
-              'sphinx.ext.todo','sphinxcontrib.blockdiag']
+              'sphinx.ext.todo','sphinxcontrib.blockdiag', 'myst_nb',"sphinxcontrib.collections",]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -58,3 +58,13 @@ todo_include_todos=True
 # 
 autodoc_default_flags = ['members']
 autosummary_generate = True
+
+# Do not execute ipynb Notebooks, but rather display saved outputs from the last manual run
+nb_execution_mode = "off"
+
+collections = {
+   'single_setup_analysis.ipynb': {
+      'driver': 'copy_file',
+      'source': '../scripts/single_setup_analysis.ipynb'
+   }
+}

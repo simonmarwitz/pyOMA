@@ -12,7 +12,7 @@ Post-processing
    PostProcessingTools
    StabilDiagram
 
-.. currentmodule:: GUI
+.. currentmodule:: pyOMA.GUI
 .. autosummary::
    :recursive:
    :toctree: core
@@ -20,4 +20,4 @@ Post-processing
    
    PlotMSHGUI
    StabilGUI
-   
+   JupyterGUI

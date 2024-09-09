@@ -577,10 +577,10 @@ class SSIDataMC(ModalBase):
         '''
         Perform a multi-order computation of modal parameters. Successively
         calls 
-         * estimate_state(order,)
-         * modal_analysis(A,C)
-         * synthesize_signals(A, C, Q, R, S, j)
-        At ascending model orders, up to max_model_order. 
+        * estimate_state(order,)
+        * modal_analysis(A,C)
+        * synthesize_signals(A, C, Q, R, S, j) 
+        at ascending model orders, up to max_model_order. 
         See the explanations in the the respective methods, for a detailed 
         explanation of parameters.
         
@@ -657,16 +657,16 @@ class SSIDataMC(ModalBase):
         '''
         Estimate the state matrices A, C and noise covariances Q, R and S from
         the subspace / projection matrix. Several methods exist, e.g. 
-         * Peeters 1999 Reference Based Stochastic Subspace Identification for OMA
-         * DeCock 2007 Subspace Identification Methods
-         * the algorithm used in BRSSICovRef.
+        * Peeters 1999 Reference Based Stochastic Subspace Identification for OMA
+        * DeCock 2007 Subspace Identification Methods
+        * the algorithm used in BRSSICovRef.
         
         Here, the first algorithm, a residual-based computation of Q, R  and S, 
         is implemented.
         
         
         Parameters
-        -------
+        ----------
             order: integer, required
                 The model order, at which to truncate the singular values of the
                 projection Matrix P_i_ref
@@ -735,7 +735,7 @@ class SSIDataMC(ModalBase):
         further processing.
                 
         Parameters
-        -------
+        ----------
             A: numpy.ndarray
                 State matrix: Array of shape (order, order)
                 
@@ -811,7 +811,7 @@ class SSIDataMC(ModalBase):
         
         
         Parameters
-        -------
+        ----------
             A: numpy.ndarray
                 State matrix: Array of shape (order, order)
                 
