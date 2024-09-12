@@ -58,6 +58,9 @@ def analysis_chain(tmpdir):
     prep_signals.correlation(n_lags=400)
     prep_signals.sv_psd()
 
+    prep_signals.save_state(tmpdir + 'test.npz')
+    prep_signals = PreProcessSignals.load_state(tmpdir + 'test.npz')
+    
     # for each OMA method
     for method, config in list(zip([PLSCF, PRCE, BRSSICovRef, SSIData, SSIDataMC, VarSSIRef],
                                    ['../input_files/meas_1/plscf_config.txt',
@@ -209,7 +212,9 @@ def single_setup_analysis(
             prep_signals.save_state(result_folder / 'prep_signals.npz')
     else:
         prep_signals = PreProcessSignals.load_state(result_folder / 'prep_signals.npz')
-
+    
+    prep_signals.decimate_signals(10)
+    
     if not os.path.exists(
             result_folder /
             'modal_data.npz') or not skip_existing:
@@ -263,14 +268,14 @@ def merge_poser_test(skip_existing = False,
             result_folder=result_folder,
             setup_info=result_folder / 'setup_info.txt',
             meas_file=result_folder / (meas_name + '.npy'),
-            conf_file=working_dir / 'ssi_config.txt',
-            method=SSIDataMC,
+            conf_file=working_dir / 'plscf_config.txt',
+            method=PLSCF,
             geometry_data=geometry_data,
             chan_dofs_file=result_folder / "channel_dofs.txt",
             skip_existing=skip_existing,
             save_results=save_results,
             interactive=True)
-
+        
         merger.add_setup(prep_signals, modal_data, stabil_calc)
 
     merger.merge()
@@ -286,9 +291,9 @@ def merge_poser_test(skip_existing = False,
 
 
 if __name__ == '__main__':
-    # analysis_chain(tmpdir='/dev/shm/womo1998/')
+    analysis_chain(tmpdir='/dev/shm/womo1998/')
     # PlotMSHGUI_test()
-    merge_poser_test(False,False,True)
+    # merge_poser_test(False,False,True)
     
     
     # multi_setup_analysis()

@@ -2318,7 +2318,7 @@ class SignalPlot(object):
         
         # precompute relevant spectral matrices
         n_lines = kwargs.pop('n_lines', None)
-        method = kwargs.pop('method', prep_signals._last_meth)
+        method = kwargs.pop('method', None)
         prep_signals.psd(n_lines, method, refs_only=refs_only, **kwargs.copy())
         if timescale == 'lags':
             prep_signals.correlation(prep_signals.n_lags, method, refs_only=refs_only, **kwargs.copy())
@@ -2457,7 +2457,7 @@ class SignalPlot(object):
         
         prep_signals = self.prep_signals
         method = kwargs.pop('method', prep_signals._last_meth)
-        assert method is not None
+        # assert method is not None
         # inspect, which reference channels are needed; ref_numbers is a list-of-lists
         channel_numbers, ref_numbers = prep_signals._channel_numbers(channels, refs)
         all_ref_numbers = set(sum(ref_numbers, []))
@@ -2504,10 +2504,12 @@ class SignalPlot(object):
                     # full-channel  correlation matrix is indexed by reference channel numbers
                     corr = corr_matrix[channel_number, ref_number, :]
                     
-                if method == 'welch':
+                if prep_signals._last_meth == 'welch':
                     norm_fact = prep_signals.n_lines
-                elif method == 'blackman-tukey':
+                elif prep_signals._last_meth == 'blackman-tukey':
                     norm_fact = prep_signals.total_time_steps
+                else:
+                    raise RuntimeError('Last used method was not stored in prep_signals object.')
                 
                 if ref_number == channel_number:
                     label = f'$\hat{{R}}_\mathrm{{{channel_name}}}$'

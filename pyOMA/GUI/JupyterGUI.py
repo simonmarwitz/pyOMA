@@ -233,17 +233,17 @@ def StabilGUIWeb(stabil_plot):
     lb = ipywidgets.Label("Soft criteria:")
     widgets.append(lb)
     if stabil_calc.capabilities['f']:
-        sl_df = ipywidgets.FloatLogSlider(value=stabil_calc.df_max, base=10, min=-4, max=2, step=0.1, description="Frequency [%]")
+        sl_df = ipywidgets.FloatLogSlider(value=stabil_calc.df_max, base=10, min=-4, max=0, step=0.1, description="Frequency [%]")
         sl_df.observe(lambda change: stabil_plot.update_stabilization(df_max=float(change['new'])),
                       names='value', type='change')
         widgets.append(sl_df)
     if stabil_calc.capabilities['d']:
-        sl_dd = ipywidgets.FloatLogSlider(value=stabil_calc.dd_max, base=10, min=-4, max=2, step=0.1, description="Damping [%]")
+        sl_dd = ipywidgets.FloatLogSlider(value=stabil_calc.dd_max, base=10, min=-4, max=0, step=0.1, description="Damping [%]")
         sl_dd.observe(lambda change: stabil_plot.update_stabilization(dd_max=float(change['new'])),
                       names='value', type='change')
         widgets.append(sl_dd)
     if stabil_calc.capabilities['msh']:
-        sl_dmac = ipywidgets.FloatLogSlider(value=stabil_calc.dmac_max, base=10, min=-4, max=2, step=0.1, description="MAC [%]")
+        sl_dmac = ipywidgets.FloatLogSlider(value=stabil_calc.dmac_max, base=10, min=-4, max=0, step=0.1, description="MAC [%]")
         sl_dmac.observe(lambda change: stabil_plot.update_stabilization(dmac_max=float(change['new'])),
                         names='value', type='change')
         widgets.append(sl_dmac)
