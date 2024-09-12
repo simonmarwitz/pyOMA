@@ -16,15 +16,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-Written by Volkmar Zabel 2016, refactored by Simon Marwitz 2021
+Written by Volkmar Zabel 2016, 
+refactored by Simon Marwitz 2021, 
+improved, corrected and refactored by Simon Marwitz 2024
 
 .. TODO::
-     * Move the computation of half-spectra to PreProcessData and change this
-       class accordingly
-     * Proper documentation of the code
      * Test functions should be added to the test package
-     * Algorithm seems broken and a lot of overhead is reimplemented, that
-       exists in standard libraries
 
 '''
 
@@ -37,19 +34,13 @@ logger.setLevel(level=logging.INFO)
 
 from .PreProcessingTools import PreProcessSignals
 from .ModalBase import ModalBase
+from .Helpers import validate_array
 
 
 class PLSCF(ModalBase):
 
     def __init__(self, *args, **kwargs):
-        '''
-        channel definition: channels start at 0
-        '''
-        
-        logging.warning('This implementation of the PLSCF algorithm seems broken, code must be re-verified and a working example added to the "tests" package.')
         super().__init__(*args, **kwargs)
-        #             0             1
-        # self.state= [Half_spectra, Modal Par.
         self.state = [False, False]
 
         self.begin_frequency = None
@@ -57,10 +48,8 @@ class PLSCF(ModalBase):
         self.nperseg = None
         self.factor_a = None
         self.selected_omega_vector = None
-        self.num_omega = None
-        self.spectrum_tensor = None
+        self.pos_half_spectra = None
 
-        self.max_model_order = None
 
     @classmethod
     def init_from_config(cls, conf_file, prep_signals):
@@ -79,412 +68,347 @@ class PLSCF(ModalBase):
             max_model_order = int(f. __next__().strip('\n'))
 
         pLSCF_object = cls(prep_signals)
-        pLSCF_object.build_half_spectra(
-            begin_frequency, end_frequency, nperseg)
+        pLSCF_object.build_half_spectra(nperseg, begin_frequency, end_frequency)
         pLSCF_object.compute_modal_params(max_model_order)
 
         return pLSCF_object
 
-    def build_half_spectra(self, begin_frequency, end_frequency, nperseg):
+    def build_half_spectra(self, nperseg=None, begin_frequency=None, end_frequency=None, window_decay=0.001):
         '''
-        Constructs a half spectrum matrix
-        Builds a 3D tensor with cross spectral densities:
-        Dimensions: number_of_all_channels x number_of_references x number_of_freq_lines
-
-        .. TODO:
-         * move this functionality to the PreProcessData class
-
+        Extracts an array of positive half spectra between begin_frequency 
+        and end_frequency from a spectrum of nperseg frequency lines. If 
+        begin_frequency > 0.0 or end_frequency<nyquist freqeuncy, the resulting
+        array has less than nperseg lines.
+        
+        Positive power spectra are constructed from positive correlation functions,
+        that are windowed by an exponential window and transformed to frequency
+        domain by and (R)FFT.
+        Correlation functions are computed in prep_signals by either 
+        Welch's or Blackman-Tukey's method, though, Welch's method is not 
+        recommmended, because the artificial  damping introduced by windowing 
+        can not be corrected.
+        
+        See: Cauberghe-2004-Applied Frequency-Domain System ... : Sections 3.4ff
+        
+        Note: The previous implementation contained severe mistakes in the computation
+        of positive power spectra, e.g. doubled squaring of spectral values, lazy handling
+        of array dimensions and therefore effectively only a quarter of nperseg being used,
+        numerical inefficiencies
+        
+        Parameters
+        ----------
+            nperseg: integer, optional
+                Number of frequency lines to consider
+            
+            begin_frequency, end_frequency: float, optional
+                Frequency range to restrict the identified system.
+            
+            window_decay: float, (0,1)
+                Final value of the exponential window, that is applied to the 
+                correlation functions.
+                
         '''
 
-        print('Constructing half-spectrum matrix ... ')
+        logger.info('Constructing half-spectrum matrix ... ')
+        if begin_frequency is None:
+            begin_frequency = 0.0
+        if isinstance(begin_frequency, int): 
+            begin_frequency = float(begin_frequency)
         assert isinstance(begin_frequency, float)
+        if end_frequency is None:
+            end_frequency = self.prep_signals.sampling_rate / 2
+        if isinstance(end_frequency, int): 
+            end_frequency = float(end_frequency)
         assert isinstance(end_frequency, float)
+        if nperseg is None:
+            nperseg = self.prep_signals.n_lines
+        if nperseg is None:
+            raise RuntimeError('Argument nperseg or precomputed spectra must be provided.')
         assert isinstance(nperseg, int)
 
         self.begin_frequency = begin_frequency
         self.end_frequency = end_frequency
         self.nperseg = nperseg
-        total_time_steps = self.prep_signals.total_time_steps
-        ref_channels = sorted(self.prep_signals.ref_channels)
-        roving_channels = [
-            i for i in range(
-                self.prep_signals.num_analised_channels) if i not in ref_channels]
-
-        measurement = self.prep_signals.signals
-        num_analised_channels = self.prep_signals.num_analised_channels
-        num_ref_channels = self.prep_signals.num_ref_channels
 
         sampling_rate = self.prep_signals.sampling_rate
+        
+        tau = -(nperseg) / np.log(window_decay)
+        
+        if self.prep_signals._last_meth == 'welch':
+            logger.warning("The selected spectral estimation method (Welch) is not recommended (exponential window can not be applied to correlation function).")
+        
+        correlation_matrix = self.prep_signals.correlation(nperseg, window='boxcar')
+        
+        win = scipy.signal.windows.get_window(('exponential', 0, tau), nperseg, fftbins=True)
+        
+        psd_matrix = np.fft.rfft(correlation_matrix * win)
 
-        # Extract reference time series for half spectra
-
-        all_channels = ref_channels + roving_channels
-        all_channels.sort()
-        # print(all_channels)
-
-        refs = (measurement[:, ref_channels])
-
-        begin_omega = begin_frequency * 2 * np.pi
-        end_omega = end_frequency * 2 * np.pi
-        factor_a = 0
-
-        for ii in range(num_ref_channels):
-
-            this_ref = refs[:, ii]
-
-            for jj in range(num_analised_channels):
-
-                this_response = measurement[:, jj]
-
-                #### spectra based on cross correlations ####
-
-                '''
-                num_ref_samples = int(len(this_ref) * 0.9) # 10% of signal length as time shift length
-                #x_corr = np.flipud(np.correlate(this_ref[0:num_ref_samples], this_response, mode='valid'))
-                x_corr = np.correlate(this_ref[0:num_ref_samples], this_response, mode='valid')
-
-                fig = plt.figure(figsize = [10,5])
-
-                ax1 = fig.add_subplot(2,1,1)
-                ax2 = fig.add_subplot(2,1,2)
-
-                ax1.plot( x_corr, 'b-', label='$R_xy_inv_FFT$')
-
-                (x_corr, factor_a) = fcl.Exp_Win(x_corr, 0.001)
-
-                ax2.plot( x_corr, 'b-', label='$R_xy_inv_FFT_1$')
-                plt.show
-
-                print('factor_a = ', factor_a)
-
-                num_samples = int(len(x_corr))
-
-                #frequency_vector, this_half_spec = fcl.FFT_Average(x_corr, fs=sampling_rate, window='boxcar', \
-                #    nperseg=4096, noverlap=(4096/2), return_onesided=True)
-                frequency_vector, this_half_spec = fcl.FFT_Average(x_corr, fs=sampling_rate, window='boxcar', \
-                    nperseg=num_samples, noverlap=None, return_onesided=True)
-                omega_vector = frequency_vector * 2 * np.pi
-                '''
-
-                # spectra from correlation functions of independent sections
-                # ####
-                '''
-                '''
-
-                # num_sections = 200  # number of independent sections for averaging
-                #blocklength = int(len(this_ref) * 1/num_sections)
-                #blocklength = int(len(this_ref) * 0.025)
-                #print('blocklength = ', blocklength)
-
-                tmp_freq, tmp_cross_spec = scipy.signal.csd(this_ref, this_response,
-                                                            fs=sampling_rate, window='boxcar', nperseg=self.nperseg,
-                                                            noverlap=None, detrend='constant', return_onesided=True,
-                                                            scaling='spectrum')
-
-                #rint('tmp_freq = ', tmp_freq)
-
-                R_xy = np.fft.irfft(tmp_cross_spec)
-                R_xy = R_xy[0:int(len(R_xy) / 2)]
-
-                # Diagramm mit Korrelationsfunktion
-
-                '''
-                #envelope = amplitude * np.exp(exponent * corr_time)
-
-                fig2 = plt.figure(figsize = [15,5])
-                ax = fig2.add_subplot(1,1,1)
-                ax.plot(corr_time, R_yy, lw=1, visible=True)
-                ax.plot(corr_time, envelope, 'g-', lw=2, visible=True)
-                ax.grid()
-                #ax.scatter(peak_times, peaks, s = 100, c='r')
-                '''
-
-                (R_xy, factor_a) = self.Exp_Win(R_xy, 0.001)
-                #print('factor_a = ', factor_a)
-
-                frequency_vector, this_half_spec = scipy.signal.welch(
-                    R_xy, fs=sampling_rate, window='boxcar', nperseg=len(R_xy), noverlap=None, return_onesided=True)
-                omega_vector = frequency_vector * 2 * np.pi
-
-                #fig = plt.figure(figsize = [10,5])
-
-                #ax1 = fig.add_subplot(2,1,1)
-                #ax2 = fig.add_subplot(2,1,2)
-
-                #ax1.plot( R_xy, 'b-', label='$R_xy_inv_FFT$')
-
-                #ax2.plot( frequency_vector, abs(this_half_spec), 'b-')
-                # plt.show
-
-                #### spectra based on Welch's method ####
-                '''
-                frequency_vector, this_half_spec = self.CrossSpectrum(this_ref, this_response,\
-                    fs=sampling_rate, window='boxcar', nperseg=nperseg, noverlap = nperseg/2, \
-                    return_onesided=True, scaling='spectrum')
-                omega_vector = frequency_vector * 2 * np.pi
-
-
-                fig = plt.figure(figsize = [10,5])
-                ax1 = fig.add_subplot(1,1,1)
-                ax1.plot( frequency_vector, abs(this_half_spec), 'b-')
-                plt.show
-                '''
-
-                if ii == jj == 0:
-
-                    # Store only frequency range to be analysed
-
-                    cond_1 = [omega_vector >= begin_omega]
-                    omega_list = [omega_vector]
-                    omega_extract_1 = np.select(cond_1, omega_list)
-                    cond_2 = [omega_vector <= end_omega]
-                    omega_list = [omega_extract_1]
-                    omega_extracted = np.select(cond_2, omega_list)
-                    index_begin_omega = np.amin(np.nonzero(omega_extracted))
-                    index_end_omega = np.amax(np.nonzero(omega_extracted))
-
-                    selected_omega_vector = omega_vector[index_begin_omega: index_end_omega + 1]
-                    num_omega = len(selected_omega_vector)
-
-                    spectrum_tensor = np.zeros(
-                        (num_analised_channels,
-                         num_ref_channels,
-                         len(selected_omega_vector)),
-                        dtype=complex)
-
-                spectrum_tensor[jj, ii,
-                                :] = this_half_spec[index_begin_omega: index_end_omega + 1]
-
+        freqs = np.fft.rfftfreq(nperseg, 1/sampling_rate)
+        
+        freq_inds = (freqs>begin_frequency) & (freqs<end_frequency)
+        
+        selected_omega_vector = freqs[freq_inds] * 2 * np.pi
+        
+        spectrum_tensor = psd_matrix[..., (freqs>begin_frequency) & (freqs<end_frequency)]
+        
+        factor_a = -1 / tau
+            
         self.selected_omega_vector = selected_omega_vector
-        self.num_omega = num_omega
-        self.spectrum_tensor = spectrum_tensor
+        self.pos_half_spectra = spectrum_tensor
         self.factor_a = factor_a
 
         self.state[0] = True
-
-    def Exp_Win(self, x, fin_val):
+    
+    @property
+    def num_omega(self):
+        return self.selected_omega_vector.shape[0]
+    
+    def estimate_model(self, order, complex_coefficients=False):
         '''
-        Applies an exponential window function to a signal x.
-        The exponential window function is composed as:
-        win[ii]=exp(a * ii) with
-        a = (ln(f) / (n-1)) where n = length of x
-
-        return:
-        windowed signal x_win
+        Estimate a right matrix-fraction model from positive half-spectra, by the
+        constructinga set of reduced normal equations as shown in Peeters 2004. 
+        The polynomial is identified following Cauberghe 2004. Sec. 5.2.1 and 
+        converted into a state-space model, as outlined in Reynders-2012: Lemma 2.2
+        
+        Verboven 2002: Sect. 5.3.3 has a discussion on the use of real or complex
+        valued coefficients, favoring complex ones. Guillaume 2003, Peeters 2004 
+        just assume real coefficients, while later references, e.g.  
+        Cauberghe 2004, Reynders 2012 use complex coefficients.
+        However, with complex coefficients, stabilization diagrams seem to 
+        become corrupted. This implementation uses real coefficients.
+        
+        Note: The previous implementation was wrong in the estimation of
+        alpha coefficients and led to "bad" stabilization. Additionally there 
+        was a wrong sign in the assembly of the C_c matrix, which led to corrupted
+        mode shapes.
+        
+        .. TO DO::
+            * implement weighting function; c.p. Peeters 2004 Sect. 2.2
+            * improve assembly by exploiting the structure of S, R, T; c.p. Cauberghe 2004 Eq. 5.17ff
+            * estimate polynomial once at highest order and construct all lower 
+            order models from these coefficients; c.p. Peeters 2004 Sect. 2.4
+        
+        Parameters
+        ----------
+            order: integer, required
+                Model order, at which the RMF model should be estimated
+            
+            complex_coefficients: bool, optional
+                Whether to assume real or complex coefficients
+                
+        Returns
+        -------
+            A_c: numpy.ndarray
+                Companion matrix: Array of shape (order * n_r, order * n_r)
+                
+            C_c: numpy.ndarray
+                Output matrix: Array of shape (num_analised_channels, order * n_r)
+        
         '''
-        x = np.asarray(x)
-
-        n = len(x)
-        #print('n= ', n)
-        a = np.log(fin_val) / (n - 1)
-
-        win = np.arange(n)
-        win = win * a
-        win = np.exp(win)
-
-        x_win = x * win
-
-        return x_win, a
-
-    def compute_modal_params(self, max_model_order):
-
-        if max_model_order is not None:
-            assert isinstance(max_model_order, int)
-
-        assert self.state[0]
-
-        self.max_model_order = max_model_order
-        factor_a = self.factor_a
-
-        print('Computing modal parameters...')
-
-        #ref_channels = sorted(self.prep_signals.ref_channels)
-        #roving_channels = self.prep_signals.roving_channels
-        #signals = self.prep_signals.signals
-        num_analised_channels = self.prep_signals.num_analised_channels
-        num_ref_channels = self.prep_signals.num_ref_channels
+        
+        n_l = self.prep_signals.num_analised_channels
+        n_r = self.prep_signals.num_ref_channels
         selected_omega_vector = self.selected_omega_vector
         num_omega = self.num_omega
-        spectrum_tensor = self.spectrum_tensor
+        pos_half_spectra = self.pos_half_spectra
 
         sampling_rate = self.prep_signals.sampling_rate
         Delta_t = 1 / sampling_rate
+        
+        # whether to assume real or complex coefficients
+        if complex_coefficients:
+            dtype=complex
+        else:
+            dtype=float
+        
+        RS_solutions = np.zeros((order + 1, (order + 1) * n_r, n_l), dtype=dtype)
+        M = np.zeros(((order + 1) * n_r, (order + 1) * n_r), dtype=dtype)
+        
+        # Create matrices X_0 and Y_0, Peeters 2004: Sect. 2.2ff
+        # for channel-dependent weights, this has to move into the loop below
+        X_o = np.exp(1j * selected_omega_vector[:, np.newaxis] * 
+                     Delta_t * np.arange(order + 1)[np.newaxis, :]) # (num_omega, (order + 1))
+        X_o_H = np.conj(X_o.T) # ((order + 1), num_omega)
+        R_o = X_o_H @ X_o# ((order + 1),(order + 1))
+        if not complex_coefficients: R_o = R_o.real 
+        
+        Y_o = np.empty((num_omega, ((order + 1) * n_r)), dtype=complex)
+        for i_l in range(n_l):
+            for kk in range(num_omega):
+                Y_o[kk, :] = np.kron(-X_o[kk, :], pos_half_spectra[i_l, :, kk].T)
+            
+            S_o = X_o_H @ Y_o # ((order + 1),(order + 1) * n_r)
+            if not complex_coefficients: S_o = S_o.real
+            
+            T_o = np.conj(Y_o.T) @ Y_o# ((order + 1) * n_r,(order + 1) * n_r)
+            if not complex_coefficients: T_o = T_o.real 
+            
+            RS_solution = np.linalg.solve(R_o, S_o)
+            
+            M = M + (T_o - np.conj(S_o).T @ RS_solution)
+            M *= 2
+            
+            RS_solutions[:, :, i_l] = RS_solution
+        
+        # Compute alpha and beta coefficients: Cauberghe 2004. Sec. 5.2.1
+        M_aa = M[:order * n_r, :order * n_r]
+        M_ab = M[:order * n_r, -n_r:]
+        alpha_b = - np.linalg.solve(M_aa, M_ab)
+        alpha = np.concatenate((alpha_b, np.eye(n_r)), axis=0) # ((order + 1) * n_r, n_r)
+        
+        beta_o_i = np.zeros(((order + 1), n_r, n_l), dtype=dtype)
+        for i_l in range(n_l):
+            RS_solution = RS_solutions[:, :, i_l]
+            beta_o = - RS_solution @ alpha
+            
+            beta_o_i[:, :, i_l] = beta_o
+        
+        # Create matrices A_c and C_c; 
+        # Reynders-2012-SystemIdentificationMethodsFor(Operational)ModalAnalysisReviewAndComparison: Lemma 2.2
+        A_p = alpha[-n_r:, :]
+        B_p = beta_o_i[order, :, :].T
+        
+        A_c = np.zeros((order * n_r, order * n_r), dtype=dtype)
+        C_c = np.zeros((n_l, order * n_r), dtype=dtype)
+        
+        for p_i in range(order):
+            A_p_i = alpha[(order - p_i - 1) * n_r:(order - p_i) * n_r, :]
+            
+            this_A_c_block = - np.linalg.solve(A_p, A_p_i)
+            A_c[:n_r, p_i * n_r:(p_i + 1) * n_r] = this_A_c_block
+            
+            B_p_i = beta_o_i[order - p_i - 1, :, :].T
+            
+            this_C_c_block = B_p_i + (B_p @ this_A_c_block)
+            C_c[:, p_i * n_r:(p_i + 1) * n_r] = this_C_c_block
+        
+        A_c_rest = np.eye((order - 1) * n_r)
+        A_c[n_r:, :(order - 1) * n_r] = A_c_rest
+        
+        return A_c, C_c
+    
+    def modal_analysis(self, A_c, C_c):
+        '''
+        Perform a modal decomposition of the identified companion matrix A_c. 
+        Mode shapes are scaled to unit modal displacements. Complex conjugate 
+        and real modes are removed prior to further processing. Damping values
+        are corrected, if half-spectra were constructed with an exponential window.
+        
+        Parameters
+        -------
+            A_c: numpy.ndarray
+                Companion matrix: Array of shape (order * n_r, order * n_r)
+                
+            C_c: numpy.ndarray
+                Output matrix: Array of shape (num_analised_channels, order * n_r)
+         
+        Returns
+        -------
+            modal_frequencies: (order * n_r,) numpy.ndarray 
+                Array holding the modal frequencies for each mode
+            modal_damping: (order * n_r,) numpy.ndarray 
+                Array holding the modal damping ratios (0,100) for each mode
+            mode_shapes: (n_l, order * n_r,) numpy.ndarray 
+                Complex array holding the mode shapes 
+            eigenvalues: (order * n_r,) numpy.ndarray
+                Complex array holding the eigenvalues for each mode
+        '''
+        accel_channels = self.prep_signals.accel_channels
+        velo_channels = self.prep_signals.velo_channels
+        
+        n_l = self.prep_signals.num_analised_channels
+        factor_a = self.factor_a
+        sampling_rate = self.prep_signals.sampling_rate
+        
+        eigvals, eigvecs_r = np.linalg.eig(A_c)
+        
+        conj_indices = self.remove_conjugates(eigvals, eigvecs_r, inds_only=True)
+        n_modes = len(conj_indices)
+        
+        modal_frequencies = np.zeros((n_modes,))
+        modal_damping = np.zeros((n_modes, ))
+        mode_shapes = np.zeros((n_l, n_modes), dtype=complex)
+        eigenvalues = np.zeros((n_modes), dtype=complex)
+        
+        Phi = C_c @ eigvecs_r
+        
+        for i, ind in enumerate(reversed(conj_indices)):
+            
+            lambda_i = np.log(eigvals[ind]) * sampling_rate
+            freq_i = np.abs(lambda_i) / (2 * np.pi)
+            
+            # damping without correction if no exponential window was applied
+            # damping_i = np.real(lambda_i)/np.abs(lambda_i) * (-100)
+            # damping with correction if exponential window was applied to
+            damping_i = (np.real(lambda_i) / np.abs(lambda_i) - factor_a * (sampling_rate) / (freq_i * 2 * np.pi)) * (-100)
 
-        # Compute the modal solutions for all model orders
+            mode_shape_i = Phi[:, ind]
+            
+            # scale modeshapes to modal displacements
+            mode_shape_i = self.integrate_quantities(
+                mode_shape_i, accel_channels, velo_channels, freq_i * 2 * np.pi)
+            
+            # rotate mode shape in complex plane
+            mode_shape_i = self.rescale_mode_shape(mode_shape_i)
+            
+            modal_frequencies[i] = freq_i
+            modal_damping[i] = damping_i
+            mode_shapes[:, i] = mode_shape_i
+            eigenvalues[i] = lambda_i
+        
+        return modal_frequencies, modal_damping, eigenvalues, mode_shapes
+        
+    def compute_modal_params(self, max_model_order, complex_coefficients=False):
+        '''
+        Perform a multi-order computation of modal parameters. Successively
+        calls 
+        
+         * estimate_model(order, complex_coefficients)
+         * modal_analysis(A_r, C_r)
+        
+        At ascending model orders, up to max_model_order. 
+        See the explanations in the the respective methods, for a detailed 
+        explanation of parameters.
+        
+        Parameters
+        ----------
+            max_model_order: integer, optional
+                Maximum model order, where to interrupt the algorithm.
+        '''
+        
+        n_l = self.prep_signals.num_analised_channels
+        n_r = self.prep_signals.num_ref_channels
+            
+        assert self.state[0]
 
-        modal_frequencies = np.zeros((max_model_order, max_model_order))
-        modal_damping = np.zeros((max_model_order, max_model_order))
-        mode_shapes = np.zeros(
-            (num_analised_channels,
-             max_model_order,
-             max_model_order),
-            dtype=complex)
-        eigenvalues = np.zeros(
-            (max_model_order, max_model_order), dtype=complex)
+        logger.info('Computing modal parameters...')
+        
+        # Peeters 2004,p 400: "a pth order right matrix-fraction model yield pm poles"
+        modal_frequencies = np.zeros((max_model_order, max_model_order*n_r))
+        modal_damping = np.zeros((max_model_order, max_model_order*n_r))
+        mode_shapes = np.zeros((n_l, max_model_order*n_r, max_model_order), dtype=complex)
+        eigenvalues = np.zeros((max_model_order, max_model_order*n_r), dtype=complex)
 
-#         for this_model_order in range(max_model_order+1):
-#
-#             # minimal model order should be 2 !!!
-#
-#             if this_model_order >> 1:
-#                 print("this_model_order: ", this_model_order)
         printsteps = list(np.linspace(0, max_model_order, 100, dtype=int))
-        for this_model_order in range(1, max_model_order + 1):
-            while this_model_order in printsteps:
+        for order in range(1,max_model_order):
+            while order in printsteps:
                 del printsteps[0]
                 print('.', end='', flush=True)
-                # Create matrices X_0 and Y_0
+            
+            A_c, C_c = self.estimate_model(order)
 
-            X_o = np.zeros((num_omega, (this_model_order + 1)), dtype=complex)
+            f, d, lamda, phi = self.modal_analysis(A_c, C_c)
+            n_modes = len(f)
 
-            for jj in range(this_model_order + 1):
-                X_o[:, jj] = selected_omega_vector * jj * Delta_t * 1j
-
-            X_o = np.exp(X_o)
-
-            for n_o in range(num_analised_channels):
-                Y_o = np.zeros(
-                    (num_omega, ((this_model_order + 1) * num_ref_channels)), dtype=complex)
-
-                for kk in range(num_omega):
-                    this_Syy = spectrum_tensor[n_o, :, kk]
-
-                    for ll in range(this_model_order + 1):
-                        Y_o[kk, (ll * num_ref_channels):((ll + 1) * \
-                                 num_ref_channels)] = X_o[kk, ll] * this_Syy.T
-
-                X_o_H = (np.conj(X_o)).T
-                Y_o_H = (np.conj(Y_o)).T
-                R_o = np.real(np.dot(X_o_H, X_o))
-                R_o_inv = np.linalg.inv(R_o)
-                S_o = np.real(np.dot(X_o_H, Y_o))
-                T_o = np.real(np.dot(Y_o_H, Y_o))
-
-                if n_o == 0:
-                    M = 2 * (T_o - (np.dot(np.dot(S_o.T, R_o_inv), S_o)))
-                    R_o_rows = R_o_inv.shape[0]
-                    R_o_cols = R_o_inv.shape[1]
-                    R_o_inv_tensor = np.zeros(
-                        (R_o_rows, R_o_cols, num_analised_channels))
-                    R_o_inv_tensor[:, :, n_o] = R_o_inv
-                    S_o_rows = S_o.shape[0]
-                    S_o_cols = S_o.shape[1]
-                    S_o_tensor = np.zeros(
-                        (S_o_rows, S_o_cols, num_analised_channels))
-                    S_o_tensor[:, :, n_o] = S_o
-
-                else:
-
-                    M = M + 2 * (T_o - (np.dot(np.dot(S_o.T, R_o_inv), S_o)))
-                    R_o_inv_tensor[:, :, n_o] = R_o_inv
-                    S_o_tensor[:, :, n_o] = S_o
-
-            # Compute alpha, beta
-
-            M_ba = M[num_ref_channels:, : num_ref_channels]
-            M_bb = M[num_ref_channels:, num_ref_channels:]
-            alpha_b = -np.dot(np.linalg.inv(M_bb), M_ba)
-            alpha = np.eye(num_ref_channels)
-            alpha = np.concatenate((alpha, alpha_b), axis=0)
-
-            for n_o in range(num_analised_channels):
-                R_o_inv = R_o_inv_tensor[:, :, n_o]
-                S_o = S_o_tensor[:, :, n_o]
-                beta_o = - np.dot(R_o_inv, (np.dot(S_o, alpha)))
-
-                if n_o == 0:
-                    beta_o_rows = beta_o.shape[0]
-                    beta_o_cols = beta_o.shape[1]
-                    beta_o_tensor = np.zeros(
-                        (beta_o_rows, beta_o_cols, num_analised_channels))
-                    beta_o_tensor[:, :, n_o] = beta_o
-
-                else:
-                    beta_o_tensor[:, :, n_o] = beta_o
-
-            # Create matrices A_c and C_c
-
-            A_p = alpha[(this_model_order * num_ref_channels)
-                         :((this_model_order + 1) * num_ref_channels), :]
-            A_p_inv = np.linalg.inv(A_p)
-            B_p = beta_o_tensor[this_model_order, :, :]
-            B_p = np.transpose(B_p)
-            size_A_c = this_model_order * num_ref_channels
-            A_c = np.zeros((size_A_c, size_A_c))
-            C_c = np.zeros((B_p.shape[0], size_A_c))
-
-            for p_i in range(this_model_order):
-                A_p_i = alpha[((this_model_order - p_i - 1) * num_ref_channels):((this_model_order - p_i) * num_ref_channels), :]
-                this_A_c_block = - (np.dot(A_p_inv, A_p_i))
-                A_c[0:num_ref_channels, (p_i * num_ref_channels)                    :((p_i + 1) * num_ref_channels)] = this_A_c_block
-                B_p_i = beta_o_tensor[(this_model_order - p_i - 1), :, :]
-                B_p_i = np.transpose(B_p_i)
-                this_C_c_block = B_p_i - (np.dot(B_p, this_A_c_block))
-                C_c[:, (p_i * num_ref_channels):((p_i + 1)
-                                                 * num_ref_channels)] = this_C_c_block
-
-            A_c_rest = np.eye((this_model_order - 1) * num_ref_channels)
-            A_c[num_ref_channels:,
-                0:((this_model_order - 1) * num_ref_channels)] = A_c_rest
-
-            # Compute modal parameters from matrices A_c and C_c
-
-            lambda_k = np.array([], dtype=complex)
-
-            eigenvalues_paired, eigenvectors_paired = np.linalg.eig(A_c)
-            eigenvectors_single = []
-            eigenvalues_single = []
-
-            eigenvalues_single, eigenvectors_single = \
-                self.remove_conjugates(eigenvalues_paired, eigenvectors_paired)
-            eigenvectors_single = np.array(eigenvectors_single)
-            eigenvalues_single = np.array(eigenvalues_single)
-
-            #print('dim. of eigenvectors_paired = ', eigenvectors_paired.shape)
-            #print('dim. of eigenvectors_single = ', eigenvectors_single.shape)
-            #print('dim. of C_c = ', C_c.shape)
-
-            current_frequencies = np.zeros((1, max_model_order))
-            current_damping = np.zeros((1, max_model_order))
-            current_mode_shapes = np.zeros(
-                (num_analised_channels, max_model_order), dtype=complex)
-
-            for jj in range(len(eigenvalues_single)):
-                k = eigenvalues_single[jj]
-
-                lambda_k = np.log(complex(k)) * sampling_rate
-                freq_j = np.abs(lambda_k) / (2 * np.pi)
-
-                # damping without correction if no exponential window was
-                # applied
-                '''
-                damping_j = np.real(lambda_k)/np.abs(lambda_k) * (-100)
-                '''
-                # damping with correction if exponential window was applied to
-                # corr. fct.
-
-                damping_j = (np.real(lambda_k) / np.abs(lambda_k) -
-                             factor_a * (sampling_rate) / (freq_j * 2 * np.pi)) * (-100)
-                #damping_j = (np.real(lambda_k)/np.abs(lambda_k) + factor_a * (freq_j * 2*np.pi)) * (-100)
-                #damping_j = (np.real(lambda_k)/np.abs(lambda_k) - factor_a ) * (-100)
-
-                mode_shapes_j = np.dot(C_c[:, :], eigenvectors_single[:, jj])
-                mode_shapes_j = mode_shapes_j.reshape(
-                    (num_analised_channels, 1))
-                # integrate acceleration and velocity channels to level out all channels in phase and amplitude
-                #mode_shapes_j = self.integrate_quantities(mode_shapes_j, accel_channels, velo_channels, np.abs(lambda_k))
-
-                current_frequencies[0:1, jj:jj + 1] = freq_j
-                current_damping[0:1, jj:jj + 1] = damping_j
-                current_mode_shapes[:, jj:jj + 1] = mode_shapes_j
-
-            modal_frequencies[(this_model_order - 1), :] = current_frequencies
-            modal_damping[(this_model_order - 1), :] = current_damping
-            eigenvalues[(this_model_order - 1),
-                        :len(eigenvalues_single)] = eigenvalues_single
-            mode_shapes[:, :, (this_model_order - 1)] = current_mode_shapes
+            modal_frequencies[order, :n_modes] = f
+            modal_damping[order, :n_modes] = d
+            eigenvalues[order,:n_modes] = lamda
+            mode_shapes[:, :n_modes, order] = phi
+            
         print('.', end='\n', flush=True)
 
+        self.max_model_order = max_model_order
+        
         self.eigenvalues = eigenvalues
         self.modal_frequencies = modal_frequencies
         self.modal_damping = modal_damping
@@ -505,24 +429,25 @@ class PLSCF(ModalBase):
         out_dict['self.setup_name'] = self.setup_name
         out_dict['self.start_time'] = self.start_time
         # out_dict['self.prep_signals']=self.prep_signals
-        if self.state[0]:  # spectral tensor
+        if self.state[0]:  # half spectra
             out_dict['self.begin_frequency'] = self.begin_frequency
             out_dict['self.end_frequency'] = self.end_frequency
             out_dict['self.nperseg'] = self.nperseg
             out_dict['self.selected_omega_vector'] = self.selected_omega_vector
-            out_dict['self.num_omega'] = self.num_omega
-            out_dict['self.spectrum_tensor'] = self.spectrum_tensor
+            out_dict['self.pos_half_spectra'] = self.pos_half_spectra
+            out_dict['self.factor_a'] = self.factor_a
         if self.state[1]:  # modal params
             out_dict['self.max_model_order'] = self.max_model_order
             out_dict['self.modal_frequencies'] = self.modal_frequencies
             out_dict['self.modal_damping'] = self.modal_damping
             out_dict['self.mode_shapes'] = self.mode_shapes
+            out_dict['self.eigenvalues'] = self.eigenvalues
 
         np.savez_compressed(fname, **out_dict)
 
     @classmethod
     def load_state(cls, fname, prep_signals):
-        print('Now loading previous results from  {}'.format(fname))
+        logger.info('Now loading previous results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
         #             0         1           2
@@ -532,33 +457,28 @@ class PLSCF(ModalBase):
         else:
             return
 
-        for this_state, state_string in zip(
-                state, ['Sprectral Tensor Built', 'Modal Parameters Computed', ]):
-            if this_state:
-                print(state_string)
-
         assert isinstance(prep_signals, PreProcessSignals)
         setup_name = str(in_dict['self.setup_name'].item())
-        start_time = in_dict['self.start_time'].item()
         assert setup_name == prep_signals.setup_name
         start_time = prep_signals.start_time
 
         assert start_time == prep_signals.start_time
-        #prep_signals = in_dict['self.prep_signals'].item()
+        
         pLSCF_object = cls(prep_signals)
         pLSCF_object.state = state
-        if state[0]:  # spectral tensor
-            pLSCF_object.begin_frequency = in_dict['self.begin_frequency']
-            pLSCF_object.end_frequency = int(in_dict['self.end_frequency'])
-            pLSCF_object.nperseg = int(in_dict['self.nperseg'])
-            pLSCF_object.selected_omega_vector = in_dict['self.selected_omega_vector']
-            pLSCF_object.num_omega = in_dict['self.num_omega']
-            pLSCF_object.spectrum_tensor = in_dict['self.spectrum_tensor']
+        if state[0]:  # positive half spectra
+            pLSCF_object.begin_frequency = validate_array(in_dict['self.begin_frequency'])
+            pLSCF_object.end_frequency = validate_array(in_dict['self.end_frequency'])
+            pLSCF_object.nperseg = validate_array(in_dict['self.nperseg'])
+            pLSCF_object.selected_omega_vector = validate_array(in_dict['self.selected_omega_vector'])
+            pLSCF_object.pos_half_spectra = validate_array(in_dict['self.pos_half_spectra'])
+            pLSCF_object.factor_a = validate_array(in_dict['self.factor_a'])
         if state[1]:  # modal params
             pLSCF_object.max_model_order = int(in_dict['self.max_model_order'])
             pLSCF_object.modal_frequencies = in_dict['self.modal_frequencies']
             pLSCF_object.modal_damping = in_dict['self.modal_damping']
             pLSCF_object.mode_shapes = in_dict['self.mode_shapes']
+            pLSCF_object.eigenvalues = in_dict['self.eigenvalues']
 
         return pLSCF_object
 

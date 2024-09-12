@@ -115,7 +115,7 @@ class ModalBase(object):
                 conj_indices.append(i)
             # catches unordered conjugates but takes slightly longer
             for j in range(i + 1, num_val):
-                if eigval[j] == this_conj_val:
+                if np.isclose(eigval[j] , this_conj_val):
                     conj_indices.append(j)
                     break
 
