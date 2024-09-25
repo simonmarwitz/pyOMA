@@ -320,8 +320,8 @@ def StabilGUIWeb(stabil_plot):
     # build final layout
     hbox = ipywidgets.HBox([softbox, hardbox, viewbox, selectbox, currentbox], 
                            layout=ipywidgets.Layout(justify_content='space-around'))
-    vbox = ipywidgets.VBox([canvas, hbox, handler.out], 
-                           layout=ipywidgets.Layout(align_items='center'))
+    vbox = ipywidgets.VBox([fig.canvas, hbox, handler.out], 
+                           layout=ipywidgets.Layout(align_items='center', padding="0px 0px 0px 100px", overflow="scroll"))
     global cid
     cid = None
     
@@ -524,7 +524,7 @@ def PlotMSHWeb(msp):
     # build final layout
     hbox = ipywidgets.HBox([optbox, viewbox, modebox, infobox], 
                            layout=ipywidgets.Layout(justify_content='space-around'))
-    vbox = ipywidgets.VBox([canvas, ipywidgets.Label(value='Left click to rotate, middle click to pan, right click to zoom.'), hbox, handler.out], 
+    vbox = ipywidgets.VBox([fig.canvas, ipywidgets.Label(value='Left click to rotate, middle click to pan, right click to zoom.'), hbox, handler.out], 
                            layout=ipywidgets.Layout(align_items='center'))
     
     # define callbacks and other logic
