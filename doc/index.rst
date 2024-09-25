@@ -5,7 +5,7 @@ A toolbox for Operational Modal Analysis (OMA) developed by Simon Marwitz,
 Volkmar Zabel and Andrei Udrea at the Institute of Structural Mechanics (ISM) 
 of the Bauhaus-Universität Weimar. Operational Modal Analysis is 
 the process of identifying the modal properties of a civil structure 
-from ambient (output-only) vibration measurements....
+from ambient (output-only) vibration measurements.
 
 In a broader sense it consists of a series of processes:
 
