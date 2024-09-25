@@ -1,7 +1,7 @@
 Welcome to pyOMA's documentation!
 =================================
 
-A toolbox for Operational Modal Analysis developed by Simon Marwitz, 
+A toolbox for Operational Modal Analysis (OMA) developed by Simon Marwitz, 
 Volkmar Zabel and Andrei Udrea at the Institute of Structural Mechanics (ISM) 
 of the Bauhaus-Universität Weimar. Operational Modal Analysis (OMA) is 
 the process of identifying the modal properties of a civil structure 
