@@ -167,8 +167,7 @@ class PLSCF(ModalBase):
         '''
         Estimate a right matrix-fraction model from positive half-spectra, by the
         constructinga set of reduced normal equations as shown in Peeters 2004. 
-        The polynomial is identified following Cauberghe 2004. Sec. 5.2.1 and 
-        converted into a state-space model, as outlined in Reynders-2012: Lemma 2.2
+        The polynomial is identified following Cauberghe 2004. Sec. 5.2.1 
         
         Verboven 2002: Sect. 5.3.3 has a discussion on the use of real or complex
         valued coefficients, favoring complex ones. Guillaume 2003, Peeters 2004 
@@ -182,11 +181,16 @@ class PLSCF(ModalBase):
         was a wrong sign in the assembly of the C_c matrix, which led to corrupted
         mode shapes.
         
-        .. TO DO::
+        .. TODO::
             * implement weighting function; c.p. Peeters 2004 Sect. 2.2
-            * improve assembly by exploiting the structure of S, R, T; c.p. Cauberghe 2004 Eq. 5.17ff
+            * improve assembly by exploiting the Toeplitz structure of S, R, T; c.p. Cauberghe 2004 Eq. 5.17ff
+            * Investigate LS-TLS solution by using a SVD
             * estimate polynomial once at highest order and construct all lower 
             order models from these coefficients; c.p. Peeters 2004 Sect. 2.4
+            * Check, if alternative solution for \alpha in Reynders 2012. Sec. 5.2.4 
+            leads to clearer stabilization, or it it is actually equivalent to 
+            the current implementation
+        
         
         Parameters
         ----------
@@ -198,11 +202,11 @@ class PLSCF(ModalBase):
                 
         Returns
         -------
-            A_c: numpy.ndarray
-                Companion matrix: Array of shape (order * n_r, order * n_r)
+            alpha: numpy.ndarray
+                Denominator coefficients: Array of shape ((order + 1) * n_r, n_r)
                 
-            C_c: numpy.ndarray
-                Output matrix: Array of shape (num_analised_channels, order * n_r)
+            beta_l_i: numpy.ndarray
+                Numerator coefficients: Array of shape (order + 1, n_r, n_l)
         
         '''
         
@@ -256,51 +260,32 @@ class PLSCF(ModalBase):
         alpha_b = - np.linalg.solve(M_aa, M_ab)
         alpha = np.concatenate((alpha_b, np.eye(n_r)), axis=0) # ((order + 1) * n_r, n_r)
         
-        beta_o_i = np.zeros(((order + 1), n_r, n_l), dtype=dtype)
+        beta_l_i = np.zeros(((order + 1), n_r, n_l), dtype=dtype)
         for i_l in range(n_l):
             RS_solution = RS_solutions[:, :, i_l]
-            beta_o = - RS_solution @ alpha
+            beta_l = - RS_solution @ alpha
             
-            beta_o_i[:, :, i_l] = beta_o
+            beta_l_i[:, :, i_l] = beta_l
         
-        # Create matrices A_c and C_c; 
-        # Reynders-2012-SystemIdentificationMethodsFor(Operational)ModalAnalysisReviewAndComparison: Lemma 2.2
-        A_p = alpha[-n_r:, :]
-        B_p = beta_o_i[order, :, :].T
-        
-        A_c = np.zeros((order * n_r, order * n_r), dtype=dtype)
-        C_c = np.zeros((n_l, order * n_r), dtype=dtype)
-        
-        for p_i in range(order):
-            A_p_i = alpha[(order - p_i - 1) * n_r:(order - p_i) * n_r, :]
-            
-            this_A_c_block = - np.linalg.solve(A_p, A_p_i)
-            A_c[:n_r, p_i * n_r:(p_i + 1) * n_r] = this_A_c_block
-            
-            B_p_i = beta_o_i[order - p_i - 1, :, :].T
-            
-            this_C_c_block = B_p_i + (B_p @ this_A_c_block)
-            C_c[:, p_i * n_r:(p_i + 1) * n_r] = this_C_c_block
-        
-        A_c_rest = np.eye((order - 1) * n_r)
-        A_c[n_r:, :(order - 1) * n_r] = A_c_rest
-        
-        return A_c, C_c
+        return alpha, beta_l_i 
+
     
-    def modal_analysis(self, A_c, C_c):
+    def modal_analysis_state_space(self, alpha, beta_l_i):
         '''
-        Perform a modal decomposition of the identified companion matrix A_c. 
+        Perform a modal analysis of the identified polyomial by converting it 
+        into a state-space model, as outlined in Reynders-2012: Lemma 2.2, followed
+        by an eigendecomposition. 
         Mode shapes are scaled to unit modal displacements. Complex conjugate 
         and real modes are removed prior to further processing. Damping values
         are corrected, if half-spectra were constructed with an exponential window.
         
         Parameters
         -------
-            A_c: numpy.ndarray
-                Companion matrix: Array of shape (order * n_r, order * n_r)
+            alpha: numpy.ndarray
+                Denominator coefficients: Array of shape ((order + 1) * n_r, n_r)
                 
-            C_c: numpy.ndarray
-                Output matrix: Array of shape (num_analised_channels, order * n_r)
+            beta_l_i: numpy.ndarray
+                Numerator coefficients: Array of shape (order + 1, n_r, n_l)
          
         Returns
         -------
@@ -317,8 +302,34 @@ class PLSCF(ModalBase):
         velo_channels = self.prep_signals.velo_channels
         
         n_l = self.prep_signals.num_analised_channels
+        n_r = self.prep_signals.num_ref_channels
         factor_a = self.factor_a
         sampling_rate = self.prep_signals.sampling_rate
+        
+        order = alpha.shape[0] // n_r - 1
+        
+        # Create matrices A_c and C_c; 
+        # Reynders-2012-SystemIdentificationMethodsFor(Operational)ModalAnalysisReviewAndComparison: Lemma 2.2
+        A_p = alpha[-n_r:, :]
+        B_p = beta_l_i[order, :, :].T
+        
+        A_c = np.zeros((order * n_r, order * n_r), dtype=alpha.dtype)
+        C_c = np.zeros((n_l, order * n_r), dtype=alpha.dtype)
+        
+        for p_i in range(order):
+            A_p_i = alpha[(order - p_i - 1) * n_r:(order - p_i) * n_r, :]
+            
+            this_A_c_block = - np.linalg.solve(A_p, A_p_i)
+            A_c[:n_r, p_i * n_r:(p_i + 1) * n_r] = this_A_c_block
+            
+            B_p_i = beta_l_i[order - p_i - 1, :, :].T
+            
+            this_C_c_block = B_p_i + (B_p @ this_A_c_block)
+            C_c[:, p_i * n_r:(p_i + 1) * n_r] = this_C_c_block
+        
+        A_c_rest = np.eye((order - 1) * n_r)
+        A_c[n_r:, :(order - 1) * n_r] = A_c_rest
+        
         
         eigvals, eigvecs_r = np.linalg.eig(A_c)
         
@@ -364,7 +375,7 @@ class PLSCF(ModalBase):
         calls 
         
          * estimate_model(order, complex_coefficients)
-         * modal_analysis(A_r, C_r)
+         * modal_analysis_state_space(A_r, C_r)
         
         At ascending model orders, up to max_model_order. 
         See the explanations in the the respective methods, for a detailed 
@@ -395,9 +406,9 @@ class PLSCF(ModalBase):
                 del printsteps[0]
                 print('.', end='', flush=True)
             
-            A_c, C_c = self.estimate_model(order)
+            alpha, beta_l_i = self.estimate_model(order)
 
-            f, d, lamda, phi = self.modal_analysis(A_c, C_c)
+            f, d, lamda, phi = self.modal_analysis_state_space(alpha, beta_l_i )
             n_modes = len(f)
 
             modal_frequencies[order, :n_modes] = f
