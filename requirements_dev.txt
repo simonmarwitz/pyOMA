@@ -1,0 +1,14 @@
+numpy
+scipy
+matplotlib>=3.2.2
+PyQt5
+sphinx
+autoclasstoc
+sphinxcontrib-blockdiag
+sphinx_rtd_theme==2.0.0
+ipywidgets
+ipython
+ipympl
+jupyterlab
+myst-nb
+sphinx-collections

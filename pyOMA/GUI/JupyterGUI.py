@@ -16,6 +16,10 @@ from pathlib import Path
 # import ipywidgets
 # import ipympl.backend_nbagg # the ''%matplotlib widget' backend
 
+#Monkeypatch webagg to support blitting until https://github.com/matplotlib/matplotlib/pull/27160 is merged upstream
+# copied and modified from https://github.com/raphaelquast/EOmaps/blob/66d32e2f5219059ab32a02457c535652d3e3f881/eomaps/_maps_base.py#L147
+
+
 class SnappingCursor:
     """
     A cross-hair cursor that snaps to the data point of a line, which is
@@ -419,7 +423,8 @@ def PlotMSHWeb(msp):
     fig = msp.fig
     ax = msp.subplot
     canvas = ipympl.backend_nbagg.Canvas(fig)
-    msp.canvas = canvas
+    #uncommenting  following line breaks display on some windows systems
+    #msp.canvas = canvas
     manager = ipympl.backend_nbagg.FigureManager(canvas, 0)
     canvas.header_visible = False
     canvas.toolbar_position = 'right'
