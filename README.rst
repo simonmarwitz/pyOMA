@@ -1,6 +1,12 @@
 pyOMA
 =====
 
+.. image:: https://raw.githubusercontent.com/simonmarwitz/pyOMA/refs/heads/master/doc/_static/logo.png
+  :width: 110
+  :height: 110
+  :align: left 
+
+
 pyOMA is an open-source toolbox for Operational Modal Analysis (OMA) developed 
 by Simon Marwitz, Volkmar Zabel et al. at the Institute of Structural Mechanics (ISM) 
 of the Bauhaus-Universität Weimar. Operational Modal Analysis is a methodogy for
@@ -17,7 +23,7 @@ About Operational Modal Analysis
 
 In a broader sense OMA consists of a series of processes:
 
-.. image:: _static/concept_map.png
+.. image:: https://raw.githubusercontent.com/simonmarwitz/pyOMA/refs/heads/master/doc/_static/concept_map.png
   :width: 800
   :alt: blockdiagram
 
@@ -156,32 +162,3 @@ For beginners:
  * Fork the project on GitHub and start development
  * Open a Pull Request to get your changes merged into the project
 
-
-.. TODO::
-   
-    * Beginner :
-        * Creation and simplifaction of scripts on the basis of exemplary measurment campaigns
-        * Creating missing GUI parts for the PreProcessing and OMA modules
-        * Setup jupyter notebooks for interactive analyses
-        * Improvement of the documentation, where needed
-    * Intermediate :
-        * Implementing support for various measurement file formats 
-        * Improvement of the documentation, where needed
-    * Advanced :
-        * Automatic unit tests
-        * Creating a new Modeshape plot class based on pyvista or mayavi
-        * Profiling and performance improvement of frequently executed code pieces
-        * Implementation of variance estimation for PLSCF, PRCE
-        * Improvement of the documentation, where needed
-        * Implement MTN=Modal Contribution in Spectral Densities
-        * Correct Uncertainty Estimation for SSI-Data based on IOMAC Paper
-        * Implement PreGER with Uncertainty Bounds
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-   
-   preprocessing
-   oma
-   postprocessing
-   _collections/single_setup_analysis
