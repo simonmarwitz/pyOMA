@@ -186,10 +186,10 @@ class PLSCF(ModalBase):
             * improve assembly by exploiting the Toeplitz structure of S, R, T; c.p. Cauberghe 2004 Eq. 5.17ff
             * Investigate LS-TLS solution by using a SVD
             * estimate polynomial once at highest order and construct all lower 
-            order models from these coefficients; c.p. Peeters 2004 Sect. 2.4
+              order models from these coefficients; c.p. Peeters 2004 Sect. 2.4
             * Check, if alternative solution for \alpha in Reynders 2012. Sec. 5.2.4 
-            leads to clearer stabilization, or it it is actually equivalent to 
-            the current implementation
+              leads to clearer stabilization, or it it is actually equivalent to 
+              the current implementation
         
         
         Parameters
