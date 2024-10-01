@@ -44,6 +44,21 @@ acquired vibration measurements of a structural health monitoring system (since 
 Further uses include various academic and commercial measreument campaigns 
 on civil engineering structures including bridges, towers/masts, widespanned floors, etc.
 
+.. [Ref1] S. Marwitz et al. “An Experimental Evaluation of Two Potential Improvements for 3D Laser Vibrometer Based Operational Modal Analysis”. In: Experimental Mechanics 57.8 (July 2017), pp. 1311–1325.
+
+.. [Ref2] Simon Marwitz et al. “Modalanalyse von Monitoringdaten eines Sendeturms”. In: Bautechnik 95.4 (Mar. 2018), pp. 288–295.
+
+.. [Ref3] Simon Marwitz et al. “Operational Modal Analysis with a 3D Laser Vibrometer without External Reference”. In: Rotating Machinery, Hybrid Test Methods, Vibro-Acoustics & Laser Vibrometry. Ed. by James De Clerck et al. Vol. 8. Proceedings of the 34th IMAC, A Conference and Exposition on Structural Dynamics 2016. Society of Experimental Mechanics. Springer International Publishing, Jan. 25, 2016, pp. 75–85.
+
+.. [Ref4] Simon Marwitz et al. “Automatisierte Modalanalyse und Langzeitmonitoring eines rotationssymmetrischen Turmtragwerks”. In: Berichte der Fachtagung Baustatik-Baupraxis 13. Ed. by Günther Meschke et al. Vol. 13. Baustatik Baupraxis e. V.. Ruhr-Universität Bochum: Lehrstuhl für Statik und Dynamik der Ruhr-Universität Bochum, Mar. 2017, pp. 165–172.
+
+.. [Ref5] Simon Marwitz et al. “Cross-Evaluation of two Measures for the Assessment of Estimated State-Space Systems in Operational Modal Analysis”. In: Proceedings of the 7th International Operational Modal Analysis Conference. Shaker Verlag GmbH, Germany, May 11, 2017, pp. 253–256.
+
+.. [Ref6] Simon Marwitz et al. “Betrachtung von Unsicherheiten in der Modalanalyse mit der Stochastic Subspace Identification am Beispiel eines seilabgespannten Masts”. In: Tagungsband der 15. D-A-CH Tagung Erdbebeningenieurwesen und Baudynamik. Sept. 21, 2017.
+
+.. [Ref7] Simon Marwitz et al. “Modale Identifikation aus Langzeit-Dehnungsmessungen an einem Sendeturm”. In: Tagunsgband der VDI Baudynamik Tagung. Apr. 17, 2018.
+
+.. [Ref8] Simon Marwitz et al. “Relations between the quality of identified modal parameters and measured data obtained by structural monitoring”. In: Conference Proceedings of ISMA2018 - USD2018. Sept. 17, 2018.
 
 Install
 =======
