@@ -6,7 +6,6 @@ pyOMA
   :height: 110
   :align: left 
 
-
 pyOMA is an open-source toolbox for Operational Modal Analysis (OMA) developed 
 by Simon Marwitz, Volkmar Zabel et al. at the Institute of Structural Mechanics (ISM) 
 of the Bauhaus-Universität Weimar. Operational Modal Analysis is a methodogy for
