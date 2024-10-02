@@ -12,7 +12,7 @@ from pyOMA.core.PRCE import PRCE
 from pyOMA.core.SSICovRef import BRSSICovRef
 from pyOMA.core.SSIData import SSIData, SSIDataMC
 from pyOMA.core.VarSSIRef import VarSSIRef
-from pyOMA.core.StabilDiagram import StabilCalc, StabilPlot
+from pyOMA.core.StabilDiagram import StabilCalc, StabilPlot, StabilCluster
 from pyOMA.core.PlotMSH import ModeShapePlot
 
 from pyOMA.GUI.PlotMSHGUI import start_msh_gui
@@ -31,7 +31,7 @@ chan_dofs_file=result_folder / "channel_dofs.txt"
 
 # Select OMA Method, one of: PLSCF PRCE BRSSICovRef PogerSSICovRef SSIData SSIDataMC VarSSIRef
 method=BRSSICovRef
-conf_file=working_dir / 'varssi_config.txt'
+conf_file=working_dir / 'ssi_config.txt'
 
 # define script switches
 skip_existing=False
@@ -41,7 +41,8 @@ interactive=True
 
 geometry_data = GeometryProcessor.load_geometry(
     nodes_file=working_dir / 'grid.txt',
-    lines_file=working_dir / 'lines.txt')
+    lines_file=working_dir / 'lines.txt',
+    parent_childs_file=working_dir / 'parent_child_assignments.txt')
 
 if not os.path.exists(result_folder / 'prep_signals.npz') or not skip_existing:
     prep_signals = PreProcessSignals.init_from_config(

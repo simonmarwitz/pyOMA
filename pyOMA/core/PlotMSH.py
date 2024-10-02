@@ -424,10 +424,11 @@ class ModeShapePlot(object):
             # remove all whitespace around the axes
             fig.subplots_adjust(0,0,1,1,0,0)
             #fig.set_tight_layout(True)
-            self.canvas = matplotlib.backend_bases.FigureCanvasBase(fig)
+            # self.canvas = 
+            matplotlib.backend_bases.FigureCanvasBase(fig)
         else:
             assert isinstance(fig, matplotlib.figure.Figure)
-            self.canvas = fig.canvas
+            # self.canvas = fig.canvas
 
         self.fig = fig
         
@@ -460,7 +461,7 @@ class ModeShapePlot(object):
         
 
         # instantiate the x,y,z axis arrows
-        self.draw_axis()
+        # self.draw_axis()
 
     # @pyqtSlot()
     def reset_view(self):
@@ -517,12 +518,13 @@ class ModeShapePlot(object):
         self.draw_lines()
         self.draw_chan_dofs()
         self.draw_parent_childs()
+        self.draw_axis()
         if self.mode_index is not None:
             self.draw_msh()
         self.set_equal_aspect()
         #self.disp_nodes = { i : [0,0,0] for i in self.geometry_data.nodes.keys() }
 
-        self.canvas.draw()
+        self.fig.canvas.draw()
 
     # @pyqtSlot()
 
@@ -560,7 +562,7 @@ class ModeShapePlot(object):
             #mpl_toolkits.mplot3d.axes3d.proj3d.persp_transformation = persp_transformation
             self.subplot.set_proj_type('persp')
         self.subplot.view_init(elev, azim, roll)
-        self.canvas.draw()
+        self.fig.canvas.draw()
 
         if self.animated or self.data_animated:
             for line in self.lines_objects:
@@ -718,7 +720,7 @@ class ModeShapePlot(object):
         '''
 
         if path:
-            self.canvas.print_figure(path, dpi=self.dpi)
+            self.fig.canvas.print_figure(path, dpi=self.dpi)
 
     # @pyqtSlot(float, float, float, int)
 
@@ -767,7 +769,7 @@ class ModeShapePlot(object):
 
         self.patches_objects[i] = (patch, text)
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     # @pyqtSlot(tuple, int)
     def add_line(self, line, i):
@@ -817,7 +819,7 @@ class ModeShapePlot(object):
                 #del self.lines_objects[i]
         self.lines_objects[i] = line_object
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     # @pyqtSlot(tuple, int)
     def add_nd_line(self, line, i):
@@ -860,7 +862,7 @@ class ModeShapePlot(object):
                 #del self.nd_lines_objects[i]
         self.nd_lines_objects[i] = line_object
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     # @pyqtSlot(tuple, int)
     def add_cn_line(self, i):
@@ -896,7 +898,7 @@ class ModeShapePlot(object):
                 pass
         self.cn_lines_objects[i] = line_object
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     # @pyqtSlot(int, float, float, float, int, float, float, float, int)
 
@@ -1001,7 +1003,7 @@ class ModeShapePlot(object):
                 obj.remove()
         self.arrows_objects[i] = (arrow_m, arrow_sl)
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     # @pyqtSlot(int, int, tuple, int)
 
@@ -1050,7 +1052,7 @@ class ModeShapePlot(object):
             
         self.channels_objects[i] = arrow
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     # @pyqtSlot(float, float, float, int)
     def take_node(self, x, y, z, node):
@@ -1103,7 +1105,7 @@ class ModeShapePlot(object):
             if self.patches_objects:
                 logging.warning('node not found')
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     # @pyqtSlot(tuple)
     def take_line(self, line):
@@ -1193,7 +1195,7 @@ class ModeShapePlot(object):
         else:
             if self.nd_lines_objects:
                 logging.warning('line_object not found')
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     # @pyqtSlot(int, float, float, float, int, float, float, float)
     def take_parent_child(self, i_m, x_m, y_m, z_m, i_sl, x_sl, y_sl, z_sl):
@@ -1270,7 +1272,7 @@ class ModeShapePlot(object):
             if self.arrows_objects:
                 logging.warning('arrows_object not found')
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     # @pyqtSlot(int, int, tuple, int)
     def take_chan_dof(self, chan, node, dof):
@@ -1312,7 +1314,7 @@ class ModeShapePlot(object):
             if self.channels_objects:
                 logging.warning('chandof_object not found')
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     def draw_axis(self):
         '''
@@ -1376,7 +1378,7 @@ class ModeShapePlot(object):
 #             visible=self.show_axis)
         self.axis_obj['Z'] = axis
         
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     def refresh_axis(self, visible=None):
         '''
@@ -1396,7 +1398,7 @@ class ModeShapePlot(object):
 
         for axis in self.axis_obj.values():
             axis.set_visible(self.show_axis)
-        self.canvas.draw()
+        self.fig.canvas.draw()
 
     # @pyqtSlot()
     def draw_nodes(self):
@@ -1448,7 +1450,7 @@ class ModeShapePlot(object):
                 patch[1].set_position([x, y])
                 patch[1].set_3d_properties(z, None)
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     def draw_lines(self):
         '''
@@ -1530,7 +1532,7 @@ class ModeShapePlot(object):
             line.set_data_3d([x, y, z])
             #line.set_3d_properties(z)
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     def refresh_nd_lines(self, visible=None):
         '''
@@ -1560,7 +1562,7 @@ class ModeShapePlot(object):
             line.set_data_3d([x, y, z])
             #line.set_3d_properties(z)
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
         
     
     def refresh_cn_lines(self, visible=None):
@@ -1594,7 +1596,7 @@ class ModeShapePlot(object):
                 line.set_data_3d([x, y, z])
                 #line.set_3d_properties(z)
 
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     def draw_parent_childs(self):
         '''
@@ -1628,7 +1630,7 @@ class ModeShapePlot(object):
         for patch in self.arrows_objects:
             for obj in patch:
                 obj.set_visible(self.show_parent_childs)
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     def draw_chan_dofs(self):
         '''
@@ -1664,7 +1666,7 @@ class ModeShapePlot(object):
 
         for patch in self.channels_objects:
             patch.set_visible(self.show_chan_dofs)
-        self.canvas.draw_idle()
+        self.fig.canvas.draw_idle()
 
     def draw_msh(self):
         '''
@@ -1893,7 +1895,7 @@ class ModeShapePlot(object):
             self.animate()
         self.set_equal_aspect()
         
-        self.canvas.draw()
+        self.fig.canvas.draw()
         
     def set_equal_aspect(self):
         
@@ -1932,12 +1934,14 @@ class ModeShapePlot(object):
             self.animated = False
             self.data_animated = False
             for c in self.connect_handles:
-                self.canvas.mpl_disconnect(c)
+                self.fig.canvas.mpl_disconnect(c)
             self.draw_nodes()
             self.refresh_nodes()
             self.draw_lines()
             self.refresh_lines()
             self.refresh_nd_lines()
+            self.refresh_parent_childs()
+            self.refresh_chan_dofs()
             # self.draw_msh()
 
     # @pyqtSlot()
@@ -1969,14 +1973,14 @@ class ModeShapePlot(object):
             '''
             minx, maxx, miny, maxy, minz, maxz = self.subplot.get_w_lims()
 
-            self.subplot.cla()
-            self.subplot.set_aspect('equal', 'datalim')
-            self.subplot.patch = self.fig.patch
-            self.subplot.grid(False)
-            self.subplot.set_axis_off()
+            # self.subplot.cla()
+            # self.subplot.set_aspect('equal', 'datalim')
+            # self.subplot.patch = self.fig.patch
+            # self.subplot.grid(False)
+            # self.subplot.set_axis_off()
             # return self.lines_objects
-            self.draw_lines()
-            self.draw_axis()
+            # self.draw_lines()
+            # self.draw_axis()
             for i,line in enumerate(self.lines_objects):
                 line.set_visible(False)
                 # line.set_clip_path(self.fig.patch)
@@ -2000,7 +2004,7 @@ class ModeShapePlot(object):
                 # line.set_clip_path(self.fig.patch)
                 
 
-            self.canvas.draw()
+            self.fig.canvas.draw()
             self.subplot.set_xlim3d(minx, maxx)
             self.subplot.set_ylim3d(miny, maxy)
             self.subplot.set_zlim3d(minz, maxz)
@@ -2073,8 +2077,8 @@ class ModeShapePlot(object):
             return self.lines_objects + \
                 self.nd_lines_objects + \
                 self.trace_objects + \
-                list(self.cn_lines_objects.values()) + \
-                list(self.axis_obj.values())
+                list(self.cn_lines_objects.values()) #+ \
+                # list(self.axis_obj.values())
             # return self.lines_objects#, self.nd_lines_objects
 
         def update_lines(num):
@@ -2133,12 +2137,12 @@ class ModeShapePlot(object):
 
         # self.cla()
         #self.patches_objects = {}
-        self.lines_objects = []
-        self.nd_lines_objects = []
-        self.cn_lines_objects = {}
-        self.arrows_objects = []
-        self.channels_objects = []
-        self.axis_obj = {}
+        # self.lines_objects = []
+        # self.nd_lines_objects = []
+        # self.cn_lines_objects = {}
+        # self.arrows_objects = []
+        # self.channels_objects = []
+        # self.axis_obj = {}
 
         if self.animated:
             return self.stop_ani()
@@ -2147,9 +2151,9 @@ class ModeShapePlot(object):
                 self.stop_ani()
             self.animated = True
 
-        c1 = self.canvas.mpl_connect('motion_notify_event', self._on_move)
-        c2 = self.canvas.mpl_connect('button_press_event', self._button_press)
-        c3 = self.canvas.mpl_connect(
+        c1 = self.fig.canvas.mpl_connect('motion_notify_event', self._on_move)
+        c2 = self.fig.canvas.mpl_connect('button_press_event', self._button_press)
+        c3 = self.fig.canvas.mpl_connect(
             'button_release_event',
             self._button_release)
         self.connect_handles = [c1, c2, c3]
@@ -2163,7 +2167,7 @@ class ModeShapePlot(object):
             save_count=50,
             blit=True)
         
-        self.canvas.draw()
+        self.fig.canvas.draw()
 
     # @pyqtSlot()
 
@@ -2268,9 +2272,9 @@ class ModeShapePlot(object):
                 self.stop_ani()
             self.data_animated = True
 
-        c1 = self.canvas.mpl_connect('motion_notify_event', self._on_move)
-        c2 = self.canvas.mpl_connect('button_press_event', self._button_press)
-        c3 = self.canvas.mpl_connect(
+        c1 = self.fig.canvas.mpl_connect('motion_notify_event', self._on_move)
+        c2 = self.fig.canvas.mpl_connect('button_press_event', self._button_press)
+        c3 = self.fig.canvas.mpl_connect(
             'button_release_event',
             self._button_release)
         self.connect_handles = [c1, c2, c3]
@@ -2290,7 +2294,7 @@ class ModeShapePlot(object):
             save_count=0,
             blit=True)
 
-        self.canvas.draw()
+        self.fig.canvas.draw()
 
     def _button_press(self, event):
         if event.inaxes == self.subplot:
@@ -2309,7 +2313,7 @@ class ModeShapePlot(object):
             line.set_visible(False)
         for line in self.cn_lines_objects.values():
             line.set_visible(False)
-        # self.canvas.draw()
+        # self.fig.canvas.draw()
         self.line_ani._setup_blit()
         # self.line_ani._start()
 

@@ -1,4 +1,4 @@
-master_node	x_master	y_master	z_master	slave_node	x_slave	y_slave	z_slave
+parent_node	x_parent	y_parent	z_parent	child_node	x_child	y_child	z_child
 5		1.00	0.00	0.00	8	1.00	0.00	0.00
 7		0.00	1.00	0.00	8	0.00	1.00	0.00
 9		1.00	0.00	0.00	12	1.00	0.00	0.00

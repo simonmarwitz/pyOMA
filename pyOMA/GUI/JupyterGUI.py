@@ -424,7 +424,7 @@ def PlotMSHWeb(msp):
     ax = msp.subplot
     canvas = ipympl.backend_nbagg.Canvas(fig)
     #uncommenting  following line breaks display on some windows systems
-    #msp.canvas = canvas
+    # msp.canvas = canvas
     manager = ipympl.backend_nbagg.FigureManager(canvas, 0)
     canvas.header_visible = False
     canvas.toolbar_position = 'right'
@@ -596,7 +596,7 @@ def PlotMSHWeb(msp):
         mode, order, frequency, damping, MPC, MP, MPD = msp.change_mode(float(current))
         if msp.stabil_calc is not None:
             n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC, ex_1, ex_2 = msp.stabil_calc.get_modal_values((order, mode))
-            print(n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC, ex_1, ex_2)
+            # print(n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC, ex_1, ex_2)
             if msp.stabil_calc.capabilities['std']:
                 num_blocks = msp.tabil_calc.modal_data.num_blocks
                 stdf = scipy.stats.t.ppf(

@@ -161,10 +161,10 @@ def multi_setup_analysis():
         prep_signals = None
 
     if os.path.exists(result_folder_merged / 'stabil_data.npz') and skip_existing:
-        stabil_calc = StabilCalc.load_state(
+        stabil_calc = StabilCluster.load_state(
             result_folder_merged / 'stabil_data.npz', modal_data, prep_signals)
     else:
-        stabil_calc = StabilCalc(modal_data, prep_signals)
+        stabil_calc = StabilCluster(modal_data, prep_signals)
     stabil_calc.export_results('/usr/scratch4/sima9999/test.txt')
     if interactive:
         stabil_plot = StabilPlot(stabil_calc)
@@ -291,9 +291,9 @@ def merge_poser_test(skip_existing = False,
 
 
 if __name__ == '__main__':
-    analysis_chain(tmpdir='/dev/shm/womo1998/')
+    # analysis_chain(tmpdir='/dev/shm/womo1998/')
     # PlotMSHGUI_test()
     # merge_poser_test(False,False,True)
     
     
-    # multi_setup_analysis()
+    multi_setup_analysis()

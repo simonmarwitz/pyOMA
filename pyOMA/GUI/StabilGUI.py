@@ -581,8 +581,7 @@ class StabilGUI(QMainWindow):
         #print(n,f,d,mpc, mp, mpd)
         # print(index)
         text = '{} - {:2.3f}'.format(index, f)
-        self.mode_selector.currentIndexChanged[
-            int].disconnect(self.update_mode_val_view)
+        self.mode_selector.currentIndexChanged[int].disconnect(self.update_mode_val_view)
         self.mode_selector.addItem(text)
         found = False
         for index in range(self.mode_selector.count()):

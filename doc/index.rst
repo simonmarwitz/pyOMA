@@ -44,7 +44,7 @@ acquired vibration measurements of a structural health monitoring system (since 
 Further uses include various academic and commercial measreument campaigns 
 on civil engineering structures including bridges, towers/masts, widespanned floors, etc.
 
-.. [Ref1] S. Marwitz et al. “An Experimental Evaluation of Two Potential Improvements for 3D Laser Vibrometer Based Operational Modal Analysis”. In: Experimental Mechanics 57.8 (July 2017), pp. 1311–1325.
+.. [Ref1] Simon Marwitz et al. “An Experimental Evaluation of Two Potential Improvements for 3D Laser Vibrometer Based Operational Modal Analysis”. In: Experimental Mechanics 57.8 (July 2017), pp. 1311–1325.
 
 .. [Ref2] Simon Marwitz et al. “Modalanalyse von Monitoringdaten eines Sendeturms”. In: Bautechnik 95.4 (Mar. 2018), pp. 288–295.
 
