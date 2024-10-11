@@ -31,7 +31,6 @@ from .PreProcessingTools import PreProcessSignals
 from .ModalBase import ModalBase
 from .Helpers import validate_array
 
-import matplotlib.pyplot as plt
 import logging
 
 logger = logging.getLogger(__name__)
@@ -217,7 +216,7 @@ class BRSSICovRef(ModalBase):
         else:
             max_model_order = self.max_model_order
             
-        assert max_model_order <= self.S.shape[0]
+        assert max_model_order <= self.max_model_order
         
         num_analised_channels = self.num_analised_channels
         
@@ -231,7 +230,9 @@ class BRSSICovRef(ModalBase):
         
         if modal_contrib:
             modal_contributions = np.zeros((max_model_order, max_model_order))
-
+        else:
+            modal_contributions = None
+            
         printsteps = list(np.linspace(0, max_model_order, 100, dtype=int))
         for order in range(1, max_model_order):
             while order in printsteps:
@@ -256,8 +257,7 @@ class BRSSICovRef(ModalBase):
         self.modal_damping = modal_damping
         self.mode_shapes = mode_shapes
         self.eigenvalues = eigenvalues
-        if modal_contrib:
-            self.modal_contributions = modal_contributions
+        self.modal_contributions = modal_contributions
 
         print('.', end='\n', flush=True)
 
@@ -597,19 +597,6 @@ class BRSSICovRef(ModalBase):
 
         self._psd_matrix = psd_matrix
 
-        if 0:
-            ax = plt.subplot()
-            omega_max = psd_matrix.shape[2]
-
-            freqs = np.fft.rfftfreq(2 * omega_max - 1, delta_t)
-            logger.debug(freqs.max())
-
-            for ref_channel in range(num_ref_channels):
-                for channel in range(num_analised_channels):
-                    ax.plot(freqs, np.abs(psd_matrix[channel, ref_channel, :]))
-            ax.set_xlim((0, freqs.max()))
-            plt.show()
-
     def save_state(self, fname):
 
         dirname, filename = os.path.split(fname)
@@ -685,6 +672,8 @@ class BRSSICovRef(ModalBase):
         return ssi_object
 
 def show_channel_reconstruction(modal_data, modelist=None, channel_list=None, ref_channel_list=None, axes=None):
+    
+    import matplotlib.pyplot as plt
     corr_matrix_synth = modal_data._corr_matrix_synth
     
     corr_matrix_data = modal_data.prep_signals.corr_matrix
@@ -718,12 +707,13 @@ def show_channel_reconstruction(modal_data, modelist=None, channel_list=None, re
         
         if axes.flat[mode].get_subplotspec().is_last_row():
             axes.flat[mode].set_xticks(np.arange(len(ref_channel_list)), np.array(modal_data.prep_signals.channel_headers)[modal_data.prep_signals.ref_channels])
-        axes.flat[mode].set_title(f'{modal_data._modal_frequencies[mode]:1.3f} Hz')
+        # axes.flat[mode].set_title(f'{modal_data._modal_frequencies[mode]:1.3f} Hz')
     cbar = fig.colorbar(mappable)
     cbar.set_label('RMS error')
     
 def plot_corr_synth(modal_data, modelist=None, channel_inds=None, ref_channel_inds=None, axes=None):
     
+    import matplotlib.pyplot as plt
     corr_matrix_synth = modal_data._corr_matrix_synth
     n_lags = corr_matrix_synth.shape[2]
     corr_matrix_data = modal_data.prep_signals.corr_matrix[:,:,:n_lags]
