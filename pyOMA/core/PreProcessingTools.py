@@ -1655,6 +1655,9 @@ class PreProcessSignals(object):
         self.n_lines_wl = n_lines
         self.n_segments_wl = n_segments
         
+        self.corr_matrix_wl = None
+        self.s_vals_psd = None
+        
         return psd_matrix
 
     def corr_welch(self, n_lags=None, refs_only=True, **kwargs):
@@ -1903,6 +1906,9 @@ class PreProcessSignals(object):
         self.var_corr_bt = np.var(corr_matrices, axis=0)
         self.n_lines_bt = (n_lags - 1) * 2
         self.n_segments_bt = num_blocks
+        
+        self.psd_matrix_bt = None
+        self.s_vals_psd = None
 
         return corr_matrix
     

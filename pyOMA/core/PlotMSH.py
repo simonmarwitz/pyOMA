@@ -97,8 +97,12 @@ class ModeShapePlot(object):
         * plot modeshape in a single call from a script i.e. use static methods
 
     .. TODO ::
-         * implement trace drawing properly, currently the trace remains
-           after stopping an animation and cannot be removed
+         * clean up animation methods
+           * move trace objects into a separate class method
+           * use class methods to draw animated modeshapes
+           * only update class objects in animation
+           * implement enable/disable {nodes,lines, connecting lines, trace lines, etc.)
+         * remove "real modeshape" functionality as it might mislead inexperienced users
 
     '''
     # define this class's signals and the types of data they emit
@@ -1567,7 +1571,7 @@ class ModeShapePlot(object):
     
     def refresh_cn_lines(self, visible=None):
         '''
-        Refresh the non-displaced lines and make them visible/invisible, e.g.
+        Refresh the connecting lines and make them visible/invisible, e.g.
         after programmatically changing visibility flags.
 
         Parameters

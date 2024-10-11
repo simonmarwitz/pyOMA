@@ -30,8 +30,6 @@ Modified and Extended by Simon Marwitz 2015 ff.
 
 '''
 
-import warnings
-from .PreProcessingTools import PreProcessSignals
 from .SSICovRef import PogerSSICovRef
 from .ModalBase import ModalBase
 import numpy as np
@@ -40,14 +38,12 @@ import scipy.cluster
 import scipy.spatial
 import scipy.stats
 
-import sys
 import os
 
 import collections
 from operator import itemgetter
 from random import shuffle
 
-import matplotlib
 # check if python is running in headless mode i.e. as a server script
 # if 'DISPLAY' in os.environ:
 #     matplotlib.use("Qt5Agg", force=True)
@@ -193,7 +189,7 @@ class StabilCalc(object):
         self.callbacks[name] = func
         
     def calculate_soft_critera_matrices(self):
-        print('Checking stabilisation criteria...')
+        logger.info('Checking stabilisation criteria...')
 
         # Direction 1: model order, Direction 2: current pole, Direction 3:
         # previous pole:
@@ -396,7 +392,6 @@ class StabilCalc(object):
         self.state = 1
 
         print('.', end='\n', flush=True)
-        warnings.warn('Test')
 
     @staticmethod
     def calculateMAC(v1, v2):
@@ -500,7 +495,7 @@ class StabilCalc(object):
                 mode_shape = np.array(
                     [np.array(v[:, k]).real, np.array(v[:, k]).imag]).T
 
-                U, S, V_T = np.linalg.svd(mode_shape, full_matrices=False)
+                _, _, V_T = np.linalg.svd(mode_shape, full_matrices=False)
                 # print(U.shape,S.shape,V_T.shape)
                 numerator = []
                 denominator = []
@@ -553,7 +548,7 @@ class StabilCalc(object):
             select_modes = self.select_modes
             selected_freq = [self.masked_frequencies[index]
                              for index in self.select_modes]
-            select_modes = [x for (y, x) in sorted(
+            select_modes = [x for (_, x) in sorted(
                 zip(selected_freq, select_modes), key=lambda pair: pair[0])]
 
             selected_freq = [self.masked_frequencies[index]
@@ -698,7 +693,7 @@ class StabilCalc(object):
         #              + 'Decimation :\t\t'        + str(dec_fact)       + '\n'\
         #              + 'Filtering :\t\t'         + str(filt_w)
 
-        dirname, filename = os.path.split(fname)
+        dirname, _ = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
 
@@ -854,16 +849,12 @@ class StabilCalc(object):
                 self.modal_data.modal_frequencies
             mask = np.logical_and(mask_pre, mask)
             self.masks['mask_stdf'] = mask
-            #import warnings
-            #warnings.warn('Uncertainty bounds are not yet implemented! Ignoring!')
 
         if stdd_max is not None and self.capabilities['std']:
             mask = self.modal_data.std_damping <= stdd_max * \
                 self.modal_data.modal_damping
             mask = np.logical_and(mask_pre, mask)
             self.masks['mask_stdd'] = mask
-            #import warnings
-            #warnings.warn('Uncertainty bounds are not yet implemented! Ignoring')
 
         if mpc_min is not None:
             mask = np.logical_and(mask_pre, self.MPC_matrix >= mpc_min)
@@ -873,14 +864,17 @@ class StabilCalc(object):
             mask = np.logical_and(mask_pre, self.MPD_matrix <= mpd_max)
             self.masks['mask_mpd'] = mask
 
-        if mtn_min is not None:
-            import warnings
-            warnings.warn(
-                'Modal Transfer Norm is not yet implemented! Ignoring')
+        # if mtn_min is not None:
+        #     logger.warning('Modal Transfer Norm is not yet implemented! Ignoring')
 
         if MC_min is not None and self.capabilities['MC']:
-            mask = np.logical_and(
-                mask_pre, self.modal_data.modal_contributions >= MC_min)
+            if np.issubdtype(self.modal_data.modal_contributions.dtype, complex):
+                # account for complex modal contributions from spectra, e.g. pLSCF
+                mask = np.logical_and(
+                    mask_pre, np.abs(self.modal_data.modal_contributions) >= MC_min)
+            else:
+                mask = np.logical_and(
+                    mask_pre, self.modal_data.modal_contributions >= MC_min)
             self.masks['mask_MC'] = mask
 
         full_masks = []
@@ -913,15 +907,13 @@ class StabilCalc(object):
             self.masks['mask_dmac'] = np.logical_and(mask_pre, mask_sv_red)
             full_masks.append(mask_sv_all)
 
-        if dev_min is not None:
-            import warnings
-            warnings.warn(
-                'Eigenvalues are not available/implemented! Ignoring')
-
-        if dmtn_min is not None:
-            import warnings
-            warnings.warn(
-                'Modal Transfer Norm is not yet implemented! Ignoring')
+        # if dev_min is not None:
+        #     logger.warning(
+        #         'Eigenvalues are not available/implemented! Ignoring')
+        #
+        # if dmtn_min is not None:
+        #     logger.warning(
+        #         'Modal Transfer Norm is not yet implemented! Ignoring')
 
         # check if all stability criteria are satisfied for all current poles
         if full_masks:
@@ -980,7 +972,7 @@ class StabilCalc(object):
 
         if mask is None:
             mask = self.nmasks['mask_pre']
-            print('!')
+            logger.debug('Pre Mask is empty')
 
         return np.logical_not(mask)
 
@@ -1092,9 +1084,9 @@ class StabilCalc(object):
     
     def save_state(self, fname):
 
-        print('Saving results to  {}...'.format(fname))
+        logger.info('Saving results to  {}...'.format(fname))
 
-        dirname, filename = os.path.split(fname)
+        dirname, _ = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
 
@@ -1161,7 +1153,7 @@ class StabilCalc(object):
 
     @classmethod
     def load_state(cls, fname, modal_data, prep_signals=None):
-        print('Now loading previous results from  {}'.format(fname))
+        logger.info('Now loading previous results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
 
@@ -1171,7 +1163,7 @@ class StabilCalc(object):
             return
 
         setup_name = str(in_dict['self.setup_name'].item())
-        start_time = in_dict['self.start_time'].item()
+        # start_time = in_dict['self.start_time'].item()
 
         assert setup_name == modal_data.setup_name
         #assert start_time == modal_data.start_time
@@ -1365,7 +1357,7 @@ class StabilCluster(StabilCalc):
     def automatic_clearing(self, num_iter=None):
         if self.state < 2:
             self.calculate_soft_critera_matrices()
-        print('Clearing physical modes automatically...')
+        logger.info('Clearing physical modes automatically...')
         # 2-means clustering of all poles by all available criteria
         # algorithm minimizes euclidian distances
 
@@ -1443,7 +1435,7 @@ class StabilCluster(StabilCalc):
         self.clear_ctr, idx = scipy.cluster.vq.kmeans2(
             all_poles, ctr_init, self.num_iter)
 
-        print(
+        logger.info(
             'Possibly physical poles 1st stage: {0}\nSpurious poles 1st stage: {1}'.format(
                 collections.Counter(idx)[0],
                 collections.Counter(idx)[1]))
@@ -1480,11 +1472,11 @@ class StabilCluster(StabilCalc):
     def automatic_classification(self, threshold=None, use_stabil=False):
         if self.state < 3 and not use_stabil:
             self.automatic_clearing()
-        print('Classifying physical modes automatically...')
+        logger.info('Classifying physical modes automatically...')
 
         if use_stabil:
             mask_autoclear = self.get_stabilization_mask('mask_stable')
-            print(np.sum(mask_autoclear))
+            logger.debug(np.sum(mask_autoclear))
             #self.masks['mask_autoclear'] = mask_autoclear
             # self.update_stabilization_masks()
             # print(123)
@@ -1564,11 +1556,11 @@ class StabilCluster(StabilCalc):
             self.order_dummy.mask = mask
             for order in range(self.modal_data.max_model_order):
                 if np.sum(self.order_dummy == order) > 1:
-                    print('Double Model Order: ', self.order_dummy[order, :])
+                    logger.debug('Double Model Order: ', self.order_dummy[order, :])
 
         self.order_dummy.mask = np.ma.nomask
 
-        print('Number of classified clusters: {}'.format(
+        logger.info('Number of classified clusters: {}'.format(
             max(self.cluster_assignments)))
         self.state = 4
 
@@ -1605,13 +1597,13 @@ class StabilCluster(StabilCalc):
 
             sorted_meta_list = sorted(meta_list, key=itemgetter(1),
                                       reverse=True)
-            select_clusters = [1 for p in nr_poles]
+            select_clusters = [1 for _ in nr_poles]
 
             for i in range(number):
                 ind = sorted_meta_list[i][0]
                 select_clusters[ind] = 0
 
-        print('Number of physical modes: {0}'.format(
+        logger.info('Number of physical modes: {0}'.format(
             collections.Counter(select_clusters)[0]))
         self.select_clusters = select_clusters
         self.nr_poles = nr_poles
@@ -1620,7 +1612,7 @@ class StabilCluster(StabilCalc):
         for i, b in zip(self.nr_poles, self.select_clusters):
             if not b:
                 self.selection_cut_off = min(i - 1, self.selection_cut_off)
-        print('Minimum number of elements in retained clusters: {}'.format(
+        logger.info('Minimum number of elements in retained clusters: {}'.format(
             self.selection_cut_off))
 
         if self.use_stabil:
@@ -1765,7 +1757,7 @@ class StabilCluster(StabilCalc):
             self.proximity_matrix_sq, method='average')
         lvs = scipy.cluster.hierarchy.leaves_list(rel_matrix)
 
-        def _llf(id):
+        def _llf(_):
             if len(lvs) > 500:
                 if (np.where(id == lvs)[0][0] % 100 == 0):
                     return str(np.where(id == lvs)[0][0])
@@ -1784,7 +1776,7 @@ class StabilCluster(StabilCalc):
             color_threshold=self.threshold,
             leaf_font_size=16,
             leaf_rotation=40)
-        ax = plot.gca()
+        # ax = plot.gca()
         ax.set_xlabel('Mode number [-]')
         ax.set_ylabel('Distance [-]')
         ax.axhline(self.threshold, c='r', ls='--', linewidth=3)
@@ -2002,7 +1994,7 @@ class StabilPlot(object):
         if fig is None:
             self.fig = Figure(facecolor='white')#, dpi=100, figsize=(16, 12))
             self.fig.set_tight_layout(True)
-            canvas = FigureCanvasBase(self.fig)
+            # canvas = FigureCanvasBase(self.fig)
         else:
             self.fig = fig
             
@@ -2356,18 +2348,22 @@ class StabilPlot(object):
     def show_MC(self, b=False):
 
         if b:
+            if not self.stabil_calc.capabilities['MC']:
+                logger.warning('Modal contributions are not computed and cannot be displayed.')
+                return
             ylim = self.fig.axes[0].get_ylim()
             if len(self.fig.axes) < 2:
                 self.fig.add_subplot(1, 2, 2, sharey=self.fig.axes[0])
                 gs = matplotlib.gridspec.GridSpec(
-                    1, 2, width_ratios=(6, 1), wspace=0, hspace=0)
+                    1, 2, width_ratios=(6, 1), wspace=0.01, hspace=0)
                 self.fig.axes[0].set_subplotspec(gs[0])
                 self.fig.axes[1].set_subplotspec(gs[1])
             ax = self.fig.axes[1]
             MCs = np.zeros((self.stabil_calc.modal_data.max_model_order))
             for order in range(self.stabil_calc.modal_data.max_model_order):
-                MCs[order] = np.sum(
-                    self.stabil_calc.modal_data.modal_contributions[order, :])
+                # abs used for complex modal contributions (pLSCF)
+                MCs[order] = np.abs(np.sum(
+                    self.stabil_calc.modal_data.modal_contributions[order, :]))
             ax.plot(
                 MCs,
                 list(
@@ -2379,12 +2375,12 @@ class StabilPlot(object):
                 markeredgecolor='grey',
                 color='darkgrey',
                 markersize=4)
-            ax.grid(True)
+            ax.grid(True, axis='x')
             ax.set_ylim(ylim)
-            ax.set_yticks([])
+            ax.yaxis.tick_right()
             ax.set_xlim([0, 1])
-            ax.set_xticks([0, 0.25, 0.5, 0.75, 1])
-            ax.set_xticklabels(['0', '0.25', '0.5', '0.75', '1'])
+            ax.set_xticks([ 0.25, 0.5, 0.75, 1])
+            ax.set_xticklabels([ '0.25', '0.5', '0.75', '1'])
         else:
             if len(self.fig.axes) < 2:
                 return
@@ -2650,7 +2646,7 @@ class StabilPlot(object):
 
         startpath = rcParams.get('savefig.directory', '')
         startpath = os.path.expanduser(startpath)
-        start = os.path.join(startpath, self.fig.canvas.get_default_filename())
+        # start = os.path.join(startpath, self.fig.canvas.get_default_filename())
 
         if fname:
             if startpath == '':

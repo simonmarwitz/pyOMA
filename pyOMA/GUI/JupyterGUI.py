@@ -415,6 +415,8 @@ def StabilGUIWeb(stabil_plot):
     if frequencies:
         update_value_view(select_mode_values, frequency = float(frequencies[0]))
     
+    snap_cursor.update_pix_data(None)
+    
     return vbox
     
 def PlotMSHWeb(msp):
