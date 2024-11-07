@@ -1436,7 +1436,7 @@ class StabilCluster(StabilCalc):
             all_poles, ctr_init, self.num_iter)
 
         logger.info(
-            'Possibly physical poles 1st stage: {0}\nSpurious poles 1st stage: {1}'.format(
+            'Possibly physical poles 1st stage: {0} Spurious poles 1st stage: {1}'.format(
                 collections.Counter(idx)[0],
                 collections.Counter(idx)[1]))
 

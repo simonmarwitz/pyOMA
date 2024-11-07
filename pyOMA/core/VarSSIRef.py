@@ -23,7 +23,6 @@ import os
 
 import multiprocessing as mp
 import ctypes as c
-# from collections import deque
 
 from .Helpers import rq_decomp, ql_decomp, lq_decomp
 from .PreProcessingTools import PreProcessSignals
@@ -45,7 +44,7 @@ logger.setLevel(level=logging.INFO)
 
 def vectorize(matrix):
     '''
-    ..math::
+    .. math::
 
         A=\\begin{bmatrix}
              1 & 2 & 3 \\

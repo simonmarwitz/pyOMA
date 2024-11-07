@@ -571,7 +571,7 @@ class BRSSICovRef(ModalBase):
         dt * df = 1/N
         L * P = N
         '''
-        logger.warning('Spectrum estimation is currently untested.')
+        logger.warning('Implementation: Spectrum estimation is not tested.')
         f_max = self.prep_signals.sampling_rate / 2
         n_lags = self.prep_signals.n_lags
         delta_t = 1 / self.prep_signals.sampling_rate
