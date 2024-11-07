@@ -111,22 +111,34 @@ def get_method_dict():
     return method_dict
 
 
-def rq_decomp(a, mode='full'):
+def rq_decomp(a, mode='reduced'):
     q, r = np.linalg.qr(np.flipud(a).T, mode=mode)
     return np.flipud(r.T), q.T
 
 
-def ql_decomp(a, mode='full'):
+def ql_decomp(a, mode='reduced'):
     q, r = np.linalg.qr(np.fliplr(a), mode)
     return q, np.fliplr(r)
 
 
-def lq_decomp(a, mode='full', unique=True):
+def lq_decomp(a, mode='reduced', unique=True):
     '''
-    a: array_like, shape (M,N)
-    l: (M,K)
-    q: (K,N)
+    Parameters
+    ----------
+    a : array_like, shape (..., M, N)
+        An array-like object with the dimensionality of at least 2.
+    mode : {'reduced', 'complete', 'r', 'raw'}, optional, default: 'reduced'
+        If K = min(M, N), then
+
+        * 'reduced'  : returns Q, R with dimensions (..., M, K), (..., K, N)
+        * 'complete' : returns Q, R with dimensions (..., M, M), (..., M, N)
+        * 'r'        : returns R only with dimensions (..., K, N)
+    unique: bool
+        "The QR decomposition is unique up to a sign change. Uniqueness can be
+        enforced by constraining the diagonal elements of the R part to positive
+        values." [Doehler, 2011]
     '''
+    assert mode in ['reduced','complete','r','full']
     if mode == 'r':
         r = np.linalg.qr(a.T, mode)
     else:
