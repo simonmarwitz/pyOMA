@@ -458,6 +458,7 @@ class SSIDataMC(ModalBase):
         self.state = [False, False, False, False]
 
         self.num_block_rows = None
+        self.num_blocks = 1
 
         self.P_i_ref = None
         self.P_i_1 = None
@@ -933,6 +934,7 @@ class SSIDataMC(ModalBase):
         
         if self.state[0]:  # subspace matrix
             out_dict['self.num_block_rows'] = self.num_block_rows
+            out_dict['self.num_blocks'] = self.num_blocks
             out_dict['self.P_i_1'] = self.P_i_1
             out_dict['self.P_i_ref'] = self.P_i_ref
             out_dict['self.Y_i_i'] = self.Y_i_i
@@ -974,6 +976,7 @@ class SSIDataMC(ModalBase):
 
         if state[0]:  # subspace matrix
             ssi_object.num_block_rows = validate_array(in_dict['self.num_block_rows'])
+            ssi_object.num_blocks = validate_array(in_dict['self.num_blocks'])
             ssi_object.P_i_1 = validate_array(in_dict['self.P_i_1'])
             ssi_object.P_i_ref = validate_array(in_dict['self.P_i_ref'])
             ssi_object.Y_i_i = validate_array(in_dict['self.Y_i_i'])

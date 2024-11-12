@@ -785,8 +785,8 @@ class PLSCF(ModalBase):
             out_dict['self.selected_omega_vector'] = self.selected_omega_vector
             out_dict['self.pos_half_spectra'] = self.pos_half_spectra
             out_dict['self.factor_a'] = self.factor_a
-        if self.state[1]:  # modal params
             out_dict['self.max_model_order'] = self.max_model_order
+        if self.state[1]:  # modal params
             out_dict['self.modal_frequencies'] = self.modal_frequencies
             out_dict['self.modal_damping'] = self.modal_damping
             out_dict['self.mode_shapes'] = self.mode_shapes
@@ -823,8 +823,8 @@ class PLSCF(ModalBase):
             pLSCF_object.selected_omega_vector = validate_array(in_dict['self.selected_omega_vector'])
             pLSCF_object.pos_half_spectra = validate_array(in_dict['self.pos_half_spectra'])
             pLSCF_object.factor_a = validate_array(in_dict['self.factor_a'])
-        if state[1]:  # modal params
             pLSCF_object.max_model_order = int(in_dict['self.max_model_order'])
+        if state[1]:  # modal params
             pLSCF_object.modal_frequencies = in_dict['self.modal_frequencies']
             pLSCF_object.modal_damping = in_dict['self.modal_damping']
             pLSCF_object.mode_shapes = in_dict['self.mode_shapes']
