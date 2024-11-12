@@ -438,18 +438,29 @@ class PreProcessSignals(object):
         self._last_meth = None
         
         self.corr_matrix_wl = None
+        self.corr_matrices_wl = None
+        self.var_corr_wl = None
+        
         self.psd_matrix_wl = None
+        self.psd_matrices_wl = None
+        self.var_psd_wl = None
+        
         self.n_lines_wl = None
+        self.n_lags_wl = None
         self.n_segments_wl = None
         
         self.corr_matrix_bt = None
         self.corr_matrices_bt = None
+        self.var_corr_bt = None
+        
         self.psd_matrix_bt = None
+        self.psd_matrices_bt = None
+        self.var_psd_bt = None
+        
         self.n_lines_bt = None
+        self.n_lags_bt = None
         self.n_segments_bt = None
         
-        self.var_corr_bt = None
-        self.var_psd_wl = None
         
         #self.s_vals_cf = None
         self.s_vals_psd = None
@@ -1178,18 +1189,22 @@ class PreProcessSignals(object):
     
     @property
     def n_lags(self):
-        if self.n_lines:
-            return self.n_lines // 2 + 1
+        if self._last_meth == 'welch':
+            return self.n_lags_wl
+        elif self._last_meth == 'blackman-tukey':
+            return self.n_lags_bt
+        else:
+            return None
     
-    @property
-    def n_lags_wl(self):
-        if self.n_lines_wl:
-            return self.n_lines_wl // 2 + 1
-        
-    @property
-    def n_lags_bt(self):
-        if self.n_lines_bt:
-            return self.n_lines_bt // 2 + 1
+    # @property
+    # def n_lags_wl(self):
+    #     if self.n_lines_wl:
+    #         return self.n_lines_wl // 2 + 1
+    #
+    # @property
+    # def n_lags_bt(self):
+    #     if self.n_lines_bt:
+    #         return self.n_lines_bt // 2 + 1
     
     @property
     def corr_matrix(self):
@@ -1511,7 +1526,7 @@ class PreProcessSignals(object):
         self.var_corr_bt = None
         self.var_psd_wl = None
         
-    def psd_welch(self, n_lines, n_segments=None, refs_only=True, window='hamming', **kwargs):
+    def psd_welch(self, n_lines=None, n_segments=None, refs_only=True, window='hamming', **kwargs):
         '''
         Estimate the (cross- and auto-) power spectral densities (PSD),
         according to Welch's method. No overlapping is allowed (deliberately
@@ -1528,7 +1543,7 @@ class PreProcessSignals(object):
                 Number of frequency lines (positive + negative)
             n_segments: integer, optional
                 Number of segments to perform averaging over
-                if given, n_lines is overridden
+                resulting segment length must be smaller or equal n_lines
             refs_only: bool, optional
                 Compute cross-PDSs only with reference channels
             window: str or tuple or array_like, optional
@@ -1549,7 +1564,56 @@ class PreProcessSignals(object):
         .. TODO ::
             * implement variance estimation (self-implement Welch's method)
         '''
+        
+        N = self.total_time_steps
+        
+        if n_lines is not None:
+            if not isinstance(n_lines, int):
+                raise ValueError(f"{n_lines} is not a valid number of n_lines for a spectral densities")
+            if n_lines % 2:
+                n_lines += 1
+                logger.warning(f"Only even number of frequency lines are supported setting n_lines={n_lines}")
+            if n_lines > 2 * N:
+                logger.warning(f'Number of frequency lines {n_lines} should not'
+                           f'be larger than twice the number of timesteps {self.total_time_steps}')
+        
+        if n_segments is not None:
+            if not isinstance(n_segments, int):
+                raise ValueError(f"{n_segments} is not a valid number of segments")
+            
         self._last_meth = 'welch'
+        
+        # catch function call cases 1, ..., 4
+        # 1: no arguments: possibly cached results
+        if n_lines is None and n_segments is None:
+            n_lines = self.n_lines_wl
+            n_segments = self.n_segments_wl
+            if n_lines is None and n_segments is None:
+                raise RuntimeError('Either n_lines or n_segments must be provided on first run.')
+        # 2: no variance of spectra requested
+        if n_segments is None and n_lines is not None:
+            # it increases variance and does not improve the result in any other sense
+            # when using less than the maximally possible number of segments
+            N_segment = n_lines
+            _n_segments = N // N_segment
+        # 3. variance of spectra requested, n_lines not of interest (when called from corr_welch)
+        elif n_segments is not None and n_lines is None:
+            _n_segments = n_segments
+            N_segment = N // n_segments
+            n_lines = N_segment
+        # 4. variance of spectra with given n_lines requested
+        else:
+            _n_segments = n_segments
+            N_segment = min(N // _n_segments, n_lines)
+        
+        if n_lines % 2: # repeat the check from above
+            n_lines += 1
+                
+        if N_segment > n_lines:
+            raise ValueError(f"The segment length {N_segment} must not be larger than the number of frequency lines {n_lines}")
+        if N_segment < n_lines / 2:
+            logger.warning(f"The segment length {N_segment} is much smaller than the number of frequency lines {n_lines} (zero-padded)")
+            
         
         while True:
             # check, if it is possible to simply return previously computed PSD
@@ -1559,34 +1623,21 @@ class PreProcessSignals(object):
                 break
             if self.n_lines_wl != n_lines:
                 break
-            if n_segments is not None and self.n_segments_wl != n_segments:
+            if n_segments is not None and self.psd_matrices_wl.shape[0] != n_segments:
                 break
             if (self.psd_matrix_wl.shape[1] == self.num_ref_channels) != refs_only:
                 break
             
-            logger.debug("Using previously computed Power Spectral Density (Welch)...")
+            logger.debug(f"Returning PSD by Welch's method with {n_lines}"
+                    f' frequency lines, {_n_segments} non-overlapping'
+                    f' segments and a {window} window...')
+            
             return self.psd_matrix_wl
+                
+        logger.info(f"Estimating PSD by Welch's method with {n_lines}"
+                    f' frequency lines, {_n_segments} non-overlapping'
+                    f' segments and a {window} window...')
         
-        logger.debug(f'Arguments psd_welch: n_lines={n_lines}, n_segments={n_segments}, refs_only={refs_only}, window={window}, {kwargs}')
-        
-        if n_lines % 2:
-            n_lines += 1
-            logger.warning(f"Only even number of frequency lines are supported setting n_lines={n_lines}")
-        
-        N = self.total_time_steps
-        
-        if n_segments is not None:
-            if n_lines is not None:
-                logger.warning('n_segments and n_lines are given. overriding n_lines.')
-            n_lines = 2 * N // n_segments
-        
-        if n_lines > 2 * self.total_time_steps:
-            logger.warning(f'Number of frequency lines {n_lines} should not'
-                           f'be larger than twice the number of timesteps {self.total_time_steps}')
-        
-        # it increase variance and does not improve the result in any other sense
-        # when using less than the maximally possible number of segments
-        n_segments = max(N // (n_lines // 2), 1)
         fs = self.sampling_rate
         
         num_analised_channels = self.num_analised_channels
@@ -1602,65 +1653,117 @@ class PreProcessSignals(object):
         psd_matrix_shape = (num_analised_channels,
                             num_ref_channels,
                             n_lines // 2 + 1)
-
-        psd_matrix = np.empty(psd_matrix_shape, dtype=complex)
         
-        logger.info(f"Estimating PSD by Welch's method with {n_lines}"
-                    f' frequency lines, {n_segments} non-overlapping'
-                    f' segments and a {window} window...')
+        psd_matrices = []
         
-        win = scipy.signal.get_window(window, n_lines // 2, fftbins=True)
         
-        pbar = simplePbar(num_analised_channels * num_ref_channels)
-        for channel_1 in range(num_analised_channels):
-            for channel_2, ref_channel in enumerate(ref_channels):
-                next(pbar)
-                # compute spectrum according to welch, with automatic application of a window and scaling
-                # specrum scaling compensates windowing by dividing by window(n_lines).sum()**2
-                # density scaling divides by fs * window(n_lines)**2.sum()
-                _, Pxy_den = scipy.signal.csd(signals[:, channel_1],
-                                              signals[:, ref_channel],
-                                              fs,
-                                              window=win,
-                                              nperseg=n_lines // 2,
-                                              nfft=n_lines,
-                                              noverlap=0,
-                                              return_onesided=True,
-                                              scaling='density',
-                                              **kwargs)
+        win = scipy.signal.get_window(window, N_segment, fftbins=True)
+        
+        pbar = simplePbar(_n_segments * num_analised_channels * num_ref_channels)
+        
+        if True:
+            for i_seg in range(_n_segments):
                 
-                if channel_1 == ref_channel:
-                    assert np.isclose(Pxy_den.imag, 0).all()
-                    Pxy_den.imag = 0
-                # compensate averaging over segments (for power equivalence segments should be summed up)
-                Pxy_den *= n_segments
-                # reverse 1/Hz of scaling="density"
-                Pxy_den *= fs
-                # compensate onesided
-                Pxy_den /= 2
-                # compensate zero-padding
-                Pxy_den /= 2
-                # compensate energy loss through short segments
-                Pxy_den *= n_lines
+                this_psd_matrix = np.empty(psd_matrix_shape, dtype=complex)
+                this_signals_block = signals[i_seg * N_segment:(i_seg + 1) * N_segment, :]
+                for channel_1 in range(num_analised_channels):
+                    for channel_2, ref_channel in enumerate(ref_channels):
+                        next(pbar)
+                        # compute spectrum according to welch, with automatic application of a window and scaling
+                        # spectrum scaling compensates windowing by dividing by window(n_lines).sum()**2
+                        # density scaling divides by fs * window(n_lines)**2.sum()
+                        
+                        _, Pxy_den = scipy.signal.csd(this_signals_block[:, channel_1],
+                                                      this_signals_block[:, ref_channel],
+                                                      fs,
+                                                      window=win,
+                                                      nperseg=N_segment,
+                                                      nfft=n_lines, 
+                                                      #nfft!=N_Segments, as more data might be used for input than for FFT
+                                                      noverlap=0,
+                                                      return_onesided=True,
+                                                      scaling='density',
+                                                      **kwargs)
+                        
+                        if channel_1 == ref_channel:
+                            assert np.isclose(Pxy_den.imag, 0).all()
+                            Pxy_den.imag = 0
+                        # compensate averaging over segments (for power equivalence segments should be summed up)
+                        Pxy_den *= _n_segments
+                        # reverse 1/Hz of scaling="density"
+                        Pxy_den *= fs
+                        # compensate onesided
+                        Pxy_den /= 2
+                        # compensate zero-padding
+                        Pxy_den /= 2
+                        # compensate energy loss through short segments
+                        Pxy_den *= n_lines
+                        
+                        this_psd_matrix[channel_1, channel_2, :] = Pxy_den
+                psd_matrices.append(this_psd_matrix)
                 
-                psd_matrix[channel_1, channel_2, :] = Pxy_den
+            psd_matrix = np.mean(psd_matrices, axis=0)
+            
+            self.psd_matrices_wl = np.stack(psd_matrices, axis=0)
+            self.var_psd_wl = np.var(psd_matrices, axis=0)
+        else:
+            psd_matrix = np.empty(psd_matrix_shape, dtype=complex)
+            
+            for channel_1 in range(num_analised_channels):
+                for channel_2, ref_channel in enumerate(ref_channels):
+                    next(pbar)
+                    # compute spectrum according to welch, with automatic application of a window and scaling
+                    # specrum scaling compensates windowing by dividing by window(n_lines).sum()**2
+                    # density scaling divides by fs * window(n_lines)**2.sum()
+                    _, Pxy_den = scipy.signal.csd(signals[:, channel_1],
+                                                  signals[:, ref_channel],
+                                                  fs,
+                                                  window=win,
+                                                  nperseg=n_lines // 2,
+                                                  nfft=n_lines,
+                                                  noverlap=0,
+                                                  return_onesided=True,
+                                                  scaling='density',
+                                                  **kwargs)
+                    
+                    
+                    
+                    if channel_1 == ref_channel:
+                        assert np.isclose(Pxy_den.imag, 0).all()
+                        Pxy_den.imag = 0
+                    # compensate averaging over segments (for power equivalence segments should be summed up)
+                    Pxy_den *= n_segments
+                    # reverse 1/Hz of scaling="density"
+                    Pxy_den *= fs
+                    # compensate onesided
+                    Pxy_den /= 2
+                    # compensate zero-padding
+                    Pxy_den /= 2
+                    # compensate energy loss through short segments
+                    Pxy_den *= n_lines
+                    
+                    psd_matrix[channel_1, channel_2, :] = Pxy_den
                 
         if self.scaling_factors is None:
             # obtain the scaling factors for the PSD which remain,
             # even after filtering or any DSP other operation
             self.scaling_factors = psd_matrix.max(axis=2)
+            
         logger.debug(f'PSD Auto-/Cross-Powers: {np.mean(np.abs(psd_matrix), axis=2)}')
         
         self.psd_matrix_wl = psd_matrix
         self.n_lines_wl = n_lines
         self.n_segments_wl = n_segments
         
+        self.n_lags_wl = None
         self.corr_matrix_wl = None
+        self.corr_matrices_wl = None
+        self.var_corr_wl = None
         self.s_vals_psd = None
         
         return psd_matrix
 
-    def corr_welch(self, n_lags=None, refs_only=True, **kwargs):
+    def corr_welch(self, n_lags=None, n_segments=None, refs_only=True, **kwargs):
         '''
         Estimate the (cross- and auto-) correlation functions (C/ACF),
         by the inverse Fourier Transform of Power Spectral Densities,
@@ -1673,12 +1776,17 @@ class PreProcessSignals(object):
             n_lags \= n_lines // 2 + 1
         
             n_lines \= (n_lags - 1) * 2
+            
+            N_segment = N // n_segments
 
         Parameters
         ----------
             n_lags: integer, optional
                 Total number of lags (positive). Note: this includes the
                 0-lag, therefore excludes the n_lags-lag.
+            n_segments: integer, optional
+                Number of segments to perform averaging over
+                resulting segment length must be smaller or equal n_lines
             refs_only: bool, optional
                 Compute cross-ACFss only with reference channels
             
@@ -1701,16 +1809,63 @@ class PreProcessSignals(object):
                 
                         
         .. TODO ::
-            * deconvolve window (?)
+            * deconvolve window (if possible)
         '''
         self._last_meth = 'welch'
         
-        if n_lags is None:
-            n_lags = self.n_lags_wl
-        
-        if not isinstance(n_lags, int):
-            raise ValueError(f"{n_lags} is not a valid number of lags for a correlation sequence")
+        '''    
+        We use parameter n_segments to determine, if variance calculation is desired
+            - in either case store psd_matrices_wl and corr_matrices_wl, even if the first dimension is empty
+            - store user supplied n_segments, not computed n_segments
             
+        How can it be called:
+            - without parameters, to get the previous result
+            - with n_lags -> n_segments= N // n_lines
+            - with n_segments -> n_lines = N // n_segments 
+                              -> n_lags = (N // n_segments) // 2 + 1
+            - with n_lags, n_segments -> check N // n_segments <= (n_lags - 1) * 2
+        
+    
+        
+        '''
+        if n_lags is not None:
+            if not isinstance(n_lags, int):
+                raise ValueError(f"{n_lags} is not a valid number of lags for a correlation sequence")
+        if n_segments is not None:
+            if not isinstance(n_segments, int):
+                raise ValueError(f"{n_segments} is not a valid number of segments")
+            
+        
+        N = self.total_time_steps
+        
+        # catch function call cases 1, ..., 4
+        # variable _n_segments is derived from all cases and solely passed to psd_welch
+        # 1: no arguments: possibly cached results
+        if n_lags is None and n_segments is None:
+            if self.n_lags_wl is None and self.n_lines_wl is not None:
+                n_lags = self.n_lines_wl // 2 + 1
+            n_lags = self.n_lags_wl
+            n_segments = self.n_segments_wl
+            if n_lags is None and n_segments is None:
+                raise RuntimeError('Either n_lags or n_segments must be provided on first run.')
+        # 2: no variance of correlations requested
+        if n_segments is None and n_lags is not None:
+            N_segment = (n_lags - 1) * 2
+            _n_segments = N // N_segment
+        # 3. variance of correlations requested, lags not of interest (possibly rare case)
+        elif n_segments is not None and n_lags is None:
+            _n_segments = n_segments
+            n_lags = N // n_segments // 2 + 1
+            N_segment = min(N // n_segments, (n_lags - 1) * 2)
+        # 4. variance of correlations with given lag requested
+        else:
+            _n_segments = n_segments
+            N_segment = min(N // n_segments, (n_lags - 1) * 2)
+            
+        if  N_segment > (n_lags - 1) * 2:
+            raise ValueError(f"The segment length {N_segment} must not be larger than the number of frequency lines {(n_lags - 1) * 2}")
+
+        
         while True:
             # check, if it is possible to simply return previously computed C/ACF
             if kwargs:
@@ -1719,51 +1874,69 @@ class PreProcessSignals(object):
                 break
             if self.corr_matrix_wl.shape[2] != n_lags:
                 break
+            if self.corr_matrices_wl.shape[0] != n_segments:
+                break
             if (self.corr_matrix_wl.shape[1] == self.num_ref_channels) != refs_only:
                 break
             
-            logger.debug("Using previously computed Correlation functions (Welch)...")
+            logger.debug("Returning Correlation Function by Welch's method with"
+                f" {n_lags} time lags and {_n_segments} non-overlapping"
+                f" segments.")
+            
             return self.corr_matrix_wl
-        
-        logger.info("Estimating Correlation Function by Welch's method...")
-        
-        logger.debug(f'Arguments corr_welch: n_lags={n_lags}, refs_only={refs_only}, {kwargs}')
-        
-        # F(-omega) = conj(F(omega)) for real f(t)
-        #
-        # S_fg(omega) = F(omega)conj(G(omega))
-        #             = conj(F(-omega)conj(G(-omega))
-        #             = conj(F(-omega))G(-omega)
-        #             = S_gf(-omega)
-        #             = conj(S_gf(omega))
         #
         # onesided, i.e. RFFT suffices for real inputs f and g
         # correlation functions are also real, so IRFFT should suffice
-        psd_matrix = self.psd_welch(n_lines=(n_lags - 1) * 2, refs_only=refs_only, **kwargs)
+        self.psd_welch(n_segments=_n_segments, refs_only=refs_only, **kwargs)
+        
+        logger.info("Estimating Correlation Function by Welch's method with"
+            f" {n_lags} time lags and {_n_segments} non-overlapping"
+            f" segments.")
+        
+        # get computed blocks of psd_matrices
+        if n_segments is None or n_segments==1:
+            psd_matrices = self.psd_matrix_wl[np.newaxis,...]
+            n_segments = 1
+        else:
+            psd_matrices = self.psd_matrices_wl
         
         num_analised_channels = self.num_analised_channels
         if refs_only:
             num_ref_channels = self.num_ref_channels
         else:
             num_ref_channels = num_analised_channels
-        corr_matrix_shape = (num_analised_channels, num_ref_channels, n_lags)
-
-        corr_matrix = np.empty(corr_matrix_shape)
-
-        pbar = simplePbar(num_analised_channels * num_ref_channels)
-        for channel_1 in range(num_analised_channels):
-            for channel_2 in range(num_ref_channels):
-                next(pbar)
-                this_psd = psd_matrix[channel_1, channel_2, :]
-                this_corr = np.fft.irfft(this_psd)
-                this_corr = this_corr[:n_lags].real
-                # divide by n_lines [equivalence of r(0) and Var(y)]
-                this_corr /= (n_lags - 1) * 2
-
-                corr_matrix[channel_1, channel_2, :] = this_corr
         
+        corr_matrix_shape = (num_analised_channels, num_ref_channels, n_lags)
+        corr_matrices = []
+        
+        pbar = simplePbar(n_segments * num_analised_channels * num_ref_channels)
+        
+        # user requested variances: use n_segments instead of computed _n_segments
+        for i_segment in range(n_segments):
+            this_corr_matrix = np.empty(corr_matrix_shape)
+            this_psd_matrix = psd_matrices[i_segment,...]
+            for channel_1 in range(num_analised_channels):
+                for channel_2 in range(num_ref_channels):
+                    next(pbar)
+                    this_psd = this_psd_matrix[channel_1, channel_2, :]
+                    this_corr = np.fft.irfft(this_psd)
+                    assert np.all(np.isclose(this_corr.imag, 0))
+                    # cut-off at n_lags and use only the real part (should be real)
+                    this_corr = this_corr[:n_lags].real
+                    # divide by n_lines [equivalence of r(0) and Var(y)]
+                    this_corr /= (n_lags - 1) * 2
+    
+                    this_corr_matrix[channel_1, channel_2, :] = this_corr
+            corr_matrices.append(this_corr_matrix)
+            
+        corr_matrix = np.mean(corr_matrices, axis=0)
         logger.debug(f'0-lag Auto-/Cross-Correlations: {np.abs(corr_matrix[:, :, 0]) * (n_lags - 1) * 2}')
+        
         self.corr_matrix_wl = corr_matrix
+        self.corr_matrices_wl = np.stack(corr_matrices, axis=0)
+        self.var_corr_wl = np.var(corr_matrices, axis=0)
+        
+        self.n_lags_wl = n_lags
         
         return corr_matrix
     
@@ -1904,7 +2077,7 @@ class PreProcessSignals(object):
         self.corr_matrix_bt = corr_matrix
         self.corr_matrices_bt = np.stack(corr_matrices, axis=0)
         self.var_corr_bt = np.var(corr_matrices, axis=0)
-        self.n_lines_bt = (n_lags - 1) * 2
+        self.n_lags_bt = n_lags
         self.n_segments_bt = num_blocks
         
         self.psd_matrix_bt = None
@@ -2039,6 +2212,7 @@ class PreProcessSignals(object):
             # even after filtering or any DSP other operation
             self.scaling_factors = psd_matrix.max(axis=2)
         
+        self.n_lines_bt = n_lines
         self.psd_matrix_bt = psd_matrix
         
         self._last_meth = 'blackman-tukey'
@@ -2531,7 +2705,7 @@ class SignalPlot(object):
         
         return ax
 
-    def plot_psd(self, n_lines=2048, channels=None, ax=None,
+    def plot_psd(self, n_lines=None, channels=None, ax=None,
                  scale='db', refs=None, plot_kwarg_dict={}, **kwargs):
         '''
         Plots the Cross- and Auto-Power-Spectral Density of the signals.
@@ -2603,6 +2777,7 @@ class SignalPlot(object):
         freqs = prep_signals.freqs
         
         if ax is None:
+            plt.figure()
             ax = plt.subplot(111)
             
         for channel_number, current_ref_numbers in zip(channel_numbers, ref_numbers):
