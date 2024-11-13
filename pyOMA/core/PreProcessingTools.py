@@ -1813,21 +1813,6 @@ class PreProcessSignals(object):
         '''
         self._last_meth = 'welch'
         
-        '''    
-        We use parameter n_segments to determine, if variance calculation is desired
-            - in either case store psd_matrices_wl and corr_matrices_wl, even if the first dimension is empty
-            - store user supplied n_segments, not computed n_segments
-            
-        How can it be called:
-            - without parameters, to get the previous result
-            - with n_lags -> n_segments= N // n_lines
-            - with n_segments -> n_lines = N // n_segments 
-                              -> n_lags = (N // n_segments) // 2 + 1
-            - with n_lags, n_segments -> check N // n_segments <= (n_lags - 1) * 2
-        
-    
-        
-        '''
         if n_lags is not None:
             if not isinstance(n_lags, int):
                 raise ValueError(f"{n_lags} is not a valid number of lags for a correlation sequence")
@@ -1852,15 +1837,22 @@ class PreProcessSignals(object):
         if n_segments is None and n_lags is not None:
             N_segment = (n_lags - 1) * 2
             _n_segments = N // N_segment
+            # let psd_welch use the best number of frequency lines
+            _n_lines = None
         # 3. variance of correlations requested, lags not of interest (possibly rare case)
         elif n_segments is not None and n_lags is None:
             _n_segments = n_segments
             n_lags = N // n_segments // 2 + 1
-            N_segment = min(N // n_segments, (n_lags - 1) * 2)
+            # recalculate N_segment, due to floor operator in n_lags computation
+            N_segment = min(N // n_segments, (n_lags - 1) * 2) 
+            # let psd_welch use the best number of frequency lines
+            _n_lines = None
         # 4. variance of correlations with given lag requested
         else:
             _n_segments = n_segments
-            N_segment = min(N // n_segments, (n_lags - 1) * 2)
+            # Segments might have to be zero-padded in psd_welch to reach the desired lag length
+            _n_lines = (n_lags - 1) * 2
+            N_segment = min(N // n_segments, _n_lines)
             
         if  N_segment > (n_lags - 1) * 2:
             raise ValueError(f"The segment length {N_segment} must not be larger than the number of frequency lines {(n_lags - 1) * 2}")
@@ -1887,7 +1879,7 @@ class PreProcessSignals(object):
         #
         # onesided, i.e. RFFT suffices for real inputs f and g
         # correlation functions are also real, so IRFFT should suffice
-        self.psd_welch(n_segments=_n_segments, refs_only=refs_only, **kwargs)
+        self.psd_welch(n_lines=_n_lines, n_segments=_n_segments, refs_only=refs_only, **kwargs)
         
         logger.info("Estimating Correlation Function by Welch's method with"
             f" {n_lags} time lags and {_n_segments} non-overlapping"
@@ -1928,12 +1920,13 @@ class PreProcessSignals(object):
     
                     this_corr_matrix[channel_1, channel_2, :] = this_corr
             corr_matrices.append(this_corr_matrix)
-            
+
         corr_matrix = np.mean(corr_matrices, axis=0)
         logger.debug(f'0-lag Auto-/Cross-Correlations: {np.abs(corr_matrix[:, :, 0]) * (n_lags - 1) * 2}')
         
         self.corr_matrix_wl = corr_matrix
         self.corr_matrices_wl = np.stack(corr_matrices, axis=0)
+        
         self.var_corr_wl = np.var(corr_matrices, axis=0)
         
         self.n_lags_wl = n_lags
@@ -1997,9 +1990,46 @@ class PreProcessSignals(object):
                 faster, but distorted for short segments and biased through
                 windowing.
         '''
-        assert isinstance(n_lags, int)
+        
         
         self._last_meth = 'blackman-tukey'
+        
+        if n_lags is not None:
+            if not isinstance(n_lags, int):
+                raise ValueError(f"{n_lags} is not a valid number of lags for a correlation sequence")
+        if num_blocks is not None:
+            if not isinstance(num_blocks, int):
+                raise ValueError(f"{num_blocks} is not a valid number of blocks")
+            
+        
+        
+        N = self.total_time_steps
+        
+        # catch function call cases 1, ..., 4
+        # variable _n_segments is derived from all cases and solely passed to psd_welch
+        # 1: no arguments: possibly cached results
+        if n_lags is None and num_blocks is None:
+            n_lags = self.n_lags_bt
+            num_blocks = self.n_segments_bt
+            if n_lags is None and num_blocks is None:
+                raise RuntimeError('Either n_lags or num_blocks must be provided on first run.')
+        # 2: no variance of correlations requested
+        if num_blocks is None and n_lags is not None:
+            N_block = N
+            num_blocks = 1
+        # 3. variance of correlations requested, lags not of interest (possibly rare case)
+        elif num_blocks is not None and n_lags is None:
+            # increasing block length decreases variance (for non-overlapping blocks)
+            # use the maximum possible block length
+            n_lags = N // num_blocks
+            N_block = n_lags
+        # 4. variance of correlations with given lag requested
+        else:
+            N_block = N // num_blocks
+            
+            if  N_block < n_lags:
+                raise ValueError(f"The segment length {N_block} must not be shorther than the number of lags {n_lags}")
+
         
         while True:
             # check, if it is possible to simply return previously computed C/ACF
@@ -2008,7 +2038,7 @@ class PreProcessSignals(object):
                 #break
             if self.corr_matrix_bt is None:
                 break
-            if self.n_lines_bt != (n_lags - 1) * 2:
+            if self.n_lags_bt != n_lags:
                 break
             if num_blocks is not None and self.n_segments_bt != num_blocks:
                 break
@@ -2018,22 +2048,9 @@ class PreProcessSignals(object):
             logger.debug("Using previously computed Correlation Functions (BT)...")
             return self.corr_matrix_bt
         
-        if num_blocks is None:
-            num_blocks = 1
             
         logger.info(f'Estimating Correlation Functions (BT) with n_lags='
                     f'{n_lags} and num_blocks={num_blocks}...')
-        
-        logger.debug(f'Arguments corr_blackman_tukey: n_lags={n_lags}, num_blocks={num_blocks}, refs_only={refs_only}, {kwargs}')
-        
-        total_time_steps = self.total_time_steps
-        # increasing block length decreases variance (for non-overlapping blocks)
-        # use the maximum possible block length
-        N_block = total_time_steps // num_blocks
-        logger.debug(f"Blocklength: {N_block}")
-        if N_block < n_lags:
-            raise ValueError(f'Given block length ({N_block})'
-                             f'must be greater or equal to max time lag ({n_lags})')
         
         num_analised_channels = self.num_analised_channels
         if refs_only:
@@ -2071,7 +2088,6 @@ class PreProcessSignals(object):
 
         corr_matrix = np.mean(corr_matrices, axis=0)
         
-        logger.debug(f'0-lag Auto-/Cross-Correlations: {np.abs(corr_matrix[:, :, 0]) * total_time_steps}')
         assert np.all(corr_matrix.shape == corr_matrix_shape)
         
         self.corr_matrix_bt = corr_matrix
@@ -2260,16 +2276,8 @@ class PreProcessSignals(object):
             else:
                 method = self._last_meth
         if method == 'welch':
-            if n_lags is None:
-                n_lags = self.n_lags_wl
-            if not isinstance(n_lags, int):
-                raise ValueError(f"{n_lags} is not a valid number of lags for a correlation sequence")
             return self.corr_welch(n_lags, **kwargs)
         elif method == 'blackman-tukey':
-            if n_lags is None:
-                n_lags = self.n_lags_bt
-            if not isinstance(n_lags, int):
-                raise ValueError(f"{n_lags} is not a valid number of lags for a correlation sequence")
             return self.corr_blackman_tukey(n_lags, **kwargs)
         else:
             raise ValueError(f'Unknown method {method}')
@@ -2685,7 +2693,7 @@ class SignalPlot(object):
                     corr = corr_matrix[channel_number, ref_number, :]
                     
                 if prep_signals._last_meth == 'welch':
-                    norm_fact = prep_signals.n_lines
+                    norm_fact = prep_signals.n_lines_wl
                 elif prep_signals._last_meth == 'blackman-tukey':
                     norm_fact = prep_signals.total_time_steps
                 else:
