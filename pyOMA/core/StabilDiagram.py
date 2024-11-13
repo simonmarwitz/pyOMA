@@ -32,6 +32,7 @@ Modified and Extended by Simon Marwitz 2015 ff.
 
 from .SSICovRef import PogerSSICovRef
 from .ModalBase import ModalBase
+from .Helpers import simplePbar
 import numpy as np
 
 import scipy.cluster
@@ -243,12 +244,10 @@ class StabilCalc(object):
 
             prev_MPD, prev_MP_new = self.calculateMPD(prev_mode_shapes)
             prev_MP_new[prev_MP_new > 90] -= 180  # in range [-90,90]
-
-        printsteps = list(np.linspace(1, max_model_order, 100, dtype=int))
+        
+        pbar = simplePbar(max_model_order)
         for curr_order in range(1, max_model_order):
-            while curr_order in printsteps:
-                del printsteps[0]
-                print('.', end='', flush=True)
+            next(pbar)
 
             if capabilities['ev']:
                 curr_lambda_row = self.masked_lambda.data[(curr_order), :]
@@ -390,8 +389,6 @@ class StabilCalc(object):
         self.MPC_matrix = MPC_matrix
 
         self.state = 1
-
-        print('.', end='\n', flush=True)
 
     @staticmethod
     def calculateMAC(v1, v2):

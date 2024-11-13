@@ -237,6 +237,7 @@ class VarSSIRef(ModalBase):
 
             iterators = []
             it_len = int(np.ceil(n_lags * num_blocks / n_proc))
+            
             printsteps = np.linspace(0, n_lags * num_blocks, 100, dtype=int)
 
             curr_it = []
@@ -402,14 +403,12 @@ class VarSSIRef(ModalBase):
 
             H_dat_matrices = []
             R_11_matrices = []
-
-            printsteps = list(np.linspace(0, num_blocks, 50, dtype=int))
-
+            
+            pbar = simplePbar(num_blocks * 2)
+            
             # could eventually be parallelized
             for n_block in range(num_blocks):
-                while n_block in printsteps:
-                    del printsteps[0]
-                    print('.', end='', flush=True)
+                next(pbar)
                 #num_block_columns*num_ref_channels + p*num_analised_channels, N
                 # L,Q = lq_decomp(self.hankel_matrices[n_block],
                 # mode='reduced', unique=True)#eventually change mode to 'r'
@@ -447,11 +446,8 @@ class VarSSIRef(ModalBase):
                     num_ref_channels *
                     num_block_columns))
 
-            printsteps = list(np.linspace(0, num_blocks, 50, dtype=int))
             for n_block in range(num_blocks):
-                while n_block in printsteps:
-                    del printsteps[0]
-                    print('.', end='', flush=True)
+                next(pbar)
                 H_dat_matrix = H_dat_matrices[n_block]
                 Q_11_matrix = Q_11_matrices[n_block]
 
@@ -470,8 +466,6 @@ class VarSSIRef(ModalBase):
             self.subspace_matrix = np.mean(H_dat_matrices, axis=0)
             #self.M = M
         self.state[0] = True
-
-        print('.', end='\n', flush=True)
 
     def plot_covariances(self):
         num_block_rows = self.num_block_rows
@@ -892,12 +886,10 @@ class VarSSIRef(ModalBase):
             S4 = np.zeros((max_model_order**2, max_model_order))
             for k in range(1, max_model_order + 1):
                 S4[(k - 1) * max_model_order + k - 1, k - 1] += 1  # ?????
-
-            printsteps = list(np.linspace(0, max_model_order, 100, dtype=int))
+            
+            pbar = simplePbar(max_model_order)
             for j in range(max_model_order):
-                while j in printsteps:
-                    del printsteps[0]
-                    print('.', end='', flush=True)
+                next(pbar)
                 v_j_T = V_T[j:j + 1, :]
                 u_j = U[:, j:j + 1]
                 s_j = S[j]
@@ -980,11 +972,9 @@ class VarSSIRef(ModalBase):
                                   1) *
                                  num_channels))
 
-            printsteps = list(np.linspace(0, max_model_order, 100, dtype=int))
+            pbar = simplePbar(max_model_order)
             for order in range(max_model_order):
-                while order in printsteps:
-                    del printsteps[0]
-                    print('.', end='', flush=True)
+                next(pbar)
 
                 beg, end = (order, order + 1)
                 # beg,end=(i-1,i)
@@ -1052,7 +1042,7 @@ class VarSSIRef(ModalBase):
                                                                           num_channels)), u_j.T]))), sol_hank_K_j /
                                         s_j])
 
-                    print(np.allclose(B_j1, B_j1_o))
+                    
 
                     C_j = 1 / s_j * np.vstack(
                         [
@@ -1122,7 +1112,6 @@ class VarSSIRef(ModalBase):
         self.state[1] = True
         self.state[2] = False  # previous modal params are invalid now
 
-        print('.', end='\n', flush=True)
 
     def compute_modal_params(self, max_model_order=None, debug=False, qr=True):
         if max_model_order is not None:
@@ -1219,12 +1208,9 @@ class VarSSIRef(ModalBase):
                     (num_block_rows) *
                     num_channels,
                     format='csr')])
-
-        printsteps = list(np.linspace(0, max_model_order, 100, dtype=int))
+        pbar = simplePbar(max_model_order)
         for order in range(1, max_model_order):
-            while order in printsteps:
-                del printsteps[0]
-                print('.', end='', flush=True)
+            next(pbar)
 
             On_up = O[:num_channels * num_block_rows, :order]
 
@@ -1590,8 +1576,6 @@ class VarSSIRef(ModalBase):
         self.std_mode_shapes = std_mode_shapes
 
         self.state[2] = True
-
-        print('.', end='\n', flush=True)
 
 #     def compute_modal_params(self, max_model_order=None, debug=False):
 #

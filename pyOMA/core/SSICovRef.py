@@ -29,7 +29,7 @@ import scipy.linalg
 
 from .PreProcessingTools import PreProcessSignals
 from .ModalBase import ModalBase
-from .Helpers import validate_array
+from .Helpers import validate_array, simplePbar
 
 import logging
 
@@ -232,12 +232,10 @@ class BRSSICovRef(ModalBase):
             modal_contributions = np.zeros((max_model_order, max_model_order))
         else:
             modal_contributions = None
-            
-        printsteps = list(np.linspace(0, max_model_order, 100, dtype=int))
+        
+        pbar = simplePbar(max_model_order)
         for order in range(1, max_model_order):
-            while order in printsteps:
-                del printsteps[0]
-                print('.', end='', flush=True)
+            next(pbar)
                 
             A, C, G = self.estimate_state(order, max_modes, algo)
             
@@ -258,8 +256,6 @@ class BRSSICovRef(ModalBase):
         self.mode_shapes = mode_shapes
         self.eigenvalues = eigenvalues
         self.modal_contributions = modal_contributions
-
-        print('.', end='\n', flush=True)
 
         self.state[2] = True
 

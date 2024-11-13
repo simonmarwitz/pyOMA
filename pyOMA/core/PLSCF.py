@@ -16,8 +16,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-Written by Volkmar Zabel 2016, 
-refactored by Simon Marwitz 2021, 
+Written by Volkmar Zabel 2016,
+refactored by Simon Marwitz 2021,
 improved, corrected and refactored by Simon Marwitz 2024
 
 .. TODO::
@@ -35,7 +35,7 @@ logger.setLevel(level=logging.INFO)
 
 from .PreProcessingTools import PreProcessSignals
 from .ModalBase import ModalBase
-from .Helpers import validate_array
+from .Helpers import validate_array, simplePbar
 
 
 
@@ -730,11 +730,9 @@ class PLSCF(ModalBase):
             # reset modal contributions in case of a subsequent run without modal_contrib
             modal_contributions = None
         
-        printsteps = list(np.linspace(0, max_model_order, 100, dtype=int))
+        pbar = simplePbar(max_model_order)
         for order in range(1,max_model_order):
-            while order in printsteps:
-                del printsteps[0]
-                print('.', end='', flush=True)
+            next(pbar)
             
             alpha, beta_l_i = self.estimate_model(order, complex_coefficients)
             

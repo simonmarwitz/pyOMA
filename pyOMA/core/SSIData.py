@@ -26,7 +26,7 @@ import scipy.linalg
 
 import os
 
-from .Helpers import lq_decomp, validate_array
+from .Helpers import lq_decomp, validate_array, simplePbar
 
 from .PreProcessingTools import PreProcessSignals
 from .ModalBase import ModalBase
@@ -635,11 +635,9 @@ class SSIDataMC(ModalBase):
             modal_contributions = None
 
         
-        printsteps = list(np.linspace(0, max_model_order, 100, dtype=int))
+        pbar = simplePbar(max_model_order)
         for order in range(1, max_model_order):
-            while order in printsteps:
-                del printsteps[0]
-                print('.', end='', flush=True)
+            next(pbar)
 
             A,C,Q,R,S = self.estimate_state(order)
             
@@ -662,7 +660,6 @@ class SSIDataMC(ModalBase):
         self.eigenvalues = eigenvalues
 
         self.state[2] = True
-        print('.', end='\n', flush=True)
         
         
     def estimate_state(self, order,):
@@ -1187,12 +1184,10 @@ class SSIDataCV(SSIDataMC):
         R_unique_matrices = []
         Q_unique_matrices = []
         
-        printsteps = list(np.linspace(0, n_training_blocks, 50, dtype=int))
+        pbar = simplePbar(n_training_blocks * 2)
         for i in range(n_training_blocks):
             i_block = training_blocks[i]
-            while i in printsteps:
-                del printsteps[0]
-                print('.', end='', flush=True)
+            next(pbar)
             L,Q = lq_decomp(hankel_matrices[i_block], mode='reduced', unique=True)
     
             R_matrices.append(L)
@@ -1201,25 +1196,20 @@ class SSIDataCV(SSIDataMC):
         logger.debug(f'R shapes: actual: {np.hstack(R_matrices).shape} expected: {(n_r * p + n_l * (p + 1), K* n_training_blocks)}')
         
         R_full_breve, Q_full_breve = lq_decomp(np.hstack(R_matrices), mode='reduced', unique=True)
-        print('.' * 30, end='', flush=True)
+        [next(pbar) for _ in range(30)]
                 
         logger.debug(f'Q_breve shapes: actual: {Q_full_breve.shape} expected: ,{(q * n_r + (p + 1) * n_l, K * n_training_blocks)}')
         Q_breve_matrices = np.hsplit(Q_full_breve, np.arange( K, n_training_blocks * K, K))
         logger.debug(f'Q_breve_j shapes: actual: {Q_breve_matrices[0].shape}, expected: {(q * n_r + (p + 1) * n_l, K)}')
         
-        printsteps = list(np.linspace(0, n_training_blocks, 20, dtype=int))
         for i in range(n_training_blocks):
-            while i in printsteps:
-                del printsteps[0]
-                print('.', end='', flush=True)
+            next(pbar)
             Q_breve_matrix = Q_breve_matrices[i]
             R_matrix = R_matrices[i]
             Q_matrix = Q_matrices[i]
             
             R_unique_matrices.append(R_matrix @ Q_breve_matrix.T)
             Q_unique_matrices.append(Q_breve_matrix @ Q_matrix)
-        
-        print('.', end='\n', flush=True)
 
         logger.info('Estimating subspace matrix...')
         
