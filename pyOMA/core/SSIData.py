@@ -489,7 +489,7 @@ class SSIDataMC(ModalBase):
 
         return ssi_object
 
-    def build_block_hankel(self, num_block_rows=None):
+    def build_block_hankel(self, num_block_rows=None, reduced_projection=True):
         '''
         Builds a Block-Hankel Matrix of the measured time series with varying
         time lags and estimates the subspace matrix from its LQ decomposition. 
@@ -525,11 +525,13 @@ class SSIDataMC(ModalBase):
         n_l = self.prep_signals.num_analised_channels
         n_r = self.prep_signals.num_ref_channels
 
-        logger.info('Building Block-Hankel matrix...')
+        
 
         q = num_block_rows
         p = num_block_rows
         N = int(total_time_steps - 2 * p)
+        
+        logger.info(f'Building Block-Hankel matrix with {p} block-columns and {q} block rows')
 
         Y_minus = np.zeros((q * n_r, N))
         Y_plus = np.zeros(((p + 1) * n_l, N))
@@ -546,18 +548,24 @@ class SSIDataMC(ModalBase):
         
         # self.Hankel_matrix = Hankel_matrix
         
-        logger.info('Estimating subspace matrix...')
         
         l, q = lq_decomp(Hankel_matrix, mode='full')
 
+        logger.info('Estimating subspace matrix...')
+        
         a = n_r * p
         b = n_r
         c = n_l - n_r
         d = n_l * p
-
+        
+        
         P_i_ref = l[a:a + b + c + d, : a] @ q[ :a, :]
         
-        [U, S, V_T] = np.linalg.svd(P_i_ref, full_matrices=False)
+        if reduced_projection:
+            [U, S, V_T] = np.linalg.svd(l[a:a + b + c + d, : a], full_matrices=False)
+            V_T = None
+        else:
+            [U, S, V_T] = np.linalg.svd(P_i_ref, full_matrices=False)
         
         
         P_i_1 = l[a + b + c:a + b + c + d, : a + b] @ q[ : a + b, : ]
@@ -565,7 +573,8 @@ class SSIDataMC(ModalBase):
         Y_i_i = Hankel_matrix[a : a + b + c, : ]
         # print(np.sum(np.abs(Y_i_i-l[a : a + b + c, : a + b + c] @ q[ : a + b + c, : ])))
         
-        
+        self.L_red = l[a:, :a + b]
+        self.Q_red = q[:a + b, :] 
         self.P_i_1 = P_i_1
         self.P_i_ref = P_i_ref
         self.Y_i_i = Y_i_i
@@ -704,21 +713,23 @@ class SSIDataMC(ModalBase):
         
         U = self.U[:, :order]
         S = self.S[:order]
-        V_T = self.V_T[:order, :]
         
-        P_i_1 = self.P_i_1
-        # P_i_ref = self.P_i_ref
-        Y_i_i = self.Y_i_i
+        P_i_1 = self.P_i_1 # n_l * p x n_r * (p + 1) x N
+        Y_i_i = self.Y_i_i # n_l x n_r *p + n_l x N
         
         # compute state-space model
         S_2 = np.power(S, 0.5)
         O = U * S_2[np.newaxis, :]
         
         O_i_1 = O[:num_analised_channels * num_block_rows, :order]
-        # O_i = O[:, :order]
+        O_i = O[:, :order]
 
-        # X_i = np.linalg.pinv(O_i) @ P_i_ref
-        X_i = S_2[:,np.newaxis] * V_T
+        if self.V_T is not None:
+            V_T = self.V_T[:order, :]
+            X_i = S_2[:,np.newaxis] * V_T
+        else:
+            P_i_ref = self.P_i_ref # (p + 1) * n_l x n_r * p x N 
+            X_i = np.linalg.pinv(O_i) @ P_i_ref
         X_i_1 = np.linalg.pinv(O_i_1) @ P_i_1
 
         X_i_1_Y_i = np.vstack((X_i_1, Y_i_i))
@@ -743,7 +754,7 @@ class SSIDataMC(ModalBase):
         Computes the modal parameters from a given state space model as described 
         by Peeters 1999 and Döhler 2012. Mode shapes are scaled to unit modal 
         displacements. Complex conjugate and real modes are removed prior to 
-        further processing.
+        further processing. Typically, order // 2 modes are in the returned arrays.
                 
         Parameters
         ----------
@@ -775,10 +786,10 @@ class SSIDataMC(ModalBase):
         assert order == A.shape[1]
         
         # allocate output arrays
-        modal_frequencies = np.zeros((order))
-        modal_damping = np.zeros((order))
-        mode_shapes = np.zeros((n_l, order), dtype=complex)
-        eigenvalues = np.zeros((order), dtype=complex)
+        modal_frequencies = np.full((order), np.nan)
+        modal_damping = np.full((order), np.nan)
+        mode_shapes = np.full((n_l, order), np.nan, dtype=complex)
+        eigenvalues = np.full((order), np.nan, dtype=complex)
         
         # compute modal model
         eigvals, eigvecs_r = np.linalg.eig(A)
@@ -810,7 +821,8 @@ class SSIDataMC(ModalBase):
             mode_shapes[:mode_shape_i.shape[0], i] = mode_shape_i
             eigenvalues[i] = lambda_i
 
-        return modal_frequencies, modal_damping, mode_shapes, eigenvalues, 
+        argsort = np.argsort(modal_frequencies)
+        return modal_frequencies[argsort], modal_damping[argsort], mode_shapes[:,argsort], eigenvalues[argsort], 
     
     def synthesize_signals(self, A, C, Q, R, S, j=None, **kwargs):
         '''
@@ -932,16 +944,16 @@ class SSIDataMC(ModalBase):
         if self.state[0]:  # subspace matrix
             out_dict['self.num_block_rows'] = self.num_block_rows
             out_dict['self.num_blocks'] = self.num_blocks
-            out_dict['self.P_i_1'] = self.P_i_1
-            out_dict['self.P_i_ref'] = self.P_i_ref
+            # out_dict['self.P_i_1'] = self.P_i_1
+            # out_dict['self.P_i_ref'] = self.P_i_ref
+            
+            out_dict['self.L_red'] = self.L_red
+            out_dict['self.Q_red'] = self.Q_red
             out_dict['self.Y_i_i'] = self.Y_i_i
             out_dict['self.S'] = self.S
             out_dict['self.U'] = self.U
             out_dict['self.V_T'] = self.V_T
             out_dict['self.max_model_order'] = self.max_model_order
-            out_dict['self.S'] = self.S
-            out_dict['self.U'] = self.U
-            out_dict['self.V_T'] = self.V_T
         if self.state[2]:  # modal params
             out_dict['self.modal_frequencies'] = self.modal_frequencies
             out_dict['self.modal_damping'] = self.modal_damping
@@ -974,8 +986,19 @@ class SSIDataMC(ModalBase):
         if state[0]:  # subspace matrix
             ssi_object.num_block_rows = validate_array(in_dict['self.num_block_rows'])
             ssi_object.num_blocks = validate_array(in_dict['self.num_blocks'])
-            ssi_object.P_i_1 = validate_array(in_dict['self.P_i_1'])
-            ssi_object.P_i_ref = validate_array(in_dict['self.P_i_ref'])
+            
+            ssi_object.L_red = validate_array(in_dict['self.L_red'])
+            ssi_object.Q_red = validate_array(in_dict['self.Q_red'])
+            
+            # rebuild projections from reduced L and Q matrices
+            # saves ~ 95 % storage (Xe2 MB) compared to storing projections directly
+            a = prep_signals.num_ref_channels * ssi_object.num_block_rows
+            b = prep_signals.num_ref_channels
+            c = prep_signals.num_analised_channels - prep_signals.num_ref_channels
+            d = prep_signals.num_analised_channels * ssi_object.num_block_rows
+            ssi_object.P_i_ref = ssi_object.L_red[:b + c + d, : a] @ ssi_object.Q_red[ :a, :]
+            ssi_object.P_i_1 = ssi_object.L_red[b + c:b + c + d, : ] @ ssi_object.Q_red[ :, : ]
+        
             ssi_object.Y_i_i = validate_array(in_dict['self.Y_i_i'])
             ssi_object.S = validate_array(in_dict['self.S'])
             ssi_object.U = validate_array(in_dict['self.U'])
@@ -1090,7 +1113,7 @@ class SSIData(SSIDataMC):
 
 class SSIDataCV(SSIDataMC):
     
-    def build_block_hankel(self, num_block_rows=None, num_blocks=1, training_blocks=None):
+    def build_block_hankel(self, num_block_rows=None, num_blocks=1, training_blocks=None, reduced_projection=True):
         '''
         Builds serveral Block-Hankel Matrices of the measured time series with varying
         time lags and estimates the subspace matrices from their LQ decompositions.
@@ -1144,10 +1167,10 @@ class SSIDataCV(SSIDataMC):
         n_l = self.prep_signals.num_analised_channels
         n_r = self.prep_signals.num_ref_channels
 
-        logger.info(f'Building Block-Hankel matrix from  {n_training_blocks} out of {num_blocks} signal blocks...')
-
         q = num_block_rows
         p = num_block_rows
+
+        logger.info(f'Building Block-Hankel matrix from  {n_training_blocks} out of {num_blocks} signal blocks with {p} block-columns and {q} block rows.')
         
         N_b = int(np.floor((total_time_steps - q - p) / num_blocks))
         if N_b < n_r * q:
@@ -1184,7 +1207,7 @@ class SSIDataCV(SSIDataMC):
         R_unique_matrices = []
         Q_unique_matrices = []
         
-        pbar = simplePbar(n_training_blocks * 2)
+        pbar = simplePbar(n_training_blocks * 3)
         for i in range(n_training_blocks):
             i_block = training_blocks[i]
             next(pbar)
@@ -1196,7 +1219,7 @@ class SSIDataCV(SSIDataMC):
         logger.debug(f'R shapes: actual: {np.hstack(R_matrices).shape} expected: {(n_r * p + n_l * (p + 1), K* n_training_blocks)}')
         
         R_full_breve, Q_full_breve = lq_decomp(np.hstack(R_matrices), mode='reduced', unique=True)
-        [next(pbar) for _ in range(30)]
+        [next(pbar) for _ in range(n_training_blocks)]
                 
         logger.debug(f'Q_breve shapes: actual: {Q_full_breve.shape} expected: ,{(q * n_r + (p + 1) * n_l, K * n_training_blocks)}')
         Q_breve_matrices = np.hsplit(Q_full_breve, np.arange( K, n_training_blocks * K, K))
@@ -1215,18 +1238,23 @@ class SSIDataCV(SSIDataMC):
         
         L, Q = R_full_breve, np.concatenate(Q_unique_matrices, axis=1)
 
-        a = n_r * p
+        a = n_r * q
         b = n_r
         c = n_l - n_r
         d = n_l * p
 
-        P_i_ref = L[a:a + b + c + d, : a] @ Q[ :a, :]
+        P_i_ref = L[a:a + b + c + d, : a] @ Q[ :a, :] # (p + 1) * n_l x n_r * q x N 
+        if reduced_projection:
+            [U, S, V_T] = np.linalg.svd(L[a:a + b + c + d, : a], full_matrices=False)
+            V_T = None
+        else:
+            [U, S, V_T] = np.linalg.svd(P_i_ref, full_matrices=False)
         
-        [U, S, V_T] = np.linalg.svd(P_i_ref, full_matrices=False)
+        P_i_1 = L[a + b + c:a + b + c + d, : a + b] @ Q[ : a + b, : ] # n_l * p x n_r * (q + 1) x N
+        Y_i_i = L[a : a + b + c, : a + b + c] @ Q[ : a + b + c, : ] # n_l x n_r *q + n_l x N
         
-        P_i_1 = L[a + b + c:a + b + c + d, : a + b] @ Q[ : a + b, : ]
-        Y_i_i = L[a : a + b + c, : a + b + c] @ Q[ : a + b + c, : ]
-
+        self.L_red = L[a:, :a + b] # (p + 1) n_l x n_r * (q + 1)
+        self.Q_red = Q[:a + b, :] # n_r * (q + 1) x N
         self.P_i_1 = P_i_1
         self.P_i_ref = P_i_ref
         self.Y_i_i = Y_i_i
