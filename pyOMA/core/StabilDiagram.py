@@ -537,70 +537,10 @@ class StabilCalc(object):
 
     def export_results(self, fname, binary=False):
 
-        if self.select_modes:
-
-            self.masked_frequencies.mask = np.ma.nomask
-            self.order_dummy.mask = np.ma.nomask
-
-            select_modes = self.select_modes
-            selected_freq = [self.masked_frequencies[index]
-                             for index in self.select_modes]
-            select_modes = [x for (_, x) in sorted(
-                zip(selected_freq, select_modes), key=lambda pair: pair[0])]
-
-            selected_freq = [self.masked_frequencies[index]
-                             for index in select_modes]
-            selected_damp = [self.modal_data.modal_damping[index]
-                             for index in select_modes]
-            selected_order = [self.order_dummy[index]
-                              for index in select_modes]
-            if self.capabilities['msh']:
-                selected_MPC = [self.MPC_matrix[index]
-                                for index in select_modes]
-                selected_MP = [self.MP_matrix[index]
-                               for index in select_modes]
-                selected_MPD = [self.MPD_matrix[index]
-                                for index in select_modes]
-
-            if self.capabilities['std']:
-                selected_stdf = [self.modal_data.std_frequencies[index]
-                                 for index in select_modes]
-                selected_stdd = [self.modal_data.std_damping[index]
-                                 for index in select_modes]
-                selected_stdmsh = np.zeros(
-                    (self.modal_data.mode_shapes.shape[0], len(select_modes)), dtype=complex)
-
-            if self.capabilities['MC']:
-                selected_MC = [self.modal_data.modal_contributions[index]
-                               for index in select_modes]
-
-            if self.capabilities['msh']:
-                selected_modes = np.zeros(
-                    (self.modal_data.mode_shapes.shape[0], len(select_modes)), dtype=complex)
-
-                for num, ind in enumerate(select_modes):
-                    row_index = ind[0]
-                    col_index = ind[1]
-                    mode_tmp = self.modal_data.mode_shapes[
-                        :, col_index, row_index]
-                    if self.capabilities['std']:
-                        std_mode = self.modal_data.std_mode_shapes[
-                            :, col_index, row_index]
-
-                    # scaling of mode shape
-                    abs_mode_tmp = np.abs(mode_tmp)
-                    index_max = np.argmax(abs_mode_tmp)
-                    this_max = mode_tmp[index_max]
-
-                    if not self.capabilities['std']:
-                        mode_tmp = mode_tmp / this_max
-
-                    selected_modes[:, num] = mode_tmp
-
-                    if self.capabilities['std']:
-                        selected_stdmsh[:, num] = std_mode
-        else:
-            return
+        selected_freq, selected_damp, selected_modes, _,\
+            selected_order, selected_MC,\
+            selected_MPC, selected_MP, selected_MPD,\
+            selected_stdf, selected_stdd, selected_stdmsh = self.get_selected_modal_values()
 
         freq_str = ''
         damp_str = ''
@@ -618,7 +558,7 @@ class StabilCalc(object):
         if self.capabilities['MC']:
             MC_str = ''
 
-        for col in range(len(select_modes)):
+        for col in range(len(selected_freq)):
             freq_str += '{:<3.3f}\t\t'.format(selected_freq[col])
             damp_str += '{:<3.3f}\t\t'.format(selected_damp[col])
             ord_str += '{:<6d}\t\t'.format(selected_order[col])
@@ -993,6 +933,101 @@ class StabilCalc(object):
         frequencies = sorted([self.masked_frequencies[index[0], index[1]]
                               for index in selected_indices])
         return frequencies
+    
+    def get_selected_modal_values(self):
+        '''
+        Returns
+        -------
+            frequencies: list
+                Identified frequencies of all currently selected modes.
+        '''
+        if not self.select_modes:
+            return [None for _ in range(12)]
+
+        self.masked_frequencies.mask = np.ma.nomask
+        self.order_dummy.mask = np.ma.nomask
+
+        select_modes = self.select_modes
+        selected_freq = [self.masked_frequencies[index]
+                         for index in self.select_modes]
+        select_modes = [x for (_, x) in sorted(
+            zip(selected_freq, select_modes), key=lambda pair: pair[0])]
+
+        selected_freq = [self.masked_frequencies[index]
+                         for index in select_modes]
+        selected_damp = [self.modal_data.modal_damping[index]
+                         for index in select_modes]
+        selected_order = [self.order_dummy[index]
+                          for index in select_modes]
+        if self.capabilities['ev']:
+            selected_lambda = [self.modal_data.eigenvalues[index]
+                         for index in select_modes]
+        else:
+            selected_lambda = None
+        
+        if self.capabilities['msh']:
+            selected_MPC = [self.MPC_matrix[index]
+                            for index in select_modes]
+            selected_MP = [self.MP_matrix[index]
+                           for index in select_modes]
+            selected_MPD = [self.MPD_matrix[index]
+                            for index in select_modes]
+        else:
+            selected_MPC = None
+            selected_MP = None
+            selected_MPD = None
+
+        if self.capabilities['std']:
+            selected_stdf = [self.modal_data.std_frequencies[index]
+                             for index in select_modes]
+            selected_stdd = [self.modal_data.std_damping[index]
+                             for index in select_modes]
+            selected_stdmsh = np.zeros(
+                (self.modal_data.mode_shapes.shape[0], len(select_modes)), dtype=complex)
+        else:
+            selected_stdf = None
+            selected_stdd = None
+            selected_stdmsh = None
+
+        if self.capabilities['MC']:
+            selected_MC = [self.modal_data.modal_contributions[index]
+                           for index in select_modes]
+        else:
+            selected_MC = None
+
+        if self.capabilities['msh']:
+            selected_modes = np.zeros(
+                (self.modal_data.mode_shapes.shape[0], len(select_modes)), dtype=complex)
+
+            for num, ind in enumerate(select_modes):
+                row_index = ind[0]
+                col_index = ind[1]
+                mode_tmp = self.modal_data.mode_shapes[
+                    :, col_index, row_index]
+                if self.capabilities['std']:
+                    std_mode = self.modal_data.std_mode_shapes[
+                        :, col_index, row_index]
+
+                # scaling of mode shape
+                abs_mode_tmp = np.abs(mode_tmp)
+                index_max = np.argmax(abs_mode_tmp)
+                this_max = mode_tmp[index_max]
+
+                if not self.capabilities['std']:
+                    mode_tmp = mode_tmp / this_max
+
+                selected_modes[:, num] = mode_tmp
+
+                if self.capabilities['std']:
+                    selected_stdmsh[:, num] = std_mode
+        else:
+            selected_modes = None
+                    
+        
+        return selected_freq, selected_damp, selected_modes, selected_lambda,\
+            selected_order, selected_MC,\
+            selected_MPC, selected_MP, selected_MPD,\
+            selected_stdf, selected_stdd, selected_stdmsh
     
     def get_modal_values(self, i):
         # needed for gui
