@@ -115,7 +115,7 @@ class StabilGUI(QMainWindow):
         for mode in self.stabil_calc.select_modes:
             self.mode_selector_add(mode)
 
-        self.setGeometry(0, 0, 1800, 1000)
+        # self.setGeometry(0, 0, 1800, 1000)
 
         self.show()
 
@@ -179,8 +179,8 @@ class StabilGUI(QMainWindow):
         left_pane_layout.addWidget(fra_2)
 
         left_pane_layout.addStretch(2)
-        left_pane_layout.addWidget(self.current_value_view)
-        left_pane_layout.addStretch(1)
+        # left_pane_layout.addWidget(self.current_value_view)
+        # left_pane_layout.addStretch(1)
 
         #right_pane_layout = QVBoxLayout()
 

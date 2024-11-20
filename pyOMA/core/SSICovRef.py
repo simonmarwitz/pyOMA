@@ -120,7 +120,7 @@ class BRSSICovRef(ModalBase):
                 assert isinstance(num_block_rows, int)
                 num_block_columns = max_lags - num_block_rows - shift
             else:
-                num_block_columns = (max_lags -shift )// 2
+                num_block_columns = (max_lags - shift )// 2
         
         if num_block_rows is None:
             num_block_rows = num_block_columns
@@ -341,7 +341,7 @@ class BRSSICovRef(ModalBase):
         Computes the modal parameters from a given state space model as described 
         by Peeters 1999 and Döhler 2012. Mode shapes are scaled to unit modal 
         displacements. Complex conjugate and real modes are removed prior to 
-        further processing.
+        further processing. Typically, order // 2 modes are in the returned arrays.
                 
         Parameters
         ----------
@@ -373,10 +373,10 @@ class BRSSICovRef(ModalBase):
         assert order == A.shape[1]
         
         # allocate output arrays
-        modal_frequencies = np.zeros((order))
-        modal_damping = np.zeros((order))
-        mode_shapes = np.zeros((n_l, order), dtype=complex)
-        eigenvalues = np.zeros((order), dtype=complex)
+        modal_frequencies = np.full((order), np.nan)
+        modal_damping = np.full((order), np.nan)
+        mode_shapes = np.full((n_l, order), np.nan, dtype=complex)
+        eigenvalues = np.full((order), np.nan, dtype=complex)
         
         # compute modal model
         eigvals, eigvecs_r = np.linalg.eig(A)
@@ -407,8 +407,10 @@ class BRSSICovRef(ModalBase):
             modal_damping[i] = damping_i
             mode_shapes[:mode_shape_i.shape[0], i] = mode_shape_i
             eigenvalues[i] = lambda_i
-
-        return modal_frequencies, modal_damping, mode_shapes, eigenvalues, 
+        
+        argsort = np.argsort(modal_frequencies)
+        
+        return modal_frequencies[argsort], modal_damping[argsort], mode_shapes[:,argsort], eigenvalues[argsort], 
     
     def synthesize_correlation(self, A, C, G):
         '''
@@ -595,6 +597,8 @@ class BRSSICovRef(ModalBase):
 
     def save_state(self, fname):
 
+        logger.info('Saving results to  {}...'.format(fname))
+
         dirname, filename = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
@@ -624,7 +628,7 @@ class BRSSICovRef(ModalBase):
 
     @classmethod
     def load_state(cls, fname, prep_signals):
-        logger.info('Now loading previous results from  {}'.format(fname))
+        logger.info('Loading results from  {}'.format(fname))
 
         in_dict = np.load(fname)
         #             0         1           2
@@ -1535,6 +1539,8 @@ class PogerSSICovRef(BRSSICovRef):
 
     def save_state(self, fname):
 
+        logger.info('Saving results to  {}...'.format(fname))
+
         dirname, filename = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
@@ -1575,7 +1581,7 @@ class PogerSSICovRef(BRSSICovRef):
 
     @classmethod
     def load_state(cls, fname, ):
-        logger.info('Now loading previous results from  {}'.format(fname))
+        logger.info('Loading results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
 

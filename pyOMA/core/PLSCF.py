@@ -85,7 +85,7 @@ class PLSCF(ModalBase):
 
     def build_half_spectra(self, nperseg=None, 
                            begin_frequency=None, end_frequency=None, 
-                           window_decay=0.001):
+                           window_decay=0.001, **kwargs):
         '''
         Extracts an array of positive half spectra between begin_frequency 
         and end_frequency from a spectrum of nperseg frequency lines. If 
@@ -125,6 +125,11 @@ class PLSCF(ModalBase):
                 Final value of the exponential window, that is applied to the 
                 correlation functions.
                 
+        Other Parameters
+        ----------------
+            kwargs :
+                Additional kwargs are passed to prep_signals.correlation
+                
         '''
 
         logger.info('Constructing half-spectrum matrix ... ')
@@ -139,37 +144,38 @@ class PLSCF(ModalBase):
             end_frequency = float(end_frequency)
         assert isinstance(end_frequency, float)
         if nperseg is None:
-            nperseg = self.prep_signals.n_lines
-        if nperseg is None:
-            raise RuntimeError('Argument nperseg or precomputed spectra must be provided.')
-        assert isinstance(nperseg, int)
+            # check if correlations have already been computed (welch, blackman-tukey)
+            if self.prep_signals.n_lags is not None :
+                _nperseg = self.prep_signals.n_lags
+            # alternatively try if psds might be available (welch)
+            elif self.prep_signals.n_lines is not None:
+                _nperseg = self.prep_signals.n_lines // 2 + 1
+            else:
+                raise RuntimeError('Argument nperseg or precomputed spectra/correlations must be provided.')
+        else:
+            assert isinstance(nperseg, int)
 
+        if self.prep_signals._last_meth == 'welch':
+            logger.warning("The selected spectral estimation method (Welch) is not recommended (applied window introduces damping bias).")
+        correlation_matrix = self.prep_signals.correlation(nperseg, **kwargs)
+        # calling correlation(nperseg=None) ensured using precomputed correlations
+        if nperseg is None:
+            nperseg = _nperseg
+        
+        tau = - nperseg / np.log(window_decay)
+        win = scipy.signal.windows.get_window(('exponential', 0, tau), nperseg, fftbins=True)
+        factor_a = - 1 / tau
+        psd_matrix = np.fft.rfft(correlation_matrix * win)
+        
+        sampling_rate = self.prep_signals.sampling_rate
+        freqs = np.fft.rfftfreq(nperseg, 1 / sampling_rate)
+        freq_inds = (freqs > begin_frequency) & (freqs < end_frequency)
+        selected_omega_vector = freqs[freq_inds] * 2 * np.pi
+        spectrum_tensor = psd_matrix[..., freq_inds]
+        
         self.begin_frequency = begin_frequency
         self.end_frequency = end_frequency
         self.nperseg = nperseg
-
-        sampling_rate = self.prep_signals.sampling_rate
-        
-        tau = - nperseg / np.log(window_decay)
-        
-        if self.prep_signals._last_meth == 'welch':
-            logger.warning("The selected spectral estimation method (Welch) is not recommended (applied window introduces damping bias).")
-        
-        correlation_matrix = self.prep_signals.correlation(nperseg, window='boxcar')
-        
-        win = scipy.signal.windows.get_window(('exponential', 0, tau), nperseg, fftbins=True)
-        
-        psd_matrix = np.fft.rfft(correlation_matrix * win)
-        
-        freqs = np.fft.rfftfreq(nperseg, 1 / sampling_rate)
-        
-        freq_inds = (freqs > begin_frequency) & (freqs < end_frequency)
-        
-        selected_omega_vector = freqs[freq_inds] * 2 * np.pi
-        
-        spectrum_tensor = psd_matrix[..., freq_inds]
-        
-        factor_a = - 1 / tau
         
         self.selected_omega_vector = selected_omega_vector
         self.pos_half_spectra = spectrum_tensor
@@ -319,10 +325,10 @@ class PLSCF(ModalBase):
                 Array holding the modal frequencies for each mode
             modal_damping: (order * n_r,) numpy.ndarray 
                 Array holding the modal damping ratios (0,100) for each mode
-            eigenvalues: (order * n_r,) numpy.ndarray
-                Complex array holding the eigenvalues for each mode
             mode_shapes: (n_l, order * n_r,) numpy.ndarray 
                 Complex array holding the mode shapes 
+            eigenvalues: (order * n_r,) numpy.ndarray
+                Complex array holding the eigenvalues for each mode
         '''
         accel_channels = self.prep_signals.accel_channels
         velo_channels = self.prep_signals.velo_channels
@@ -401,8 +407,8 @@ class PLSCF(ModalBase):
         # self._participation_vectors = eigvecs_r[-n_r:, np.flip(conj_indices)]
         # self._participation_vectors /= self._participation_vectors[:, np.argmax(np.abs(self._participation_vectors), axis=0)]
         # self._eigenvalues = eigenvalues
-        
-        return modal_frequencies, modal_damping, eigenvalues, mode_shapes
+        argsort = np.argsort(modal_frequencies)
+        return modal_frequencies[argsort], modal_damping[argsort], mode_shapes[:,argsort], eigenvalues[argsort]
     
     def modal_analysis_residuals(self, alpha, *args):
         '''
@@ -427,10 +433,10 @@ class PLSCF(ModalBase):
                 Array holding the modal frequencies for each mode
             modal_damping: (order * n_r,) numpy.ndarray 
                 Array holding the modal damping ratios (0,100) for each mode
-            eigenvalues: (order * n_r,) numpy.ndarray
-                Complex array holding the _eigenvalues for each mode
             mode_shapes: (n_l, order * n_r,) numpy.ndarray 
                 Complex array holding the mode shapes 
+            eigenvalues: (order * n_r,) numpy.ndarray
+                Complex array holding the _eigenvalues for each mode
         '''
         accel_channels = self.prep_signals.accel_channels
         velo_channels = self.prep_signals.velo_channels
@@ -546,7 +552,7 @@ class PLSCF(ModalBase):
         self._participation_vectors = participation_vectors[:,argsort]
         self._eigenvalues = eigenvalues[argsort]
         
-        return  modal_frequencies[argsort], modal_damping[argsort], eigenvalues[argsort], mode_shapes[:,argsort]
+        return  modal_frequencies[argsort], modal_damping[argsort], mode_shapes[:,argsort], eigenvalues[argsort]
 
     def synthesize_spectrum(self, alpha, beta_l_i, modal=True):
         '''
@@ -737,9 +743,9 @@ class PLSCF(ModalBase):
             alpha, beta_l_i = self.estimate_model(order, complex_coefficients)
             
             if algo=='state-space':
-                f, d, lamda, phi = self.modal_analysis_state_space(alpha, beta_l_i )
+                f, d, phi, lamda = self.modal_analysis_state_space(alpha, beta_l_i )
             elif algo=='residuals':
-                f, d, lamda, phi = self.modal_analysis_residuals(alpha, beta_l_i)
+                f, d, phi, lamda = self.modal_analysis_residuals(alpha, beta_l_i)
             n_modes = len(f)
             
             if modal_contrib:
@@ -765,13 +771,14 @@ class PLSCF(ModalBase):
 
     def save_state(self, fname):
 
+        logger.info('Saving results to  {}...'.format(fname))
+
         dirname, filename = os.path.split(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
 
         #             0             1
         # self.state= [Half_spectra, Modal Par.
-        self.state = [False, False]
         out_dict = {'self.state': self.state}
         out_dict['self.setup_name'] = self.setup_name
         out_dict['self.start_time'] = self.start_time
@@ -795,7 +802,8 @@ class PLSCF(ModalBase):
 
     @classmethod
     def load_state(cls, fname, prep_signals):
-        logger.info('Now loading previous results from  {}'.format(fname))
+        
+        logger.info('Loading results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
         #             0         1           2
