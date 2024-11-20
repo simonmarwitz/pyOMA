@@ -21,6 +21,11 @@ Created on 08.03.2021
 '''
 import numpy as np
 
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
+
 def nearly_equal(a, b, sig_fig=5):
     return (a == b or
             int(a * 10**sig_fig) == int(b * 10**sig_fig)
@@ -155,3 +160,146 @@ def lq_decomp(a, mode='reduced', unique=True):
         return r.T
     else:
         return r.T, q.T
+
+    
+def calculateMAC(v1, v2):
+    '''
+    expects modeshapes in columns of v1 and/or v2
+    outputs mac:
+    ..math::
+
+        \begin{bmatrix}
+        MAC(v1[:,0],v2[:,0]) &   MAC(v1[:,0],v2[:,1]\\
+        MAC(v1[:,1],v2[:,0]) &   MAC(v1[:,1],v2[:,1]
+        \\end{bmatrix}
+
+    '''
+
+    v1_norms = np.einsum('ij,ij->j', v1, v1.conj())
+    v2_norms = np.einsum('ij,ij->j', v2, v2.conj())
+    MAC = np.abs(np.dot(v1.T, v2.conj()))**2 \
+        / np.outer(v1_norms, v2_norms)
+
+    return MAC.real
+
+def calculateMPC(v):
+
+    MPC = np.abs(np.sum(v**2, axis=0))**2 \
+        / np.abs(np.einsum('ij,ij->j', v, v.conj()))**2
+
+    return MPC
+
+def calculateMPD(v, weighted=True, regression_type='usv'):
+    assert regression_type in ['ortho', 'arithm', 'usv']
+    if regression_type == 'ortho':
+        # orthogonal regression through origin
+        # http://mathforum.org/library/drmath/view/68362.html
+        real_ = np.real(v).copy()
+        imag_ = np.imag(v).copy()
+        ssxy = np.einsum('ij,ij->j', real_, imag_)
+        ssxx = np.einsum('ij,ij->j', real_, real_)
+        ssyy = np.einsum('ij,ij->j', imag_, imag_)
+
+        MP = np.arctan2(2 * ssxy, (ssxx - ssyy)) / 2
+
+        # rotates complex plane by angle MP
+        v_r = v * np.exp(-1j * MP)  # (np.cos(-MP)+1j*np.sin(-MP))
+        # calculates phase in range -180 and 180
+        phase = np.angle(v_r, True)
+
+        # rotates into 1st and 4th quadrant
+        phase[phase > 90] -= 180
+        phase[phase < -90] += 180
+        # calculates standard deviation
+
+        if not weighted:
+            MPD = np.std(phase, axis=0)
+        else:
+            MPD = np.sqrt(
+                np.average(
+                    np.power(
+                        phase -
+                        np.mean(
+                            phase,
+                            axis=0),
+                        2),
+                    weights=np.absolute(v_r),
+                    axis=0))
+
+        # print(np.mean(phase, axis=0), np.sqrt(
+        # np.mean(np.power(phase, 2), axis=0)), np.std(phase, axis=0), MPD)
+
+        MP *= 180 / np.pi
+
+    elif regression_type == 'arithm':
+        phase = np.angle(v, True)
+
+        phase[phase < 0] += 180
+
+        if not weighted:
+            MP = np.mean(phase, axis=0)
+        else:
+            MP = np.average(phase, weights=np.absolute(v), axis=0)
+
+        if not weighted:
+            MPD = np.std(phase, axis=0)
+        else:
+            MPD = np.sqrt(
+                np.average(
+                    np.power(
+                        phase - MP,
+                        2),
+                    weights=np.absolute(v),
+                    axis=0))
+
+    elif regression_type == 'usv':
+
+        MP = np.zeros(v.shape[1])
+        MPD = np.zeros(v.shape[1])
+
+        for k in range(v.shape[1]):
+            mode_shape = np.array(
+                [np.array(v[:, k]).real, np.array(v[:, k]).imag]).T
+
+            _, _, V_T = np.linalg.svd(mode_shape, full_matrices=False)
+            # print(U.shape,S.shape,V_T.shape)
+            numerator = []
+            denominator = []
+
+            import warnings
+            for j in range(len(v[:, k])):
+                v[j, k]
+                V_T[1, 1]
+                V_T[1, 0]
+                V_T[0, 1]
+                V_T[1, 1]
+                if weighted:
+                    weight = np.abs(v[j, k])
+                else:
+                    weight = 1
+                numerator_i = weight * np.arccos(np.abs(V_T[1, 1] * np.array(v[j, k]).real - V_T[1, 0] * np.array(
+                    v[j, k]).imag) / (np.sqrt(V_T[0, 1]**2 + V_T[1, 1]**2) * np.abs(v[j, k])))
+                warnings.filterwarnings("ignore")
+                # when the arccos function returns NaN, it means that the value should be set 0
+                # the RuntimeWarning might occur since the value in arccos
+                # can be slightly bigger than 0 due to truncations
+                if np.isnan(numerator_i):
+                    numerator_i = 0
+                numerator.append(numerator_i)
+                denominator.append(weight)
+
+            MPD[k] = np.degrees((sum(numerator) / sum(denominator)))
+            MP[k] = np.degrees(np.arctan(-V_T[1, 0] / V_T[1, 1]))
+            # MP in [-pi/2, pi/2] = [-90, 90]
+            # phase=np.angle(v[:,k]*np.exp(-1j*np.radians(MP[k])),True)
+            # print(np.mean(phase))
+            # phase[phase>90]-=180
+            # phase[phase<-90]+=180
+            # print(np.mean(phase),np.sqrt(np.mean(phase**2)),np.std(phase),MPD[k])
+
+    MP[MP < 0] += 180  # restricted to +imag region
+    MPD[MPD < 0] *= -1
+
+    #MP [0,180]
+    #MPD >= 0
+    return MPD, MP
