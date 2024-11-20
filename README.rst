@@ -1,3 +1,7 @@
+.. image:: https://readthedocs.org/projects/py-oma/badge/?version=latest
+    :target: https://py-oma.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
 pyOMA
 =====
 
