@@ -98,7 +98,7 @@ class StabilCalc(object):
             'mode_shapes', None) is not None
         has_variances = self.modal_data.__dict__.get(
             'std_frequencies', None) is not None
-        has_data = prep_signals is not None
+        has_data = self.modal_data.prep_signals is not None
         has_MC = self.modal_data.__dict__.get(
             'modal_contributions', None) is not None
         has_ev = self.modal_data.__dict__.get(
@@ -119,7 +119,9 @@ class StabilCalc(object):
                 self.modal_data.eigenvalues, fill_value=0)
 
         self.masked_frequencies = np.ma.array(
-            self.modal_data.modal_frequencies, fill_value=0)
+            self.modal_data.modal_frequencies, copy=True, fill_value=0)
+        self.masked_frequencies[np.isnan(self.masked_frequencies)] = 0
+        
         self.masked_damping = np.ma.array(
             self.modal_data.modal_damping, fill_value=0)
 
@@ -229,9 +231,11 @@ class StabilCalc(object):
 
         # tuple with array of indizes of non-zero frequencies
         if capabilities['ev']:
-            prev_non_zero_entries = np.nonzero(prev_lambda_row.imag)
+            # prev_non_zero_entries = np.nonzero(prev_lambda_row.imag)
+            prev_non_zero_entries = np.where((~np.isnan(prev_lambda_row.imag)) & (prev_lambda_row.imag!=0))
         else:
-            prev_non_zero_entries = np.nonzero(prev_freq_row)
+            # prev_non_zero_entries = np.nonzero(prev_freq_row)
+            prev_non_zero_entries = np.where((~np.isnan(prev_freq_row)) & (prev_freq_row!=0))
         prev_length = len(prev_non_zero_entries[0])
         if capabilities['ev']:
             prev_lambda = prev_lambda_row[prev_non_zero_entries]
@@ -245,7 +249,7 @@ class StabilCalc(object):
             prev_MPD, prev_MP_new = self.calculateMPD(prev_mode_shapes)
             prev_MP_new[prev_MP_new > 90] -= 180  # in range [-90,90]
         
-        pbar = simplePbar(max_model_order)
+        pbar = simplePbar(max_model_order - 1)
         for curr_order in range(1, max_model_order):
             next(pbar)
 
@@ -264,9 +268,11 @@ class StabilCalc(object):
             # catches zeros and also real poles, which should have been removed
             # in remove conjugates already
             if capabilities['ev']:
-                curr_non_zero_entries = np.nonzero(curr_lambda_row.imag)
+                # curr_non_zero_entries = np.nonzero(curr_lambda_row.imag)
+                curr_non_zero_entries = np.where((~np.isnan(curr_lambda_row.imag)) & (curr_lambda_row.imag!=0))
             else:
-                curr_non_zero_entries = np.nonzero(curr_freq_row)
+                # curr_non_zero_entries = np.nonzero(curr_freq_row)
+                curr_non_zero_entries = np.where((~np.isnan(curr_freq_row)) & (curr_freq_row!=0))
 
             curr_length = len(curr_non_zero_entries[0])
 
@@ -324,7 +330,7 @@ class StabilCalc(object):
                 np.expand_dims(prev_freq, axis=1), curr_freq.shape[0], axis=1) - curr_freq) / div_freq).T
             damp_diffs[curr_order, curr_non_zero_entries[0], :len(prev_damp)] = np.abs((np.repeat(
                 np.expand_dims(prev_damp, axis=1), curr_damp.shape[0], axis=1) - curr_damp) / div_damp).T
-
+            
             if capabilities['msh']:
 
                 div_MPD = np.maximum(
@@ -541,7 +547,7 @@ class StabilCalc(object):
             selected_order, selected_MC,\
             selected_MPC, selected_MP, selected_MPD,\
             selected_stdf, selected_stdd, selected_stdmsh = self.get_selected_modal_values()
-
+        
         freq_str = ''
         damp_str = ''
         ord_str = ''
@@ -758,7 +764,7 @@ class StabilCalc(object):
         self.masked_frequencies.mask = np.ma.nomask
         self.order_dummy.mask = np.ma.nomask
 
-        mask_pre = self.masked_frequencies != 0
+        mask_pre = (~np.isnan(self.masked_frequencies)) & (self.masked_frequencies != 0)
 
         if order_range is not None:
             start, step, stop = order_range
@@ -942,7 +948,7 @@ class StabilCalc(object):
                 Identified frequencies of all currently selected modes.
         '''
         if not self.select_modes:
-            return [None for _ in range(12)]
+            return [np.array([]) for _ in range(12)]
 
         self.masked_frequencies.mask = np.ma.nomask
         self.order_dummy.mask = np.ma.nomask
@@ -1184,7 +1190,7 @@ class StabilCalc(object):
         np.savez_compressed(fname, **out_dict)
 
     @classmethod
-    def load_state(cls, fname, modal_data, prep_signals=None):
+    def load_state(cls, fname, modal_data):
         logger.info('Now loading previous results from  {}'.format(fname))
 
         in_dict = np.load(fname, allow_pickle=True)
@@ -1200,7 +1206,7 @@ class StabilCalc(object):
         assert setup_name == modal_data.setup_name
         #assert start_time == modal_data.start_time
 
-        stabil_data = cls(modal_data, prep_signals)
+        stabil_data = cls(modal_data)
 
         if state >= 1:
             if stabil_data.capabilities['ev']:

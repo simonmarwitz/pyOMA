@@ -233,7 +233,7 @@ class BRSSICovRef(ModalBase):
         else:
             modal_contributions = None
         
-        pbar = simplePbar(max_model_order)
+        pbar = simplePbar(max_model_order - 1)
         for order in range(1, max_model_order):
             next(pbar)
                 

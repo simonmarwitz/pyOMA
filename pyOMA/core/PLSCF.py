@@ -407,7 +407,13 @@ class PLSCF(ModalBase):
         # self._participation_vectors = eigvecs_r[-n_r:, np.flip(conj_indices)]
         # self._participation_vectors /= self._participation_vectors[:, np.argmax(np.abs(self._participation_vectors), axis=0)]
         # self._eigenvalues = eigenvalues
+        
         argsort = np.argsort(modal_frequencies)
+        
+        # remove all frequencies outside the spectral frequency band
+        inds = (modal_frequencies[argsort] >= self.begin_frequency) & (modal_frequencies[argsort] <= self.end_frequency)
+        argsort = argsort[inds]
+        
         return modal_frequencies[argsort], modal_damping[argsort], mode_shapes[:,argsort], eigenvalues[argsort]
     
     def modal_analysis_residuals(self, alpha, *args):
@@ -683,7 +689,7 @@ class PLSCF(ModalBase):
             return half_spec_synth, None
 
     def compute_modal_params(self, max_model_order, complex_coefficients=False, 
-                             algo='residuals', modal_contrib=True):
+                             algo='residuals', modal_contrib=None):
         '''
         Perform a multi-order computation of modal parameters. Successively
         calls 
@@ -712,10 +718,17 @@ class PLSCF(ModalBase):
         '''
         assert max_model_order <= self.max_model_order
         assert algo in ['state-space', 'residuals']
-        if modal_contrib:
-            if algo=='state-space':
-                logger.warning('State space algorithm can not be used with spectral synthetization.')
-                algo = 'residuals'
+        
+        if modal_contrib is None:
+            if algo == 'state-space':
+                modal_contrib = False
+            else:
+                modal_contrib = True
+                
+        if modal_contrib and algo=='state-space':
+            logger.warning('State space algorithm can not be used with spectral synthetization.')
+            algo = 'residuals'
+        
         
         n_l = self.prep_signals.num_analised_channels
         n_r = self.prep_signals.num_ref_channels

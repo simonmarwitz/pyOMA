@@ -2363,11 +2363,14 @@ class PreProcessSignals(object):
         if self.s_vals_psd is not None and (n_lines is None or self.s_vals_psd.shape[1] == n_lines // 2 + 1):
             return self.s_vals_psd
         
-        num_analised_channels = self.num_analised_channels
-        psd_matrix = self.psd(n_lines, refs_only=False, **kwargs)
+        psd_matrix = self.psd(n_lines, 
+                              # refs_only=False, 
+                              **kwargs)
+        n_sigma = np.min(psd_matrix.shape[:2])
+        # n_sigma = self.num_analised_channels
         
         n_lines = self.n_lines
-        s_vals_psd = np.empty((num_analised_channels, n_lines // 2 + 1))
+        s_vals_psd = np.empty((n_sigma, n_lines // 2 + 1))
         for k in range(n_lines // 2 + 1):
             # might use only real part to account for slightly asynchronous data
             # see [Au (2017): OMA, Chapter 7.5]
