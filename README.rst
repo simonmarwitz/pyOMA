@@ -182,3 +182,8 @@ For beginners:
  * Fork the project on GitHub and start development
  * Open a Pull Request to get your changes merged into the project
 
+
+
+.. image:: https://api.codacy.com/project/badge/Grade/94d6c2bf75bd4ac6b2e17671e9b91710
+   :alt: Codacy Badge
+   :target: https://app.codacy.com/gh/simonmarwitz/pyOMA?utm_source=github.com&utm_medium=referral&utm_content=simonmarwitz/pyOMA&utm_campaign=Badge_Grade
