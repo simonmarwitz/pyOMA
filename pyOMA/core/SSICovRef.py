@@ -131,48 +131,39 @@ class BRSSICovRef(ModalBase):
         n_lags = num_block_rows + 1 + num_block_columns - 1 + shift
         
         if max_lags is None:
-            self.prep_signals.correlation(n_lags, 'blackman-tukey')
             max_lags = self.prep_signals.n_lags 
             
         if max_lags < n_lags:
             logger.warning('The pre-computed correlation function is too short for the requested matrix dimensions.')
-            self.prep_signals.correlation(n_lags, 'blackman-tukey')
 
         n_l = self.num_analised_channels
         n_r = self.num_ref_channels
         
-        corr_matrix = self.prep_signals.corr_matrix
+        corr_matrix = self.prep_signals.correlation(n_lags, 'blackman-tukey')
 
         Toeplitz_matrix = np.zeros((n_l * (num_block_rows + 1), n_r * num_block_columns))
 
-        for i in range(num_block_rows + 1):
-            if i == 0:
-                for ii in range(num_block_columns):
+        for ii in range(num_block_columns):
+            tau = num_block_columns  - ii + shift
+            this_block = corr_matrix[:, :, tau - 1]
 
-                    tau = num_block_columns + i - ii + shift
-                    this_block = corr_matrix[:, :, tau - 1]
+            Toeplitz_matrix[:n_l, ii * n_r:(ii * n_r + n_r)] = this_block
+        
+        for i in range(1, num_block_rows + 1):
+            # shift previous block row down and left
+            previous_Toeplitz_row = (i - 1) * n_l
+            this_block = Toeplitz_matrix[previous_Toeplitz_row:(
+                previous_Toeplitz_row + n_l), 0:n_r * (num_block_columns - 1)]
+            begin_Toeplitz_row = i * n_l
+            Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row + n_l), 
+                            n_r:(n_r * num_block_columns)] = this_block
+                            
+            # fill right most block
+            tau = num_block_columns + i + shift
+            this_block = corr_matrix[:, :, tau - 1]
 
-                    begin_Toeplitz_row = i * n_l
-
-                    Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row +
-                                                        n_l), ii *
-                                    n_r:(ii *
-                                                      n_r +
-                                                      n_r)] = this_block
-            else:
-                # shift previous block row down and left
-                previous_Toeplitz_row = (i - 1) * n_l
-                this_block = Toeplitz_matrix[previous_Toeplitz_row:(
-                    previous_Toeplitz_row + n_l), 0:n_r * (num_block_columns - 1)]
-                begin_Toeplitz_row = i * n_l
-                Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row + n_l), 
-                                n_r:(n_r * num_block_columns)] = this_block
-                # fill right most block
-                tau = num_block_columns + i + shift
-                this_block = corr_matrix[:, :, tau - 1]
-
-                Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row + n_l),
-                                0:n_r] = this_block
+            Toeplitz_matrix[begin_Toeplitz_row:(begin_Toeplitz_row + n_l),
+                            0:n_r] = this_block
         
         logger.info('Decomposing Toeplitz matrix')
         
@@ -185,7 +176,6 @@ class BRSSICovRef(ModalBase):
         self.S = S
         self.V_T = V_T
         
-        self.max_model_order = S.shape[0]
         
         self.state[0] = True
 
@@ -214,9 +204,9 @@ class BRSSICovRef(ModalBase):
         if max_model_order is not None:
             assert isinstance(max_model_order, int)
         else:
-            max_model_order = self.max_model_order
+            max_model_order = self.S.shape[0]
             
-        assert max_model_order <= self.max_model_order
+        assert max_model_order <= self.S.shape[0]
         
         num_analised_channels = self.num_analised_channels
         
@@ -292,8 +282,8 @@ class BRSSICovRef(ModalBase):
             G: numpy.ndarray
                 next-state-output covariance matrix : Array of shape (order, num_ref_channels)
         '''
-        if order>self.max_model_order:
-            raise RuntimeError(f'Order cannot be higher than {self.max_model_order}. Consider using more block_rows/block_columns.')
+        if order>self.S.shape[0]:
+            raise RuntimeError(f'Order cannot be higher than {self.S.shape[0]}. Consider using more block_rows/block_columns.')
         
         assert algo in ['svd', 'qr']
         
@@ -615,7 +605,6 @@ class BRSSICovRef(ModalBase):
             out_dict['self.U'] = self.U
             out_dict['self.S'] = self.S
             out_dict['self.V_T'] = self.V_T
-            out_dict['self.max_model_order'] = self.max_model_order
         if self.state[2]:  # modal params
             
             out_dict['self.modal_frequencies'] = self.modal_frequencies
@@ -623,6 +612,7 @@ class BRSSICovRef(ModalBase):
             out_dict['self.mode_shapes'] = self.mode_shapes
             out_dict['self.eigenvalues'] = self.eigenvalues
             out_dict['self.modal_contributions'] = self.modal_contributions
+            out_dict['self.max_model_order'] = self.max_model_order
 
         np.savez_compressed(fname, **out_dict)
 
@@ -660,7 +650,6 @@ class BRSSICovRef(ModalBase):
             ssi_object.U = validate_array(in_dict['self.U'])
             ssi_object.S = validate_array(in_dict['self.S'])
             ssi_object.V_T = validate_array(in_dict['self.V_T'])
-            ssi_object.max_model_order = validate_array(in_dict['self.max_model_order'])
         if state[2]:  # modal params
             ssi_object.modal_frequencies = validate_array(in_dict['self.modal_frequencies'])
             ssi_object.modal_damping = validate_array(in_dict['self.modal_damping'])
@@ -668,6 +657,7 @@ class BRSSICovRef(ModalBase):
             ssi_object.eigenvalues = validate_array(in_dict['self.eigenvalues'])
             ssi_object.modal_contributions = validate_array(in_dict.get(
                 'self.modal_contributions', None))
+            ssi_object.max_model_order = validate_array(in_dict['self.max_model_order'])
 
         return ssi_object
 

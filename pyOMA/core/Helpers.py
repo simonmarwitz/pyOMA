@@ -49,10 +49,10 @@ def simplePbar(total):
     while True:
         ncalls += 1
         while ncalls * stepsize // 1 > last:
-            print('.', end='', flush=True)
+            if logger.isEnabledFor(logging.INFO): print('.', end='', flush=True)
             last += 1
         if ncalls == total:#np.isclose(step, 100):
-            print('', end='\n', flush=True)
+            if logger.isEnabledFor(logging.INFO): print('', end='\n', flush=True)
         yield
 
 

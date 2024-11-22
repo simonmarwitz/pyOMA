@@ -181,8 +181,6 @@ class PLSCF(ModalBase):
         self.pos_half_spectra = spectrum_tensor
         self.factor_a = factor_a
         
-        self.max_model_order = nperseg - 1
-        
         self.state[0] = True
     
     @property
@@ -235,8 +233,8 @@ class PLSCF(ModalBase):
                 Numerator coefficients: Array of shape (order + 1, n_r, n_l)
         
         '''
-        if order>self.max_model_order:
-            raise RuntimeError(f'Order cannot be higher than nperseg - 1 (={self.max_model_order}).')
+        if order>self.nperseg - 1:
+            raise RuntimeError(f'Order cannot be higher than nperseg - 1 (={self.nperseg - 1}).')
         
         n_l = self.prep_signals.num_analised_channels
         n_r = self.prep_signals.num_ref_channels
@@ -716,7 +714,7 @@ class PLSCF(ModalBase):
                 Synthesize modal spectra and estimate modal contributions. Only
                 to be used with residual-based modal analysis algorithm.
         '''
-        assert max_model_order <= self.max_model_order
+        assert max_model_order <= self.nperseg - 1
         assert algo in ['state-space', 'residuals']
         
         if modal_contrib is None:
@@ -803,13 +801,13 @@ class PLSCF(ModalBase):
             out_dict['self.selected_omega_vector'] = self.selected_omega_vector
             out_dict['self.pos_half_spectra'] = self.pos_half_spectra
             out_dict['self.factor_a'] = self.factor_a
-            out_dict['self.max_model_order'] = self.max_model_order
         if self.state[1]:  # modal params
             out_dict['self.modal_frequencies'] = self.modal_frequencies
             out_dict['self.modal_damping'] = self.modal_damping
             out_dict['self.mode_shapes'] = self.mode_shapes
             out_dict['self.eigenvalues'] = self.eigenvalues
             out_dict['self.modal_contributions'] = self.modal_contributions
+            out_dict['self.max_model_order'] = self.max_model_order
 
         np.savez_compressed(fname, **out_dict)
 
@@ -842,13 +840,13 @@ class PLSCF(ModalBase):
             pLSCF_object.selected_omega_vector = validate_array(in_dict['self.selected_omega_vector'])
             pLSCF_object.pos_half_spectra = validate_array(in_dict['self.pos_half_spectra'])
             pLSCF_object.factor_a = validate_array(in_dict['self.factor_a'])
-            pLSCF_object.max_model_order = int(in_dict['self.max_model_order'])
         if state[1]:  # modal params
             pLSCF_object.modal_frequencies = in_dict['self.modal_frequencies']
             pLSCF_object.modal_damping = in_dict['self.modal_damping']
             pLSCF_object.mode_shapes = in_dict['self.mode_shapes']
             pLSCF_object.eigenvalues = in_dict['self.eigenvalues']
             pLSCF_object.modal_contributions = in_dict['self.modal_contributions']
+            pLSCF_object.max_model_order = int(in_dict['self.max_model_order'])
 
         return pLSCF_object
 
