@@ -1,7 +1,11 @@
 .. image:: https://readthedocs.org/projects/py-oma/badge/?version=latest
     :target: https://py-oma.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
-
+.. image:: https://app.codacy.com/project/badge/Grade/8fd03ea2fe7d499faffbf26fd22e7993    
+    :target: https://app.codacy.com/gh/simonmarwitz/pyOMA/dashboard
+.. image:: https://img.shields.io/badge/License-GPLv3-blue.svg
+    :target: https://www.gnu.org/licenses/gpl-3.0)
+    :alt: License: GPL v3
 pyOMA
 =====
 
