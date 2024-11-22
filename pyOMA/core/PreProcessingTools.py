@@ -1990,7 +1990,7 @@ class PreProcessSignals(object):
             if self.corr_matrix_bt is None:
                 logger.debug(f"Not returning because: self.corr_matrix_bt not available")
                 break
-            if self.n_lags_bt != n_lags:
+            if self.n_lags_bt < n_lags:
                 logger.debug(f"Not returning because: n_lags differs from previous")
                 break
             if num_blocks is not None and self.n_segments_bt != num_blocks:
@@ -2001,7 +2001,7 @@ class PreProcessSignals(object):
                 break
             
             logger.debug("Using previously computed Correlation Functions (BT)...")
-            return self.corr_matrix_bt
+            return self.corr_matrix_bt[...,:n_lags]
         
             
         logger.info(f'Estimating Correlation Functions (BT) with n_lags='
