@@ -2218,7 +2218,7 @@ class ModeShapePlot(object):
                     continue
                 if node not in self.geometry_data.nodes.keys():
                     continue
-                x, y, z = self.calc_xyz(az * np.pi / 180, elev * np.pi / 180)
+                x, y, z = calc_xyz(az * np.pi / 180, elev * np.pi / 180)
                 disp_nodes[node][0] += self.prep_signals.signals_filtered[num,
                                                                        chan_] * x * self.amplitude
                 disp_nodes[node][1] += self.prep_signals.signals_filtered[num,
