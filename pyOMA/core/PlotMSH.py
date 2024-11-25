@@ -269,7 +269,6 @@ class ModeShapePlot(object):
         elif modal_data is not None:
             merging = 'single' # also when used from within stabil_diagram
             req_obj = {'modal_data':modal_data,
-                       'prep_signals':prep_signals,
                        'stabil_calc':stabil_calc}
             nreq_obj = {'merged_data':merged_data}
         else: # modal_data is None and merged_data is None
@@ -318,6 +317,7 @@ class ModeShapePlot(object):
             self.start_time = modal_data.start_time
             
         elif merging == 'single':
+            prep_signals = modal_data.prep_signals
             self.chan_dofs = prep_signals.chan_dofs
             self.num_channels = prep_signals.num_analised_channels
 

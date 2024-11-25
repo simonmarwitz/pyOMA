@@ -133,7 +133,7 @@ class BRSSICovRef(ModalBase):
         if max_lags is None:
             max_lags = self.prep_signals.n_lags 
             
-        if max_lags < n_lags:
+        if max_lags is not None and max_lags < n_lags:
             logger.warning('The pre-computed correlation function is too short for the requested matrix dimensions.')
 
         n_l = self.num_analised_channels

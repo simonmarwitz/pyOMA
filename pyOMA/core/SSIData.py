@@ -238,7 +238,7 @@ class SSIDataMC(ModalBase):
             modal_contributions = None
 
         
-        pbar = simplePbar(max_model_order)
+        pbar = simplePbar(max_model_order - 1)
         for order in range(1, max_model_order):
             next(pbar)
 
@@ -664,7 +664,7 @@ class SSIData(SSIDataMC):
                 Output matrix: Array of shape (num_analised_channels, order)
                 
         '''
-        if order>self.self.S.shape[0]:
+        if order>self.S.shape[0]:
             raise RuntimeError(f'Order cannot be higher than {self.S.shape[0]}. Consider using more block_rows/block_columns.')
         
         assert algo in ['svd', 'qr']

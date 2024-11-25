@@ -3,6 +3,7 @@ Created on Mar 12, 2024
 
 @author: sima9999
 '''
+import sys
 import logging
 import ipywidgets
 import ipympl
@@ -18,6 +19,20 @@ from pathlib import Path
 
 #Monkeypatch webagg to support blitting until https://github.com/matplotlib/matplotlib/pull/27160 is merged upstream
 # copied and modified from https://github.com/raphaelquast/EOmaps/blob/66d32e2f5219059ab32a02457c535652d3e3f881/eomaps/_maps_base.py#L147
+
+#Creating a logger
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
+
+# log exceptions to logger instead of stderr
+def showtraceback(self, *args, **kwargs):
+    
+    logger.critical("Unhandled exception", exc_info=sys.exc_info())
+
+from IPython import get_ipython
+ipython = get_ipython()
+ipython.set_custom_exc((Exception,), showtraceback)
+
 
 
 class SnappingCursor:
@@ -228,7 +243,7 @@ def StabilGUIWeb(stabil_plot):
     handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
     loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     for logger in loggers:
-        if 'core.' in logger.name:
+        if 'pyOMA.' in logger.name:
             logger.addHandler(handler)
     # logger.setLevel(logging.INFO)
     

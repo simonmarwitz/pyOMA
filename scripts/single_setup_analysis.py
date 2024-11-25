@@ -35,7 +35,7 @@ conf_file=working_dir / 'ssi_config.txt'
 
 # define script switches
 skip_existing=False
-save_results=False
+save_results=True
 interactive=True
 
 
@@ -50,8 +50,6 @@ if not os.path.exists(result_folder / 'prep_signals.npz') or not skip_existing:
         meas_file=meas_file,
         chan_dofs_file=chan_dofs_file)
 
-    if save_results:
-        prep_signals.save_state(result_folder / 'prep_signals.npz')
 else:
     prep_signals = PreProcessSignals.load_state(result_folder / 'prep_signals.npz')
 
@@ -62,6 +60,7 @@ if not os.path.exists(
     modal_data = method.init_from_config(conf_file, prep_signals)
     
     if save_results:
+        prep_signals.save_state(result_folder / 'prep_signals.npz')
         modal_data.save_state(result_folder / 'modal_data.npz')
 else:
     modal_data = method.load_state(
@@ -69,17 +68,17 @@ else:
 
 if os.path.exists(result_folder / 'stabil_data.npz') and skip_existing:
     stabil_calc = StabilCalc.load_state(
-        result_folder / 'stabil_data.npz', modal_data, prep_signals)
+        result_folder / 'stabil_data.npz', modal_data)
 else:
-    stabil_calc = StabilCalc(modal_data, prep_signals)
+    stabil_calc = StabilCalc(modal_data)
 stabil_calc.export_results('/usr/scratch4/sima9999/test.txt')
 
 if interactive:
     stabil_plot = StabilPlot(stabil_calc)
-    start_stabil_gui(stabil_plot, modal_data, geometry_data, prep_signals)
+    start_stabil_gui(stabil_plot, modal_data, geometry_data)
 
-    if save_results:
-        stabil_calc.save_state(result_folder / 'stabil_data.npz')
+if save_results:
+    stabil_calc.save_state(result_folder / 'stabil_data.npz')
 
 if interactive:
 
