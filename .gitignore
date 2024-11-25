@@ -7,5 +7,6 @@ doc/classes/*
 *.ipynb_checkpoints
 *__pycache__/*
 tests/files/*
+tests/files/*/*
 doc/build/
 doc/core/
