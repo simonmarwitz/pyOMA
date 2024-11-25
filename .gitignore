@@ -4,3 +4,8 @@ doc/build/*
 **/__pycache__/*
 doc/classes/*
 /.settings/
+*.ipynb_checkpoints
+*__pycache__/*
+tests/files/*
+doc/build/
+doc/core/
