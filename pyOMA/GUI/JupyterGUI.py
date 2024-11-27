@@ -20,18 +20,18 @@ from pathlib import Path
 #Monkeypatch webagg to support blitting until https://github.com/matplotlib/matplotlib/pull/27160 is merged upstream
 # copied and modified from https://github.com/raphaelquast/EOmaps/blob/66d32e2f5219059ab32a02457c535652d3e3f881/eomaps/_maps_base.py#L147
 
-#Creating a logger
-logger = logging.getLogger(__name__)
-logger.setLevel(level=logging.INFO)
-
-# log exceptions to logger instead of stderr
-def showtraceback(self, *args, **kwargs):
-    
-    logger.critical("Unhandled exception", exc_info=sys.exc_info())
-
-from IPython import get_ipython
-ipython = get_ipython()
-ipython.set_custom_exc((Exception,), showtraceback)
+# #Creating a logger
+# logger = logging.getLogger(__name__)
+# logger.setLevel(level=logging.INFO)
+#
+# # log exceptions to logger instead of stderr
+# def showtraceback(self, *args, **kwargs):
+#
+#     logger.critical("Unhandled exception", exc_info=sys.exc_info())
+#
+# from IPython import get_ipython
+# ipython = get_ipython()
+# ipython.set_custom_exc((Exception,), showtraceback)
 
 
 
@@ -220,14 +220,11 @@ def StabilGUIWeb(stabil_plot):
     mpd_max = stabil_calc.mpd_max
     
     fig = stabil_plot.fig
-    dpi = fig.get_dpi()
-    height = fig.get_figheight()
-    fig.set_size_inches((1360/dpi,height))
     ax = stabil_plot.ax
     canvas = ipympl.backend_nbagg.Canvas(fig)
     manager = ipympl.backend_nbagg.FigureManager(canvas, 0)
     canvas.header_visible = False
-    canvas.toolbar_position = 'right'
+    canvas.toolbar_position = 'left'
     canvas.footer_visible = False
     canvas.resizable = False
     
@@ -430,9 +427,15 @@ def StabilGUIWeb(stabil_plot):
     if frequencies:
         update_value_view(select_mode_values, frequency = float(frequencies[0]))
     
+
+    dpi = fig.get_dpi()
+    height = fig.get_figheight()
+    fig.set_size_inches((1360/dpi,height))
+    
+    fig.canvas.draw()
     snap_cursor.update_pix_data(None)
     
-    return vbox
+    return vbox, snap_cursor
     
 def PlotMSHWeb(msp):
     

@@ -5,7 +5,7 @@ Modified and Extended by Simon Marwitz 2015
 '''
 import logging
 logger = logging.getLogger(__name__)
-logger.setLevel(level=logging.INFO)
+logger.setLevel(level=logging.DEBUG)
 import warnings
 from pyOMA.core.PreProcessingTools import PreProcessSignals
 from .HelpersGUI import DelayedDoubleSpinBox, MyMplCanvas, my_excepthook
@@ -573,11 +573,11 @@ class StabilGUI(QMainWindow):
         self.update_mode_plot(i, mp)
 
     @pyqtSlot(tuple)
-    def mode_selector_add(self, i):
+    def mode_selector_add(self, i, index):
         # add mode tomode_selector and select it
         n, f, stdf, d, stdd, mpc, mp, mpd, dmp, dmpd, mtn, MC, ex_1, ex_2 = self.stabil_calc.get_modal_values(
             i)
-        index = self.stabil_calc.select_modes.index(i)
+        # index = self.stabil_calc.select_modes.index(i)
         #print(n,f,d,mpc, mp, mpd)
         # print(index)
         text = '{} - {:2.3f}'.format(index, f)
@@ -593,7 +593,7 @@ class StabilGUI(QMainWindow):
             int].connect(self.update_mode_val_view)
 
     @pyqtSlot(tuple)
-    def mode_selector_take(self, i_):
+    def mode_selector_take(self, i_, index):
         if self.current_mode == i_:
             if self.stabil_calc.select_modes:
                 self.current_mode = self.stabil_calc.select_modes[0]
@@ -788,7 +788,7 @@ class StabilGUI(QMainWindow):
         f_range = (float(self.freq_low.text()), float(self.freq_high.text()))
         order_range = (int(self.n_low.text()), int(
             self.n_step.text()), int(self.n_high.text()))
-
+        
         self.stabil_plot.update_stabilization(
             df_max=df_max,
             stdf_max=stdf_max,
@@ -799,7 +799,8 @@ class StabilGUI(QMainWindow):
             mpc_min=mpc_min,
             mpd_max=mpd_max,
             MC_min=MC_min,
-            order_range=order_range)
+            order_range=order_range
+            )
         self.stabil_plot.update_xlim(f_range)
         self.stabil_plot.update_ylim((order_range[0], order_range[2]))
 
@@ -1062,10 +1063,9 @@ class StabilGUI(QMainWindow):
         else:
             num_modes = 0
 
-        # print(self.stabil_calc.select_modes)
         for datapoint in reversed(self.stabil_calc.select_modes):
-            self.cursor.remove_datapoint(datapoint)
-        # print(self.stabil_calc.select_modes)
+            self.stabil_calc.remove_mode(datapoint)
+        print(self.stabil_calc.select_modes)
 
         if isinstance(self.stabil_calc, StabilCluster):
             self.stabil_calc.automatic_selection(num_modes)

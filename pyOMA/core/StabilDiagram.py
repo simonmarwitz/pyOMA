@@ -184,12 +184,12 @@ class StabilCalc(object):
         # print(self.capabilities)
         # self.calculate_soft_critera_matrices()
         
-        self.callbacks = {'add_mode':lambda *args,**kwargs: None,
-                  'remove_mode':lambda *args,**kwargs: None,}
+        self.callbacks = {'add_mode':[],
+                  'remove_mode':[],}
         
     def add_callback(self, name, func):
         assert name in ['add_mode', 'remove_mode']
-        self.callbacks[name] = func
+        self.callbacks[name].append(func)
         
     def calculate_soft_critera_matrices(self):
         logger.info('Checking stabilisation criteria...')
@@ -960,8 +960,8 @@ class StabilCalc(object):
     def add_mode(self, mode_ind):
         if mode_ind not in self.select_modes:
             self.select_modes.append(mode_ind)
-        
-        self.callbacks['add_mode'](mode_ind)
+        for callback in self.callbacks['add_mode']:
+            callback(mode_ind, len(self.select_modes) - 1)
                 
         return self.select_modes.index(mode_ind)
     
@@ -969,7 +969,8 @@ class StabilCalc(object):
         if mode_ind in self.select_modes:
             list_ind = self.select_modes.index(mode_ind)
             del self.select_modes[list_ind]
-            self.callbacks['remove_mode'](mode_ind)
+            for callback in self.callbacks['remove_mode']:
+                callback(mode_ind, list_ind)
             return list_ind
         else:
             logger.warning(f'{mode_ind} not in self.select_modes')
@@ -1369,7 +1370,6 @@ class StabilCluster(StabilCalc):
 
         if use_stabil:
             mask_autoclear = self.get_stabilization_mask('mask_stable')
-            logger.debug(np.sum(mask_autoclear))
             #self.masks['mask_autoclear'] = mask_autoclear
             # self.update_stabilization_masks()
             # print(123)
@@ -1404,7 +1404,7 @@ class StabilCluster(StabilCalc):
             (self.modal_data.mode_shapes.shape[0], length_mat),
             dtype=np.complex128
         )
-
+        
         n = 0
         for i in range(dim0):
             for j in range(dim1):
@@ -1428,7 +1428,7 @@ class StabilCluster(StabilCalc):
 
         mac_proximity_matrix = 1 - \
             calculateMAC(mode_shapes_compressed, mode_shapes_compressed)
-
+        print(lambda_proximity_matrix.shape, mac_proximity_matrix.shape, np.sum(mask_autoclear), n)
         proximity_matrix = self.weight_lambda * lambda_proximity_matrix \
             + self.weight_MAC * mac_proximity_matrix
 
@@ -1562,7 +1562,8 @@ class StabilCluster(StabilCalc):
                 #print(clusternr, num_poles_left, len(ind))
 
             select_mode = np.where(np.logical_not(mask))
-            self.select_modes.append((select_mode[0][0], select_mode[1][0]))
+            # self.select_modes.append((select_mode[0][0], select_mode[1][0]))
+            self.add_mode((select_mode[0][0], select_mode[1][0]))
             if self.select_callback is not None:
                 #                 for matrix in [self.masked_frequencies, self.masked_damping,
                 #                            MAC_diffs, self.MPC_matrix, self.MPD_matrix]:
@@ -2043,8 +2044,12 @@ class StabilPlot(object):
         # collection
         self.scatter_objs = [None for _ in self.stabil_calc.select_modes]
         
+        self.stabil_calc.add_callback('add_mode', self.add_mode)
+        self.stabil_calc.add_callback('remove_mode', self.remove_mode)
+        
         if stabil_calc.select_modes:
-            self.add_modes(self.stabil_calc.select_modes)
+            for mode in stabil_calc.select_modes:
+                self.add_mode(mode)
 
     def init_cursor(self, visible=True):
         
@@ -2612,20 +2617,20 @@ class StabilPlot(object):
                 logger.warning('Empty mode index for the button_press_event. Ensure cursor is working.')
                 return
             if ind not in self.stabil_calc.select_modes:
-                self.add_mode(ind)
+                self.stabil_calc.add_mode(ind)
             else:
-                self.remove_mode(ind)
+                self.stabil_calc.remove_mode(ind)
         
     def toggle_mode(self, datapoint):
         datapoint = tuple(datapoint)
         if datapoint in self.stabil_calc.select_modes:
-            self.remove_mode(datapoint)
+            self.stabil_calc.remove_mode(datapoint)
         else:
-            self.add_mode(datapoint)
+            self.stabil_calc.add_mode(datapoint)
 
-    def add_mode(self, datapoint):
-        datapoint = tuple(datapoint)
-        list_ind = self.stabil_calc.add_mode(datapoint)
+    def add_mode(self, datapoint, list_ind):
+        # datapoint = tuple(datapoint)
+        # list_ind = self.stabil_calc.add_mode(datapoint)
 
         if len(self.scatter_objs)<= list_ind:
             self.scatter_objs.append(None)
@@ -2657,14 +2662,14 @@ class StabilPlot(object):
             self.fig.canvas.draw()
         
         
-    def add_modes(self, datalist):
-        # convenience function for add_datapoint
-        for datapoint in datalist:
-            self.add_mode(datapoint)
+    # def add_modes(self, datalist):
+    #     # convenience function for add_datapoint
+    #     for datapoint in datalist:
+    #         self.add_mode(datapoint)
 
-    def remove_mode(self, datapoint):
-        datapoint = tuple(datapoint)
-        list_ind = self.stabil_calc.remove_mode(datapoint)
+    def remove_mode(self, datapoint, list_ind):
+        # datapoint = tuple(datapoint)
+        # list_ind = self.stabil_calc.remove_mode(datapoint)
         
         if list_ind is not None:            
             self.scatter_objs[list_ind].remove()
