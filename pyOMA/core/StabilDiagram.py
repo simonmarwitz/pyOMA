@@ -27,6 +27,8 @@ Modified and Extended by Simon Marwitz 2015 ff.
  * distinguish beetween stabilization criteria and filtering criteria
  * add zoom and sliders (horizontal/vertical) for the main figure
  * distinguish between  "export results" and "save state"
+ * rework mask logic (currently it is very difficult to understand)
+ * Merge DataCursor and JupyterGUI.SnappingCursor 
 
 '''
 
@@ -2049,7 +2051,8 @@ class StabilPlot(object):
         
         if stabil_calc.select_modes:
             for mode in stabil_calc.select_modes:
-                self.add_mode(mode)
+                list_ind = self.stabil_calc.select_modes.index(mode)
+                self.add_mode(mode,list_ind)
 
     def init_cursor(self, visible=True):
         
@@ -2676,10 +2679,10 @@ class StabilPlot(object):
             del self.scatter_objs[list_ind]
             self.fig.canvas.draw()
             
-    def remove_modes(self, datalist):
-        # convenience function for remove_datapoint
-        for datapoint in datalist:
-            self.remove_mode(datapoint)
+    # def remove_modes(self, datalist):
+    #     # convenience function for remove_datapoint
+    #     for datapoint in datalist:
+    #         self.remove_mode(datapoint)
 
 class DataCursor(Cursor):
     # create and edit an instance of the matplotlib default Cursor widget
