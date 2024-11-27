@@ -199,17 +199,17 @@ class VarSSIRef(ModalBase):
 
         if subspace_method == 'covariance':
             block_length = int(np.floor(total_time_steps / num_blocks))
-            n_lags = num_block_columns + num_block_rows
-            if block_length <= n_lags:
+            m_lags = num_block_columns + num_block_rows
+            if block_length <= m_lags:
                 raise RuntimeError(
                     'Block length (={}) must be greater or equal to max time lag (={})'.format(
-                        block_length, n_lags))
-            #extract_length = block_length - n_lags
+                        block_length, m_lags))
+            #extract_length = block_length - m_lags
 
             corr_matrices_mem = []
 
             corr_mats_shape = (
-                n_lags * num_analised_channels,
+                m_lags * num_analised_channels,
                 num_ref_channels)
             for n_block in range(num_blocks):
                 # shared memory, can be used by multiple processes
@@ -227,7 +227,7 @@ class VarSSIRef(ModalBase):
 
             # each process should have at least 10 blocks to compute, to reduce
             # overhead associated with spawning new processes
-            n_proc = min(int(n_lags * num_blocks / 10), os.cpu_count())
+            n_proc = min(int(m_lags * num_blocks / 10), os.cpu_count())
             pool = mp.Pool(
                 processes=n_proc,
                 initializer=self.init_child_process,
@@ -236,14 +236,14 @@ class VarSSIRef(ModalBase):
                     corr_matrices_mem))  # @UndefinedVariable
 
             iterators = []
-            it_len = int(np.ceil(n_lags * num_blocks / n_proc))
+            it_len = int(np.ceil(m_lags * num_blocks / n_proc))
             
-            printsteps = np.linspace(0, n_lags * num_blocks, 100, dtype=int)
+            printsteps = np.linspace(0, m_lags * num_blocks, 100, dtype=int)
 
             curr_it = []
             i = 0
             for n_block in range(num_blocks):
-                for tau in range(1, n_lags + 1):
+                for tau in range(1, m_lags + 1):
                     i += 1
                     if i in printsteps:
                         curr_it.append([n_block, tau, True])
@@ -260,7 +260,7 @@ class VarSSIRef(ModalBase):
                     self.compute_covariance,
                     args=(
                         curr_it,
-                        n_lags,
+                        m_lags,
                         block_length,
                         ref_channels,
                         all_channels,
@@ -525,7 +525,7 @@ class VarSSIRef(ModalBase):
     def compute_covariance(
             self,
             curr_it,
-            n_lags,
+            m_lags,
             block_length,
             ref_channels,
             all_channels,

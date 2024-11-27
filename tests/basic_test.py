@@ -55,7 +55,7 @@ def analysis_chain(tmpdir):
     prep_signals.psd_blackman_tukey(200)
     prep_signals.welch(400)
     prep_signals.sv_psd()
-    prep_signals.correlation(n_lags=400)
+    prep_signals.correlation(m_lags=400)
     prep_signals.sv_psd()
 
     prep_signals.save_state(tmpdir + 'test.npz')
@@ -118,7 +118,7 @@ def multi_setup_analysis():
     save_results = False
     interactive = True
 
-    n_lags = 400
+    m_lags = 400
 
     result_folder_merged = working_dir / 'merged_poger/'
 
@@ -137,7 +137,7 @@ def multi_setup_analysis():
                     conf_file=result_folder / 'setup_info.txt',
                     meas_file=result_folder / (meas_name + '.npy'),
                     chan_dofs_file=result_folder / "channel_dofs.txt",)
-                prep_signals.corr_blackman_tukey(n_lags)
+                prep_signals.corr_blackman_tukey(m_lags)
 
                 if save_results:
                     prep_signals.save_state(result_folder / 'prep_signals.npz')

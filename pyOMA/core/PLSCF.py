@@ -145,8 +145,8 @@ class PLSCF(ModalBase):
         assert isinstance(end_frequency, float)
         if nperseg is None:
             # check if correlations have already been computed (welch, blackman-tukey)
-            if self.prep_signals.n_lags is not None :
-                _nperseg = self.prep_signals.n_lags
+            if self.prep_signals.m_lags is not None :
+                _nperseg = self.prep_signals.m_lags
             # alternatively try if psds might be available (welch)
             elif self.prep_signals.n_lines is not None:
                 _nperseg = self.prep_signals.n_lines // 2 + 1

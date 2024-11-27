@@ -445,7 +445,7 @@ class PreProcessSignals(object):
         self.var_psd_wl = None
         
         self.n_lines_wl = None
-        self.n_lags_wl = None
+        self.m_lags_wl = None
         self.n_segments_wl = None
         
         self.corr_matrix_bt = None
@@ -457,7 +457,7 @@ class PreProcessSignals(object):
         self.var_psd_bt = None
         
         self.n_lines_bt = None
-        self.n_lags_bt = None
+        self.m_lags_bt = None
         self.n_segments_bt = None
         
         
@@ -813,14 +813,14 @@ class PreProcessSignals(object):
         out_dict['self.var_corr_wl'] = self.var_corr_wl
         out_dict['self.var_psd_wl'] = self.var_psd_wl
         out_dict['self.n_lines_wl'] = self.n_lines_wl
-        out_dict['self.n_lags_wl'] = self.n_lags_wl
+        out_dict['self.m_lags_wl'] = self.m_lags_wl
         out_dict['self.n_segments_wl'] = self.n_segments_wl
         
         out_dict['self.corr_matrix_bt'] = self.corr_matrix_bt
         out_dict['self.corr_matrices_bt'] = self.corr_matrices_bt
         out_dict['self.psd_matrix_bt'] = self.psd_matrix_bt
         out_dict['self.n_lines_bt'] = self.n_lines_bt
-        out_dict['self.n_lags_bt'] = self.n_lags_bt
+        out_dict['self.m_lags_bt'] = self.m_lags_bt
         out_dict['self.n_segments_bt'] = self.n_segments_bt
         
         out_dict['self.var_corr_bt'] = self.var_corr_bt
@@ -866,14 +866,14 @@ class PreProcessSignals(object):
             preprocessor.var_corr_wl = validate_array(in_dict.get('self.var_corr_wl'))
             preprocessor.var_psd_wl = validate_array(in_dict['self.var_psd_wl'])
             preprocessor.n_lines_wl = validate_array(in_dict['self.n_lines_wl'])
-            preprocessor.n_lags_wl = validate_array(in_dict.get('self.n_lags_wl'))
+            preprocessor.m_lags_wl = validate_array(in_dict.get('self.m_lags_wl'))
             preprocessor.n_segments_wl = validate_array(in_dict['self.n_segments_wl'])
             
             preprocessor.corr_matrix_bt = validate_array(in_dict['self.corr_matrix_bt'])
             preprocessor.corr_matrices_bt = validate_array(in_dict.get('self.corr_matrices_bt'))
             preprocessor.psd_matrix_bt = validate_array(in_dict['self.psd_matrix_bt'])
             preprocessor.n_lines_bt = validate_array(in_dict['self.n_lines_bt'])
-            preprocessor.n_lags_bt = validate_array(in_dict.get('self.n_lags_bt'))
+            preprocessor.m_lags_bt = validate_array(in_dict.get('self.m_lags_bt'))
             preprocessor.n_segments_bt = validate_array(in_dict['self.n_segments_bt'])
             
             preprocessor.var_corr_bt = validate_array(in_dict['self.var_corr_bt'])
@@ -1086,7 +1086,7 @@ class PreProcessSignals(object):
             freqs: np.ndarray (n_lines, )
                 Array with the frequency lines corresponding to the spectral values
         '''
-        if self.n_lags_wl:
+        if self.m_lags_wl:
             n_lines = self.n_lines_wl
             fs = self.sampling_rate
             return np.fft.rfftfreq(n_lines, 1 / fs)
@@ -1106,41 +1106,41 @@ class PreProcessSignals(object):
         
     @property
     def lags(self):
-        if self.n_lags:
-            n_lags = self.n_lags
+        if self.m_lags:
+            m_lags = self.m_lags
             fs = self.sampling_rate
-            return np.linspace(0, n_lags / fs, n_lags, False)
+            return np.linspace(0, m_lags / fs, m_lags, False)
     
     @property
     def lags_wl(self):
-        if self.n_lags_wl:
-            n_lags = self.n_lags_wl
+        if self.m_lags_wl:
+            m_lags = self.m_lags_wl
             fs = self.sampling_rate
-            return np.linspace(0, n_lags / fs, n_lags, False)
+            return np.linspace(0, m_lags / fs, m_lags, False)
     
     @property
     def lags_bt(self):
-        if self.n_lags_bt:
-            n_lags = self.n_lags_bt
+        if self.m_lags_bt:
+            m_lags = self.m_lags_bt
             fs = self.sampling_rate
-            return np.linspace(0, n_lags / fs, n_lags, False)
+            return np.linspace(0, m_lags / fs, m_lags, False)
     
     @property
-    def n_lags(self):
+    def m_lags(self):
         if self._last_meth == 'welch':
-            return self.n_lags_wl
+            return self.m_lags_wl
         elif self._last_meth == 'blackman-tukey':
-            return self.n_lags_bt
+            return self.m_lags_bt
         else:
             return None
     
     # @property
-    # def n_lags_wl(self):
+    # def m_lags_wl(self):
     #     if self.n_lines_wl:
     #         return self.n_lines_wl // 2 + 1
     #
     # @property
-    # def n_lags_bt(self):
+    # def m_lags_bt(self):
     #     if self.n_lines_bt:
     #         return self.n_lines_bt // 2 + 1
     
@@ -1697,7 +1697,7 @@ class PreProcessSignals(object):
         self.n_lines_wl = n_lines
         self.n_segments_wl = n_segments
         
-        self.n_lags_wl = None
+        self.m_lags_wl = None
         self.corr_matrix_wl = None
         self.corr_matrices_wl = None
         self.var_corr_wl = None
@@ -1705,7 +1705,7 @@ class PreProcessSignals(object):
         
         return psd_matrix
 
-    def corr_welch(self, n_lags=None, n_segments=None, refs_only=True, **kwargs):
+    def corr_welch(self, m_lags=None, n_segments=None, refs_only=True, **kwargs):
         '''
         Estimate the (cross- and auto-) correlation functions (C/ACF),
         by the inverse Fourier Transform of Power Spectral Densities,
@@ -1715,17 +1715,17 @@ class PreProcessSignals(object):
         multiplied by n_lines to get the signals cross-power.
         
         Note that:
-            n_lags \= n_lines // 2 + 1
+            m_lags \= n_lines // 2 + 1
         
-            n_lines \= (n_lags - 1) * 2
+            n_lines \= (m_lags - 1) * 2
             
             N_segment = N // n_segments
 
         Parameters
         ----------
-            n_lags: integer, optional
+            m_lags: integer, optional
                 Total number of lags (positive). Note: this includes the
-                0-lag, therefore excludes the n_lags-lag.
+                0-lag, therefore excludes the m_lags-lag.
             n_segments: integer, optional
                 Number of segments to perform averaging over
                 resulting segment length must be smaller or equal n_lines
@@ -1740,7 +1740,7 @@ class PreProcessSignals(object):
         Returns
         -------
             corr_matrix: np.ndarray
-                Array of shape (num_channels, num_ref_channels, n_lags)
+                Array of shape (num_channels, num_ref_channels, m_lags)
                 containing the correlation values of the respective
                 channels and lags
         
@@ -1755,9 +1755,9 @@ class PreProcessSignals(object):
         '''
         self._last_meth = 'welch'
         
-        if n_lags is not None:
-            if not isinstance(n_lags, int):
-                raise ValueError(f"{n_lags} is not a valid number of lags for a correlation sequence")
+        if m_lags is not None:
+            if not isinstance(m_lags, int):
+                raise ValueError(f"{m_lags} is not a valid number of lags for a correlation sequence")
         if n_segments is not None:
             if not isinstance(n_segments, int):
                 raise ValueError(f"{n_segments} is not a valid number of segments")
@@ -1768,37 +1768,37 @@ class PreProcessSignals(object):
         # catch function call cases 1, ..., 4
         # variable _n_segments is derived from all cases and solely passed to psd_welch
         # 1: no arguments: possibly cached results
-        if n_lags is None and n_segments is None:
-            if self.n_lags_wl is None and self.n_lines_wl is not None:
-                n_lags = self.n_lines_wl // 2 + 1
+        if m_lags is None and n_segments is None:
+            if self.m_lags_wl is None and self.n_lines_wl is not None:
+                m_lags = self.n_lines_wl // 2 + 1
             else:
-                n_lags = self.n_lags_wl
+                m_lags = self.m_lags_wl
             n_segments = self.n_segments_wl
-            if n_lags is None and n_segments is None:
-                raise RuntimeError('Either n_lags or n_segments must be provided on first run.')
+            if m_lags is None and n_segments is None:
+                raise RuntimeError('Either m_lags or n_segments must be provided on first run.')
         # 2: no variance of correlations requested
-        if n_segments is None and n_lags is not None:
-            N_segment = (n_lags - 1) * 2
+        if n_segments is None and m_lags is not None:
+            N_segment = (m_lags - 1) * 2
             _n_segments = N // N_segment
             # let psd_welch use the best number of frequency lines
             _n_lines = None
         # 3. variance of correlations requested, lags not of interest (possibly rare case)
-        elif n_segments is not None and n_lags is None:
+        elif n_segments is not None and m_lags is None:
             _n_segments = n_segments
-            n_lags = N // n_segments // 2 + 1
-            # recalculate N_segment, due to floor operator in n_lags computation
-            N_segment = min(N // n_segments, (n_lags - 1) * 2) 
+            m_lags = N // n_segments // 2 + 1
+            # recalculate N_segment, due to floor operator in m_lags computation
+            N_segment = min(N // n_segments, (m_lags - 1) * 2) 
             # let psd_welch use the best number of frequency lines
             _n_lines = None
         # 4. variance of correlations with given lag requested
         else:
             _n_segments = n_segments
             # Segments might have to be zero-padded in psd_welch to reach the desired lag length
-            _n_lines = (n_lags - 1) * 2
+            _n_lines = (m_lags - 1) * 2
             N_segment = min(N // n_segments, _n_lines)
             
-        if  N_segment > (n_lags - 1) * 2:
-            raise ValueError(f"The segment length {N_segment} must not be larger than the number of frequency lines {(n_lags - 1) * 2}")
+        if  N_segment > (m_lags - 1) * 2:
+            raise ValueError(f"The segment length {N_segment} must not be larger than the number of frequency lines {(m_lags - 1) * 2}")
 
         
         while True:
@@ -1809,8 +1809,8 @@ class PreProcessSignals(object):
             if self.corr_matrix_wl is None:
                 logger.debug(f"Not returning because: self.corr_matrix_wl not available")
                 break
-            if self.corr_matrix_wl.shape[2] != n_lags:
-                logger.debug(f"Not returning because: n_lags differs from previous")
+            if self.corr_matrix_wl.shape[2] != m_lags:
+                logger.debug(f"Not returning because: m_lags differs from previous")
                 break
             if n_segments is not None and self.corr_matrices_wl.shape[0] != n_segments:
                 logger.debug(f"Not returning because: n_segments differs from previous")
@@ -1820,7 +1820,7 @@ class PreProcessSignals(object):
                 break
             
             logger.debug("Returning Correlation Function by Welch's method with"
-                f" {n_lags} time lags and {_n_segments} non-overlapping"
+                f" {m_lags} time lags and {_n_segments} non-overlapping"
                 f" segments.")
             
             return self.corr_matrix_wl
@@ -1832,7 +1832,7 @@ class PreProcessSignals(object):
         self.psd_welch(n_lines=_n_lines, n_segments=_n_segments, refs_only=refs_only, **kwargs)
         
         logger.info("Estimating Correlation Function by Welch's method with"
-            f" {n_lags} time lags and {_n_segments} non-overlapping"
+            f" {m_lags} time lags and {_n_segments} non-overlapping"
             f" segments.")
         
         # get computed blocks of psd_matrices
@@ -1848,7 +1848,7 @@ class PreProcessSignals(object):
         else:
             num_ref_channels = num_analised_channels
         
-        corr_matrix_shape = (num_analised_channels, num_ref_channels, n_lags)
+        corr_matrix_shape = (num_analised_channels, num_ref_channels, m_lags)
         corr_matrices = []
         
         pbar = simplePbar(n_segments * num_analised_channels * num_ref_channels)
@@ -1863,27 +1863,27 @@ class PreProcessSignals(object):
                     this_psd = this_psd_matrix[channel_1, channel_2, :]
                     this_corr = np.fft.irfft(this_psd)
                     assert np.all(np.isclose(this_corr.imag, 0))
-                    # cut-off at n_lags and use only the real part (should be real)
-                    this_corr = this_corr[:n_lags].real
+                    # cut-off at m_lags and use only the real part (should be real)
+                    this_corr = this_corr[:m_lags].real
                     # divide by n_lines [equivalence of r(0) and Var(y)]
-                    this_corr /= (n_lags - 1) * 2
+                    this_corr /= (m_lags - 1) * 2
     
                     this_corr_matrix[channel_1, channel_2, :] = this_corr
             corr_matrices.append(this_corr_matrix)
 
         corr_matrix = np.mean(corr_matrices, axis=0)
-        logger.debug(f'0-lag Auto-/Cross-Correlations: {np.abs(corr_matrix[:, :, 0]) * (n_lags - 1) * 2}')
+        logger.debug(f'0-lag Auto-/Cross-Correlations: {np.abs(corr_matrix[:, :, 0]) * (m_lags - 1) * 2}')
         
         self.corr_matrix_wl = corr_matrix
         self.corr_matrices_wl = np.stack(corr_matrices, axis=0)
         
         self.var_corr_wl = np.var(corr_matrices, axis=0)
         
-        self.n_lags_wl = n_lags
+        self.m_lags_wl = m_lags
         
         return corr_matrix
     
-    def corr_blackman_tukey(self, n_lags, num_blocks=None, refs_only=True, **kwargs):
+    def corr_blackman_tukey(self, m_lags, num_blocks=None, refs_only=True, **kwargs):
         '''
         Estimate the (cross- and auto-) correlation functions (C/ACF),
         by direct computation of the standard un-biased estimator:
@@ -1893,7 +1893,7 @@ class PreProcessSignals(object):
            \\hat{R}_{fg}[m] = \\frac{1}{N - m}\\sum_{n=0}^{N - m - 1} f[n] g[n + m]
         
         Computes correlation functions of all channels with selected reference
-        channels up to, but excluding, a time lag of n_lags. Normalization
+        channels up to, but excluding, a time lag of m_lags. Normalization
         is done according to the unbiased estimator, i.e. 0-lag correlation
         value must be multiplied by n_lines to get the signals cross-power.
         
@@ -1906,18 +1906,18 @@ class PreProcessSignals(object):
         discarded.
         
         Note that:
-            n_lags \= n_lines // 2 + 1
+            m_lags \= n_lines // 2 + 1
         
-            n_lines \= (n_lags - 1) * 2
+            n_lines \= (m_lags - 1) * 2
 
         Parameters
         ----------
-            n_lags: integer, optional
+            m_lags: integer, optional
                 Number of lags (positive). Note: this includes the
-                0-lag, therefore excludes the "n_lags"-lag.
+                0-lag, therefore excludes the "m_lags"-lag.
             num_blocks: integer, optional
                 Number of blocks to perform averaging over. If blocks
-                are shorter than n_lags it raises a ValueError.
+                are shorter than m_lags it raises a ValueError.
             refs_only: bool, optional
                 Compute cross-ACFss only with reference channels
             
@@ -1929,7 +1929,7 @@ class PreProcessSignals(object):
         Returns
         -------
             corr_matrix: np.ndarray
-                Array of shape (num_channels, num_ref_channels, n_lags)
+                Array of shape (num_channels, num_ref_channels, m_lags)
                 containing the correlation values of the respective
                 channels and lags
         
@@ -1944,9 +1944,9 @@ class PreProcessSignals(object):
         
         self._last_meth = 'blackman-tukey'
         
-        if n_lags is not None:
-            if not isinstance(n_lags, int):
-                raise ValueError(f"{n_lags} is not a valid number of lags for a correlation sequence")
+        if m_lags is not None:
+            if not isinstance(m_lags, int):
+                raise ValueError(f"{m_lags} is not a valid number of lags for a correlation sequence")
         if num_blocks is not None:
             if not isinstance(num_blocks, int):
                 raise ValueError(f"{num_blocks} is not a valid number of blocks")
@@ -1958,27 +1958,27 @@ class PreProcessSignals(object):
         # catch function call cases 1, ..., 4
         # variable _n_segments is derived from all cases and solely passed to psd_welch
         # 1: no arguments: possibly cached results
-        if n_lags is None and num_blocks is None:
-            n_lags = self.n_lags_bt
+        if m_lags is None and num_blocks is None:
+            m_lags = self.m_lags_bt
             num_blocks = self.n_segments_bt
-            if n_lags is None and num_blocks is None:
-                raise RuntimeError('Either n_lags or num_blocks must be provided on first run.')
+            if m_lags is None and num_blocks is None:
+                raise RuntimeError('Either m_lags or num_blocks must be provided on first run.')
         # 2: no variance of correlations requested
-        if num_blocks is None and n_lags is not None:
+        if num_blocks is None and m_lags is not None:
             N_block = N
             num_blocks = 1
         # 3. variance of correlations requested, lags not of interest (possibly rare case)
-        elif num_blocks is not None and n_lags is None:
+        elif num_blocks is not None and m_lags is None:
             # increasing block length decreases variance (for non-overlapping blocks)
             # use the maximum possible block length
-            n_lags = N // num_blocks
-            N_block = n_lags
+            m_lags = N // num_blocks
+            N_block = m_lags
         # 4. variance of correlations with given lag requested
         else:
             N_block = N // num_blocks
             
-            if  N_block < n_lags:
-                raise ValueError(f"The segment length {N_block} must not be shorther than the number of lags {n_lags}")
+            if  N_block < m_lags:
+                raise ValueError(f"The segment length {N_block} must not be shorther than the number of lags {m_lags}")
 
         
         while True:
@@ -1990,8 +1990,8 @@ class PreProcessSignals(object):
             if self.corr_matrix_bt is None:
                 logger.debug(f"Not returning because: self.corr_matrix_bt not available")
                 break
-            if self.n_lags_bt < n_lags:
-                logger.debug(f"Not returning because: n_lags differs from previous")
+            if self.m_lags_bt < m_lags:
+                logger.debug(f"Not returning because: m_lags differs from previous")
                 break
             if num_blocks is not None and self.n_segments_bt != num_blocks:
                 logger.debug(f"Not returning because: num_blocks differs from previous")
@@ -2001,11 +2001,11 @@ class PreProcessSignals(object):
                 break
             
             logger.debug("Using previously computed Correlation Functions (BT)...")
-            return self.corr_matrix_bt[...,:n_lags]
+            return self.corr_matrix_bt[...,:m_lags]
         
             
-        logger.info(f'Estimating Correlation Functions (BT) with n_lags='
-                    f'{n_lags} and num_blocks={num_blocks}...')
+        logger.info(f'Estimating Correlation Functions (BT) with m_lags='
+                    f'{m_lags} and num_blocks={num_blocks}...')
         
         num_analised_channels = self.num_analised_channels
         if refs_only:
@@ -2017,15 +2017,15 @@ class PreProcessSignals(object):
         
         signals = self.signals
         
-        corr_matrix_shape = (num_analised_channels, num_ref_channels, n_lags)
+        corr_matrix_shape = (num_analised_channels, num_ref_channels, m_lags)
         corr_matrices = []
         
-        pbar = simplePbar(n_lags * num_blocks)
+        pbar = simplePbar(m_lags * num_blocks)
         for block in range(num_blocks):
             this_corr_matrix = np.empty(corr_matrix_shape)
             this_signals_block = signals[block * N_block:(block + 1) * N_block, :]
             
-            for lag in range(n_lags):
+            for lag in range(m_lags):
                 next(pbar)
                 # theoretically (unbounded, continuous): conj(R_fg) = R_gf
                 # for f and g being reference channels, additional
@@ -2048,7 +2048,7 @@ class PreProcessSignals(object):
         self.corr_matrix_bt = corr_matrix
         self.corr_matrices_bt = np.stack(corr_matrices, axis=0)
         self.var_corr_bt = np.var(corr_matrices, axis=0)
-        self.n_lags_bt = n_lags
+        self.m_lags_bt = m_lags
         self.n_segments_bt = num_blocks
         
         self.psd_matrix_bt = None
@@ -2067,8 +2067,8 @@ class PreProcessSignals(object):
         constant.
 
         Note that:
-            n_lags = n_lines // 2 + 1
-            n_lines = (n_lags - 1) * 2
+            m_lags = n_lines // 2 + 1
+            n_lines = (m_lags - 1) * 2
             
         Parameters
         ----------
@@ -2122,8 +2122,8 @@ class PreProcessSignals(object):
         # catch function call cases 1, ..., 4
         # 1: no arguments: possibly cached results
         if n_lines is None and n_segments is None:
-            if self.n_lines_bt is None and self.n_lags_bt is not None:
-                n_lines = (self.n_lags_bt - 1) * 2
+            if self.n_lines_bt is None and self.m_lags_bt is not None:
+                n_lines = (self.m_lags_bt - 1) * 2
             else:
                 n_lines = self.n_lines_bt
             n_segments = self.n_segments_bt
@@ -2253,16 +2253,16 @@ class PreProcessSignals(object):
         
         return corr_matrix, psd_matrix
 
-    def correlation(self, n_lags=None, method=None, **kwargs):
+    def correlation(self, m_lags=None, method=None, **kwargs):
         '''
         A convenience method for obtaining the correlation sequence by
         the default or any specified estimation method.
         
         Parameters
         ----------
-            n_lags: integer, optional
+            m_lags: integer, optional
                 Number of lags (positive). Note: this includes the
-                0-lag, therefore excludes the n_lags-lag.
+                0-lag, therefore excludes the m_lags-lag.
             method: str, optional
                 The method to use for spectral estimation
         
@@ -2274,12 +2274,12 @@ class PreProcessSignals(object):
         Returns
         -------
             corr_matrix: np.ndarray
-                Array of shape (num_channels, num_ref_channels, n_lags)
+                Array of shape (num_channels, num_ref_channels, m_lags)
                 containing the correlation values of the respective
                 channels and lags
         
         '''
-        logger.debug(f'Arguments correlation: n_lags={n_lags}, method={method}, {kwargs}')
+        logger.debug(f'Arguments correlation: m_lags={m_lags}, method={method}, {kwargs}')
         
         if method is None:
             if self._last_meth is None:
@@ -2287,9 +2287,9 @@ class PreProcessSignals(object):
             else:
                 method = self._last_meth
         if method == 'welch':
-            return self.corr_welch(n_lags, **kwargs)
+            return self.corr_welch(m_lags, **kwargs)
         elif method == 'blackman-tukey':
-            return self.corr_blackman_tukey(n_lags, **kwargs)
+            return self.corr_blackman_tukey(m_lags, **kwargs)
         else:
             raise ValueError(f'Unknown method {method}')
         
@@ -2336,8 +2336,8 @@ class PreProcessSignals(object):
             # if n_lines is None:
             #     if self.n_lines_bt is not None:
             #         n_lines = self.n_lines_bt
-            #     elif self.n_lags_bt is not None:
-            #         n_lines = (self.n_lags_bt - 1) * 2
+            #     elif self.m_lags_bt is not None:
+            #         n_lines = (self.m_lags_bt - 1) * 2
             # if not isinstance(n_lines, int):
             #     raise ValueError(f"{n_lines} is not a valid number of frequency lines for a psd sequence")
             return self.psd_blackman_tukey(n_lines, **kwargs)
@@ -2526,13 +2526,13 @@ class SignalPlot(object):
         method = kwargs.pop('method', None)
         prep_signals.psd(n_lines, method, refs_only=refs_only, **kwargs.copy())
         if timescale == 'lags':
-            prep_signals.correlation(prep_signals.n_lags, method, refs_only=refs_only, **kwargs.copy())
+            prep_signals.correlation(prep_signals.m_lags, method, refs_only=refs_only, **kwargs.copy())
         
         for axt, axf, channel in zip(axest, axesf, channel_numbers):
             
             if timescale == 'lags':
                 #omitting **kwargs here to not trigger recomputation, except refs_only
-                self.plot_correlation(prep_signals.n_lags, [channel], axt, timescale, refs,
+                self.plot_correlation(prep_signals.m_lags, [channel], axt, timescale, refs,
                                       plot_kwarg_dict.copy(),
                                       refs_only=refs_only, method=method)
             else:
@@ -2618,7 +2618,7 @@ class SignalPlot(object):
         
         return ax
     
-    def plot_correlation(self, n_lags=None, channels=None, ax=None,
+    def plot_correlation(self, m_lags=None, channels=None, ax=None,
                          scale='lags', refs=None, plot_kwarg_dict={}, **kwargs):
         '''
         Plots the Cross- and Auto-Correlation sequences of the signals.
@@ -2628,9 +2628,9 @@ class SignalPlot(object):
         
         Parameters
         ----------
-            n_lags: integer, optional
+            m_lags: integer, optional
                 Number of lags (positive). Note: this includes the
-                0-lag, therefore excludes the n_lags-lag.
+                0-lag, therefore excludes the m_lags-lag.
             channels : int, list, tuple, np.ndarray
                 The channels to plot, may be names, numbers/indices, etc.
             ax: matplotlib.axes.Axes, optional
@@ -2681,7 +2681,7 @@ class SignalPlot(object):
                 refs_only = False
                 logger.debug(f'reverting refs_only: False -> User input')
         
-        corr_matrix = prep_signals.correlation(n_lags, refs_only=refs_only, method=method, **kwargs)
+        corr_matrix = prep_signals.correlation(m_lags, refs_only=refs_only, method=method, **kwargs)
 
         assert refs_only is (prep_signals.num_ref_channels == corr_matrix.shape[1])
         
